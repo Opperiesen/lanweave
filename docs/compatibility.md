@@ -39,6 +39,11 @@ API-key authentication uses the v1 Integration API below
 `/proxy/network/integration/v1`. Both modes resolve the current site selected by
 `UNIFI_SITE` (default: `default`).
 
+The v0.5 firewall extension is intentionally narrower: it uses only the local
+API-key Integration API and does not broaden session or Site Manager
+capabilities. Its live status is tracked separately in
+[`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md).
+
 ## Supported local surfaces
 
 | Area | Endpoints used | Capability |
@@ -49,6 +54,9 @@ API-key authentication uses the v1 Integration API below
 | Networks | `rest/networkconf` / `v1/sites/{siteId}/networks` | session read/create/update/delete; API key read |
 | WLANs | `rest/wlanconf` / `v1/sites/{siteId}/wifi/broadcasts` | session read/create/update/delete; API key read |
 | DNS policies | n/a / `v1/sites/{siteId}/dns/policies` | API key read/export/plan/create/update/delete/prune; session unsupported |
+| Firewall zones | n/a / `v1/sites/{siteId}/firewall/zones` | API key read/export/plan/apply/prune; session and cloud unsupported |
+| Firewall groups | n/a / `v1/sites/{siteId}/traffic-matching-lists` | API key read/export/plan/apply/prune for `PORTS`, `IPV4_ADDRESSES` and `IPV6_ADDRESSES` |
+| Firewall policies/order | n/a / `v1/sites/{siteId}/firewall/policies` and `/ordering` | API key read/export/plan/apply/prune; index-based order is excluded |
 | Backup | common `stat/*` and `rest/*` endpoints | redacted read |
 
 The exact fields returned by UniFi can vary between Network application
@@ -101,6 +109,14 @@ evidence track.
   same official Integration API contract. The portable scope is `A`, `AAAA`
   and `CNAME`; unsupported policy types are ignored on read and are never
   silently converted.
+- Firewall policies require the documented Integration API families for zones,
+  traffic matching lists, policies and ordering. The portable v0.5 subset is
+  limited to the fields in [`firewall.md`](firewall.md); unsupported group,
+  filter, action or ordering variants fail closed.
+- Firewall apply and prune are API-key-only and are available only to the
+  `local-classic` adapter. A plan with broad, external, privileged-port,
+  shadowing or reorder warnings requires an additional explicit risk
+  acknowledgement. MCP remains read-only.
 - Username/password session authentication targets the classic API and is
   required for declarative network and WLAN mutations; it does not advertise
   DNS policy operations.
@@ -184,6 +200,11 @@ The workflow input records the exact UniFi Network version, UniFi OS version
 and authentication mode used for the run. The resulting artifact contains only
 those public compatibility fields and test outcomes; it never contains the
 controller host, credentials, topology or raw API responses.
+
+The same workflow has a separate `run_firewall_mutations` input. It requires
+API-key mode, the protected `I_UNDERSTAND` firewall confirmation, a
+`lanweave-ci-*` prefix and uses only disabled groups/rules. Its lifecycle
+evidence is independent from the network and DNS mutation suites.
 
 The mutation job is disabled by default. Enabling it requires all of:
 

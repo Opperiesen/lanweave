@@ -100,6 +100,18 @@ def test_local_classic_capabilities_preserve_v02_auth_boundaries(
     assert capabilities.supports("networks", "prune") is mutating
 
 
+def test_firewall_capabilities_are_api_key_only() -> None:
+    session = local_classic_capabilities(AUTH_MODE_SESSION)
+    api_key = local_classic_capabilities(AUTH_MODE_API_KEY)
+
+    assert not session.supports("firewall", "read")
+    assert api_key.supports("firewall", "read")
+    assert api_key.supports("firewall", "export")
+    assert api_key.supports("firewall", "plan")
+    assert api_key.supports("firewall", "apply")
+    assert api_key.supports("firewall", "prune")
+
+
 def test_adapter_errors_use_stable_codes_without_response_payloads() -> None:
     errors = [
         AdapterConfigurationError("unknown adapter: cloud-site-manager"),

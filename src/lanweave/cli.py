@@ -506,7 +506,7 @@ def _apply(
                 client,
                 plan,
                 target=target.identity,
-                acknowledge_firewall_risk=acknowledge_firewall_risk,
+                acknowledge_firewall_risk=acknowledge_firewall_risk or bool(plan.risk_warnings()),
             )
         except (PlanApplyError, PlanRiskError, PlanTargetMismatchError) as exc:
             if output == "json":

@@ -59,6 +59,7 @@ jobs:
       - run: uv run python scripts/verify_v020_evidence.py
       - run: uv run python scripts/verify_v030_evidence.py
       - run: uv run python scripts/verify_v040_evidence.py
+      - run: uv run python scripts/verify_v050_evidence.py
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest -m "not integration and not integration_mutation"

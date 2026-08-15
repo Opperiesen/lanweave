@@ -2,9 +2,11 @@
 
 The v1 sections are normative for the original configuration contract. The v2
 sections define the backward-compatible local profile additions for `v0.2.0`.
-The `v0.4.0` DNS extension is additive within those schema and plan versions:
-it adds optional local `A`, `AAAA` and `CNAME` records without adding a
-write-capable MCP tool.
+The `v0.4.0` DNS and `v0.5.0` firewall extensions are additive within those
+schema and plan versions. DNS adds optional local `A`, `AAAA` and `CNAME`
+records. Firewall adds optional local zones, address groups, port groups and
+ordered rules without adding a write-capable MCP tool. See
+[`firewall.md`](firewall.md) for the portable resource contract.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
@@ -53,6 +55,9 @@ The public fields are:
 - optional `dns[]`: normalized local `A`, `AAAA` and `CNAME` records. A/AAAA
   use `address`; CNAME uses `target`; `ttl_seconds` defaults to 300 and
   controller-origin metadata is never part of the portable file.
+- optional `firewall`: `zones[]`, `address_groups[]`, `port_groups[]` and
+  `rules[]`; zones and groups use names, rules use explicit relative order and
+  placement, and controller IDs/origins are never portable fields.
 
 Unknown fields fail validation at every documented object level. Literal
 passwords, secret-manager references and unresolved environment values are
@@ -103,7 +108,7 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | `doctor` | `--check`, `--config`, `--profile` | Inspect settings; probe health only with `--check` |
 | `export` | `--out`, `--force`, `--config`, `--profile` | Write secret-free v1 YAML or stdout |
 | `plan` | `--config`, `--profile`, `--prune`, `--output table/json` | Print deterministic changes; JSON is plan format v1 |
-| `apply` | `--config`, `--profile`, `--prune`, `--output table/json`, `--yes` | Apply only after confirmation; no implicit mutation |
+| `apply` | `--config`, `--profile`, `--prune`, `--output table/json`, `--yes`, `--acknowledge-firewall-risk` | Apply only after confirmation; firewall warnings require explicit risk acknowledgement |
 | `backup` | `--output`, `--config`, `--profile` | Write a local redacted snapshot with mode `0600` |
 | `status` | `--output table/json`, `--config`, `--profile` | Show health and device summary |
 | `clients` | `--filter`, `--wired`, `--output table/json`, `--config`, `--profile` | Show filtered client inventory |
@@ -148,6 +153,13 @@ Every change has `kind`, `action`, `name`, `id`, `changed_fields` and a
 count of unchanged resources. Consumers must reject an unsupported
 `format_version` rather than guessing its meaning.
 
+Firewall plans may use `kind` values `firewall_zone`, `firewall_group` and
+`firewall_rule`. A rule ordering change uses `action: reorder`, a
+`changed_fields` value of `order`, and a payload containing the
+source/destination zone names plus the explicit before/after lists. Risk text
+is carried in an optional `warnings` array and never contains request payloads
+or credentials.
+
 The redaction guarantee is part of the format: the plan contains no current
 controller object, request body outside the redacted payload, response body or
 credential. Sensitive keys such as `password`, `passphrase`, `secret`, `token`
@@ -172,7 +184,7 @@ The optional stdio adapter exposes exactly these seven tools:
 | `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, devices}` |
 | `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
 | `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
-| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns}` |
+| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns, firewall}` |
 | `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false`, `profile: string|null = null` | target-bound redacted plan JSON format v1 |
 
 The four controller-facing inventory/export tools preserve their version-1
@@ -218,4 +230,5 @@ valid. A breaking configuration, CLI, plan or MCP change requires all of:
 
 No write-capable MCP tool or cloud mutation is part of this contract. The
 v0.3/v0.4 cloud adapter remains read-only and limited to its documented Site
-Manager capabilities; firewall, NAT and VPN remain future resource families.
+Manager capabilities. The v0.5 firewall family is local API-key-only; NAT and
+VPN remain future resource families.

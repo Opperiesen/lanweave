@@ -113,6 +113,30 @@ def test_cli_requires_firewall_risk_acknowledgement_even_with_yes(capsys) -> Non
     assert "refusing risky firewall apply" in capsys.readouterr().err
 
 
+def test_cli_interactive_firewall_acknowledgement_is_consumed(monkeypatch) -> None:
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="firewall_rule",
+                action="create",
+                name="allow-web",
+                payload={"name": "allow-web"},
+                warnings=("broad match",),
+            )
+        ]
+    )
+
+    class TTY:
+        def isatty(self) -> bool:
+            return True
+
+    answers = iter(("ACKNOWLEDGE_FIREWALL_RISK", "APPLY"))
+    monkeypatch.setattr("lanweave.cli.sys.stdin", TTY())
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+
+    assert _confirm_apply(plan, prune=False, yes=False, acknowledge_firewall_risk=False) is True
+
+
 def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -> None:
     fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
     path = tmp_path / "profiles.yaml"

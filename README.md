@@ -32,7 +32,9 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.4.0` is the stable local DNS resource release. It preserves
+Lanweave `0.4.0` is the stable local DNS resource release. The `v0.5.0`
+firewall family is under development behind independent fixture and protected
+controller evidence gates. It preserves
 the local-first profile behavior tested against simulated controller responses,
 with read-only and authorized mutation evidence on one designated UniFi OS
 controller, adds an explicit, read-only Site Manager cloud adapter, and
@@ -51,6 +53,12 @@ Supported resource families in this release:
 - local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
+
+The `v0.5.0` firewall slice adds portable zones, address groups, port groups
+and ordered rules through the local API-key Integration API. See
+[firewall](docs/firewall.md) and the [v0.5 roadmap](docs/roadmap-v0.5.0.md)
+for the exact support boundary. It is not part of the stable `0.4.0` claim
+until both protected controller evidence gates pass.
 
 The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
@@ -118,6 +126,7 @@ lanweave plan                    # show create/update/delete operations
 lanweave plan --output json      # machine-readable, redacted plan
 lanweave apply                   # interactive, explicitly confirmed apply
 lanweave apply --yes             # non-interactive apply after review
+lanweave apply --acknowledge-firewall-risk # authorize reviewed firewall warnings
 lanweave backup                  # write a 0600 redacted local snapshot
 lanweave status                  # health and device summary
 lanweave clients --filter phone  # connected-client view
@@ -126,6 +135,10 @@ lanweave clients --filter phone  # connected-client view
 `--prune` is opt-in. It never targets the controller's WAN or `Default`
 network, skips system/unknown-origin DNS policies, and requires a separate
 `DELETE` confirmation in interactive mode.
+Firewall changes with broad, external, privileged-port, shadowing or reorder
+warnings additionally require `--acknowledge-firewall-risk` (or the exact
+interactive acknowledgement). The flag does not bypass the plan or prune
+confirmation.
 Non-interactive mutation requires `--yes`; there is no implicit apply.
 If an apply stops part-way through, review a fresh plan before retrying; see
 [apply recovery](docs/recovery.md).

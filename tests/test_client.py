@@ -219,8 +219,9 @@ def test_api_key_reads_firewall_inventory_and_explicit_ordering() -> None:
 
 def test_api_key_rejects_malformed_firewall_pagination() -> None:
     malformed_page = json.loads(
-        (Path(__file__).parent / "fixtures" / "firewall" / "firewall-malformed-page.json")
-        .read_text()
+        (
+            Path(__file__).parent / "fixtures" / "firewall" / "firewall-malformed-page.json"
+        ).read_text()
     )
 
     def handler(request: httpx.Request) -> httpx.Response:

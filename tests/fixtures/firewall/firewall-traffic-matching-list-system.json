@@ -1,0 +1,7 @@
+{
+  "id": "group-system",
+  "name": "system-services",
+  "type": "PORTS",
+  "items": [{"type": "PORT_NUMBER", "value": 53}],
+  "metadata": {"origin": "SYSTEM_DEFINED"}
+}

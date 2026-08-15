@@ -217,6 +217,27 @@ def test_api_key_reads_firewall_inventory_and_explicit_ordering() -> None:
     }
 
 
+def test_api_key_rejects_malformed_firewall_pagination() -> None:
+    malformed_page = json.loads(
+        (Path(__file__).parent / "fixtures" / "firewall" / "firewall-malformed-page.json")
+        .read_text()
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if request.url.path.endswith("/firewall/zones"):
+            return httpx.Response(200, json=malformed_page)
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with (
+        UniFiClient(settings, transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(RuntimeError, match="invalid pagination metadata"),
+    ):
+        client.firewall_zones()
+
+
 def test_api_key_firewall_mutations_use_only_official_paths() -> None:
     calls: list[tuple[str, str]] = []
 

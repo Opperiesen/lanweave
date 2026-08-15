@@ -1,9 +1,14 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from lanweave.firewall import (
     FirewallError,
+    UnsupportedFirewallVariantError,
     export_firewall_config,
     firewall_group_to_unifi,
+    firewall_is_user_managed,
     firewall_rule_is_broad,
     firewall_rule_to_unifi,
     firewall_zone_to_unifi,
@@ -14,6 +19,9 @@ from lanweave.firewall import (
     normalize_port_items,
     validate_firewall,
 )
+
+
+FIREWALL_FIXTURES = Path(__file__).parent / "fixtures" / "firewall"
 
 
 def _document() -> dict[str, object]:
@@ -338,3 +346,30 @@ def test_firewall_export_rejects_policy_missing_from_ordering() -> None:
             },
             network_names_by_id={},
         )
+
+
+def test_firewall_fixtures_cover_unsupported_variants_and_protected_origins() -> None:
+    unsupported = json.loads(
+        (FIREWALL_FIXTURES / "firewall-traffic-matching-list-unsupported.json").read_text()
+    )
+    with pytest.raises(UnsupportedFirewallVariantError):
+        normalize_controller_traffic_matching_list(unsupported)
+
+    protected = json.loads(
+        (FIREWALL_FIXTURES / "firewall-traffic-matching-list-system.json").read_text()
+    )
+    normalized = normalize_controller_traffic_matching_list(protected)
+    assert normalized["_origin"] == "SYSTEM_DEFINED"
+    assert firewall_is_user_managed(normalized) is False
+
+
+def test_firewall_empty_fixture_is_a_valid_empty_page() -> None:
+    page = json.loads((FIREWALL_FIXTURES / "firewall-empty-page.json").read_text())
+    assert page["data"] == []
+    assert page["totalCount"] == 0
+
+
+def test_firewall_malformed_fixture_is_not_accepted_as_pagination_metadata() -> None:
+    page = json.loads((FIREWALL_FIXTURES / "firewall-malformed-page.json").read_text())
+    with pytest.raises((TypeError, ValueError)):
+        int(page["totalCount"])

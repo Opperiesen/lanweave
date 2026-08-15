@@ -1,0 +1,7 @@
+{
+  "id": "group-domain",
+  "name": "internal-domains",
+  "type": "DOMAIN_NAMES",
+  "items": ["example.invalid"],
+  "metadata": {"origin": "USER_DEFINED"}
+}

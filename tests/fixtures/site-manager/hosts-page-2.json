@@ -1,0 +1,12 @@
+{
+  "data": [
+    {
+      "id": "host-fixture-2",
+      "name": "Lanweave Backup",
+      "ipAddress": "192.0.2.11",
+      "status": "online"
+    }
+  ],
+  "httpStatusCode": 200,
+  "traceId": "trace-fixture-hosts-2"
+}

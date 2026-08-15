@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "siteId": "site-fixture-1",
+      "hostId": "host-fixture-1",
+      "meta": {
+        "name": "default",
+        "desc": "Lanweave Test Site",
+        "timezone": "Europe/Brussels"
+      },
+      "statistics": {
+        "percentages": {
+          "wanUptime": 100
+        }
+      },
+      "permission": "readonly",
+      "isOwner": true
+    }
+  ],
+  "httpStatusCode": 200,
+  "traceId": "trace-fixture-sites"
+}

@@ -13,6 +13,7 @@
 - route manual controller integration jobs through a dedicated LAN runner.
 - support read-only UniFi v1 Integration API access with API keys.
 - use a separate scoped session account for the authorized mutation suite.
+- publish successful create/update/delete compatibility evidence on the designated controller.
 
 ## 0.1.0a1 — 2026-08-15
 

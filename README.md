@@ -32,8 +32,8 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.1.0` is the first stable local-first core. It is tested against
-simulated controller responses, with read-only and authorized mutation
+Lanweave `0.2.0` is the stable local-first profile release. It is tested
+against simulated controller responses, with read-only and authorized mutation
 evidence on one designated UniFi OS controller. It targets the classic local
 UniFi Network API used by self-hosted UniFi Network applications and UniFi OS
 consoles; see [compatibility](docs/compatibility.md) and the [apply recovery
@@ -44,6 +44,7 @@ Supported resource families in this release:
 
 - networks;
 - WLANs, including references to environment-provided passwords;
+- local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
 
@@ -57,7 +58,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.1.0
+uv tool install lanweave==0.2.0
 lanweave --version
 ```
 

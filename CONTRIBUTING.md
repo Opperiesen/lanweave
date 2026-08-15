@@ -24,6 +24,11 @@ request with the provided template. Maintainers prefer small, reviewable
 changes. A pull request should not require access to a live controller to run
 its unit tests.
 
+The repository is currently maintained by one GitHub account. Branch
+protection therefore requires a pull request and all required checks, while
+the approval count remains zero; enabling mandatory approval will be the next
+governance step when an independent maintainer is available.
+
 ## GitHub identity and commit messages
 
 - push branches, open pull requests, merge, tag and publish releases through

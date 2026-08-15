@@ -20,6 +20,8 @@ from .adapters import (
 )
 
 INTEGRATION_API_PREFIX = "/proxy/network/integration/v1"
+INTEGRATION_PAGE_SIZE = 200
+INTEGRATION_MAX_PAGES = 1000
 
 
 class CredentialsError(ValueError):
@@ -123,8 +125,12 @@ def _integration_wlan(value: dict[str, Any]) -> dict[str, Any]:
         security = "wpa3-transition"
     elif security_type == "WPA2_PERSONAL":
         security = "wpa2"
-    else:
+    elif security_type == "OPEN":
         security = "open"
+    else:
+        raise RuntimeError(
+            f"UniFi integration API returned unsupported WiFi security type: {security_type}"
+        )
 
     network = value.get("network") or {}
     result: dict[str, Any] = {
@@ -236,7 +242,7 @@ class LocalClassicAdapter:
     def site_url(self, path: str) -> str:
         return f"/proxy/network/api/s/{self.settings.site}/{path.lstrip('/')}"
 
-    def _integration_request(self, method: str, path: str, **kwargs: Any) -> Any:
+    def _integration_response(self, method: str, path: str, **kwargs: Any) -> Any:
         if method.upper() != "GET":
             raise RuntimeError("API-key mode currently supports read-only integration endpoints")
         url = urljoin("/", f"{INTEGRATION_API_PREFIX}/{path.lstrip('/')}")
@@ -252,7 +258,10 @@ class LocalClassicAdapter:
             )
         if not response.content:
             return None
-        payload = response.json()
+        return response.json()
+
+    def _integration_request(self, method: str, path: str, **kwargs: Any) -> Any:
+        payload = self._integration_response(method, path, **kwargs)
         if isinstance(payload, dict) and "data" in payload:
             return payload["data"]
         return payload
@@ -261,7 +270,7 @@ class LocalClassicAdapter:
         if self._integration_site_id:
             return self._integration_site_id
         configured_site = self.settings.site.strip().lower()
-        sites = _as_list(self._integration_request("GET", "sites", params={"limit": 200}))
+        sites = self._integration_list("sites")
         for site in sites:
             site_id = str(site.get("id") or "")
             site_name = str(site.get("name") or "").strip().lower()
@@ -274,7 +283,54 @@ class LocalClassicAdapter:
         return f"sites/{self._integration_site()}/{resource.lstrip('/')}"
 
     def _integration_list(self, resource: str) -> list[dict[str, Any]]:
-        return _as_list(self._integration_request("GET", resource, params={"limit": 200}))
+        items: list[dict[str, Any]] = []
+        offset = 0
+        for _page in range(INTEGRATION_MAX_PAGES):
+            payload = self._integration_response(
+                "GET",
+                resource,
+                params={"offset": offset, "limit": INTEGRATION_PAGE_SIZE},
+            )
+            if isinstance(payload, list):
+                page = _as_list(payload)
+                total_count: int | None = None
+                page_limit = INTEGRATION_PAGE_SIZE
+            elif isinstance(payload, dict):
+                page = _as_list(payload.get("data"))
+                total_count = payload.get("totalCount")
+                page_limit = payload.get("limit", INTEGRATION_PAGE_SIZE)
+                try:
+                    total_count = int(total_count) if total_count is not None else None
+                    page_limit = int(page_limit)
+                except (TypeError, ValueError):
+                    raise RuntimeError(
+                        f"UniFi integration API returned invalid pagination metadata for {resource}"
+                    ) from None
+                if total_count is not None and total_count < 0:
+                    raise RuntimeError(
+                        f"UniFi integration API returned invalid pagination metadata for {resource}"
+                    )
+                if page_limit <= 0:
+                    page_limit = INTEGRATION_PAGE_SIZE
+            else:
+                raise RuntimeError(
+                    f"UniFi integration API returned an unexpected list response for {resource}"
+                )
+
+            items.extend(page)
+            if not page:
+                return items
+
+            next_offset = offset + len(page)
+            if total_count is not None and next_offset >= total_count:
+                return items
+            if total_count is None and len(page) < page_limit:
+                return items
+            if next_offset <= offset:
+                raise RuntimeError(f"UniFi integration pagination did not advance for {resource}")
+            offset = next_offset
+
+        raise RuntimeError(f"UniFi integration pagination exceeded the safety limit for {resource}")
 
     def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}

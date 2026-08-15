@@ -109,6 +109,14 @@ def test_v2_without_an_effective_profile_is_rejected() -> None:
         resolve_target(config, environ=_environment())
 
 
+def test_unknown_profile_is_rejected_as_configuration_error() -> None:
+    config = _v2_config()
+    config["profile"] = "missing"
+
+    with pytest.raises(ConfigError, match="unknown profile: missing"):
+        resolve_target(config, environ={})
+
+
 def test_missing_profile_credentials_fail_without_echoing_a_secret() -> None:
     config = _v2_config()
     environment = _environment()

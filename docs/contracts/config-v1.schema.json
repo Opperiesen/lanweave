@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Opperiesen/lanweave/blob/main/docs/contracts/config-v1.schema.json",
+  "title": "Lanweave configuration schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "controller", "networks", "wlans"],
+  "properties": {
+    "version": { "const": 1 },
+    "controller": { "$ref": "#/$defs/controller" },
+    "networks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/network" }
+    },
+    "wlans": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/wlan" }
+    }
+  },
+  "$defs": {
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["site"],
+      "properties": {
+        "site": { "type": "string", "minLength": 1 }
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "purpose"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "purpose": { "enum": ["corporate", "guest", "vlan-only", "wan"] },
+        "subnet": { "type": "string", "minLength": 1 },
+        "vlan": { "type": "integer", "minimum": 1, "maximum": 4094 },
+        "domain_name": { "type": "string" },
+        "dhcp": { "$ref": "#/$defs/dhcp" },
+        "ipv6": { "$ref": "#/$defs/ipv6" }
+      }
+    },
+    "dhcp": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "start": { "type": "string" },
+        "stop": { "type": "string" },
+        "lease_time": { "type": "integer", "exclusiveMinimum": 0 },
+        "dns": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ipv6": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "type": { "type": "string" }
+      }
+    },
+    "wlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "ssid", "network", "bands", "security"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "ssid": { "type": "string", "minLength": 1 },
+        "network": { "type": "string", "minLength": 1 },
+        "bands": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["2g", "5g", "6g"] }
+        },
+        "security": { "enum": ["open", "wpa2", "wpa3", "wpa3-transition"] },
+        "password": {
+          "type": "string",
+          "pattern": "^\\$\\{[A-Z_][A-Z0-9_]*\\}$"
+        },
+        "password_env": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$"
+        },
+        "enabled": { "type": "boolean" },
+        "hide_ssid": { "type": "boolean" },
+        "fast_roaming": { "type": "boolean" },
+        "proxy_arp": { "type": "boolean" },
+        "pmf": { "enum": ["disabled", "optional", "required"] },
+        "client_isolation": { "type": "boolean" },
+        "multicast_enhancement": { "type": "boolean" },
+        "schedule_enabled": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "not": {
+            "required": ["password", "password_env"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "security": { "const": "open" } }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["password"] },
+                { "required": ["password_env"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "security": {
+                "enum": ["wpa2", "wpa3", "wpa3-transition"]
+              }
+            }
+          },
+          "then": {
+            "anyOf": [
+              { "required": ["password"] },
+              { "required": ["password_env"] }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

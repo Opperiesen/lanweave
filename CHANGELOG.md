@@ -4,6 +4,17 @@
 
 - no unreleased changes.
 
+## 0.1.0b1 — 2026-08-15
+
+- freeze configuration schema version 1 and publish its machine-readable
+  contract;
+- freeze CLI commands, options and exit-code behavior;
+- version and document the redacted plan JSON format;
+- document the six read-only MCP tools, parameters, return values and stable
+  error codes;
+- add explicit migration and deprecation rules for future breaking changes;
+- expand smoke and contract tests across configuration, CLI, plan JSON and MCP.
+
 ## 0.1.0a2 — 2026-08-15
 
 - enforce formatting and locked dependency/security audits in CI;

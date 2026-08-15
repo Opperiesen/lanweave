@@ -15,6 +15,7 @@ backups/
 exports/
 plans/
 *.json
+!docs/contracts/*.schema.json
 *.yaml
 !examples/*.yaml
 

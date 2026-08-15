@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from .contracts import CONFIG_SCHEMA_VERSION
+
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 PLACEHOLDER_RE = re.compile(r"^\$[{][A-Z_][A-Z0-9_]*[}]$")
 PLACEHOLDER_SEARCH_RE = re.compile(r"\$[{]([A-Z_][A-Z0-9_]*)[}]")
@@ -212,8 +214,8 @@ def validate_config(config: dict[str, Any]) -> None:
     if unknown_top_level:
         names = ", ".join(str(name) for name in unknown_top_level)
         raise ConfigError(f"unsupported top-level field(s): {names}")
-    if config.get("version") != 1:
-        raise ConfigError("version must be 1")
+    if config.get("version") != CONFIG_SCHEMA_VERSION:
+        raise ConfigError(f"version must be {CONFIG_SCHEMA_VERSION}")
     _validate_sensitive_values(config)
 
     controller = _require_mapping(config.get("controller"), "controller")

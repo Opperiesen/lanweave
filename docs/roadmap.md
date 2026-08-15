@@ -35,9 +35,9 @@ implemented.
 | `v0.3.0` | Adapter architecture | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local and optional cloud adapters expose explicit capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
-## Current release — `v0.1.0a2`
+## Current release — `v0.1.0b1`
 
-The first alpha currently provides:
+The beta currently provides:
 
 - local classic UniFi Network API access;
 - API-key and session authentication;
@@ -54,27 +54,14 @@ The first alpha currently provides:
 - exact controller compatibility evidence with separate read-only and
   authorized mutation paths;
 - dependency-safe partial apply reporting and manual recovery semantics;
-- a documented boundary between confirmed, uncertain and not-started state.
+- a documented boundary between confirmed, uncertain and not-started state;
+- frozen configuration, CLI, plan JSON and read-only MCP contracts.
 
 The supported API surface is documented in
 [compatibility.md](compatibility.md), and partial apply behavior is documented
 in [recovery.md](recovery.md). The release is deliberately limited to networks,
-WLANs and read-oriented operational views.
-
-## `v0.1.0b1` — core contract freeze
-
-Tracked work:
-
-- [#13 — stabilize the v1 core contracts](https://github.com/Opperiesen/lanweave/issues/13).
-
-The beta freezes:
-
-- configuration schema version 1;
-- CLI commands, options and exit codes;
-- machine-readable plan JSON;
-- secret-redaction guarantees;
-- the six read-only MCP tools;
-- migration and deprecation rules.
+WLANs and read-oriented operational views. The complete frozen surface is in
+[contracts.md](contracts.md).
 
 This milestone does not include cloud support, multi-site profiles, new
 resource families or write-capable MCP tools.

@@ -20,6 +20,26 @@ The exact fields returned by UniFi can vary between Network application
 versions. Lanweave keeps the API payload adapter narrow and ignores fields it
 does not own when comparing declarative resources.
 
+## Tested compatibility matrix
+
+Only combinations listed as **tested** have published integration evidence.
+Other controller versions are best-effort compatibility and must not be
+treated as supported without a corresponding report.
+
+| Deployment | UniFi OS | UniFi Network | Authentication | TLS | Read-only probes | Mutations |
+| --- | --- | --- | --- | --- | --- | --- |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | not run |
+
+The first evidence was collected on 2026-08-15 with the dedicated
+`lanweave-ci` account. The probes covered health, device and client inventory,
+networks and WLANs. No controller host, site name, credentials, topology or
+raw response is part of this matrix.
+
+This matrix currently proves read-only session authentication for one exact
+controller combination. API-key integration, a second controller version and
+the opt-in mutation suite remain unverified. They must be added as separate
+evidence before the support policy is broadened.
+
 ## Authentication and TLS
 
 - API-key authentication is preferred.

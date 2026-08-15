@@ -11,6 +11,8 @@
   CLI commands, with sanitized target announcements and early conflict checks.
 - add non-secret target identity to v2 plans and reject mismatched plan targets
   before any mutation.
+- version the read-only MCP surface as v2, require explicit profile selection
+  for profile-backed targets and expose sanitized target envelopes.
 
 ## 0.1.0 — 2026-08-15
 

@@ -10,11 +10,12 @@ from typing import Any
 import httpx
 
 from .backup import redact_snapshot
-from .client import ControllerSettings, CredentialsError, UniFiClient
+from .client import CredentialsError, UniFiClient
 from .config import ConfigError, load_config, load_config_with_options
 from .contracts import CONFIG_SCHEMA_VERSION, MCP_CONTRACT_VERSION
 from .export import export_config
 from .plan import build_plan
+from .profiles import ResolvedTarget, resolve_target
 
 
 class MCPToolError(RuntimeError):
@@ -46,6 +47,11 @@ def _safe_tool(function: Callable[..., Any]) -> Callable[..., Any]:
     return wrapped
 
 
+def _resolve_mcp_target(config_path: str | None, profile: str | None) -> ResolvedTarget:
+    config = load_config(Path(config_path)) if config_path is not None else None
+    return resolve_target(config, profile=profile)
+
+
 def create_server() -> Any:
     """Create the optional FastMCP server without importing MCP in the core CLI."""
     from mcp.server.fastmcp import FastMCP
@@ -61,11 +67,16 @@ def create_server() -> Any:
 
     @server.tool()
     @_safe_tool
-    def lanweave_get_health() -> dict[str, Any]:
-        """Return controller health, connected clients and adopted devices."""
-        with UniFiClient(ControllerSettings.from_env()) as client:
+    def lanweave_get_health(
+        config_path: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Return target identity, controller health, clients and devices."""
+        target = _resolve_mcp_target(config_path, profile)
+        with UniFiClient(target.settings) as client:
             return redact_snapshot(
                 {
+                    "target": target.target_dict(),
                     "health": client.health(),
                     "online_clients": len(client.clients()),
                     "devices": len(client.devices()),
@@ -74,27 +85,44 @@ def create_server() -> Any:
 
     @server.tool()
     @_safe_tool
-    def lanweave_list_devices() -> list[dict[str, Any]]:
-        """List adopted UniFi devices."""
-        with UniFiClient(ControllerSettings.from_env()) as client:
-            return redact_snapshot(client.devices())
+    def lanweave_list_devices(
+        config_path: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Return target identity and adopted UniFi devices."""
+        target = _resolve_mcp_target(config_path, profile)
+        with UniFiClient(target.settings) as client:
+            devices = client.devices()
+        return {"target": target.target_dict(), "devices": redact_snapshot(devices)}
 
     @server.tool()
     @_safe_tool
-    def lanweave_list_clients(include_wired: bool = True) -> list[dict[str, Any]]:
-        """List connected clients, optionally including wired clients."""
-        with UniFiClient(ControllerSettings.from_env()) as client:
+    def lanweave_list_clients(
+        include_wired: bool = True,
+        config_path: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Return target identity and connected clients."""
+        target = _resolve_mcp_target(config_path, profile)
+        with UniFiClient(target.settings) as client:
             clients = client.clients()
         if include_wired:
-            return redact_snapshot(clients)
-        return redact_snapshot([client for client in clients if client.get("is_wired") is not True])
+            filtered = clients
+        else:
+            filtered = [client for client in clients if client.get("is_wired") is not True]
+        return {"target": target.target_dict(), "clients": redact_snapshot(filtered)}
 
     @server.tool()
     @_safe_tool
-    def lanweave_export_config() -> dict[str, Any]:
-        """Export networks and WLANs as a secret-free portable configuration."""
-        with UniFiClient(ControllerSettings.from_env()) as client:
-            return export_config(client)
+    def lanweave_export_config(
+        config_path: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Return target identity and a secret-free portable configuration."""
+        target = _resolve_mcp_target(config_path, profile)
+        with UniFiClient(target.settings) as client:
+            exported = export_config(client)
+        return {"target": target.target_dict(), "config": exported}
 
     @server.tool()
     @_safe_tool
@@ -103,7 +131,7 @@ def create_server() -> Any:
         config = load_config(Path(config_path))
         return {
             "valid": True,
-            "version": CONFIG_SCHEMA_VERSION,
+            "version": config.get("version", CONFIG_SCHEMA_VERSION),
             "networks": len(config["networks"]),
             "wlans": len(config["wlans"]),
         }
@@ -113,16 +141,20 @@ def create_server() -> Any:
     def lanweave_plan_changes(
         config_path: str = "config/network.yaml",
         prune: bool = False,
+        profile: str | None = None,
     ) -> dict[str, Any]:
-        """Return a redacted plan; this tool never applies it."""
-        config = load_config_with_options(Path(config_path), resolve_secrets=True)
-        settings = ControllerSettings.from_env()
-        if config.get("controller", {}).get("site"):
-            from dataclasses import replace
-
-            settings = replace(settings, site=config["controller"]["site"])
-        with UniFiClient(settings) as client:
-            return build_plan(client, config, prune=prune).to_dict()
+        """Return a target-bound redacted plan; this tool never applies it."""
+        path = Path(config_path)
+        target_config = load_config(path)
+        config = load_config_with_options(path, resolve_secrets=True)
+        target = resolve_target(target_config, profile=profile)
+        with UniFiClient(target.settings) as client:
+            return build_plan(
+                client,
+                config,
+                prune=prune,
+                target=target.identity,
+            ).to_dict()
 
     return server
 

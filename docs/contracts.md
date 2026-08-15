@@ -7,7 +7,7 @@ explicit; neither adds new resource families or write-capable MCP tools.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
-schema `1`, profile layer `2`, plan format `1` and MCP contract `1`.
+schema `1`, profile layer `2`, plan format `1` and MCP contract `2`.
 
 The `v0.2.0` profile design is documented separately in
 [`profiles.md`](profiles.md). It adds a version-2 local connection layer while
@@ -138,18 +138,31 @@ Adding an optional field within format v1 requires preserving all existing
 fields and meanings. Renaming, removing or changing the semantics of a field
 requires a new format version and a release note.
 
-## Read-only MCP contract v1
+## Read-only MCP contract v2
 
 The optional stdio adapter exposes exactly these six tools:
 
 | Tool | Parameters | Logical return value |
 | --- | --- | --- |
-| `lanweave_get_health` | none | `{health, online_clients, devices}` |
-| `lanweave_list_devices` | none | array of sanitized device objects |
-| `lanweave_list_clients` | `include_wired: boolean = true` | array of sanitized client objects |
-| `lanweave_export_config` | none | secret-free configuration schema v1 |
-| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1, networks, wlans}` |
-| `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false` | redacted plan JSON format v1 |
+| `lanweave_get_health` | `config_path: string|null = null`, `profile: string|null = null` | `{target, health, online_clients, devices}` |
+| `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, devices}` |
+| `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
+| `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
+| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans}` |
+| `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false`, `profile: string|null = null` | target-bound redacted plan JSON format v1 |
+
+The four controller-facing inventory/export tools preserve their version-1
+environment-only invocation when `config_path` and `profile` are omitted. When
+`config_path` points to a version-2 file, the shared resolver requires an
+explicit profile from the tool argument, the document selector or
+`LANWEAVE_PROFILE`; conflicting selectors fail before controller access. The
+plan tool always reads its configuration path and applies the same rule.
+
+Every controller-facing response exposes the sanitized target tuple
+`{profile, controller, site}`. The list and export tools therefore use an
+object envelope in contract v2 instead of returning a bare array or bare
+configuration document. Clients consuming contract v1 output must update their
+decoders and check the advertised MCP contract version before upgrading.
 
 Tool names, parameter names, defaults and descriptions are tested from the
 MCP tool listing. No MCP tool can call `apply`, `delete` or any other mutation

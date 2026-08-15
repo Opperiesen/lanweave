@@ -28,7 +28,7 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     assert CONFIG_SCHEMA_VERSION == 1
     assert PROFILE_LAYER_VERSION == 2
     assert PLAN_FORMAT_VERSION == 1
-    assert MCP_CONTRACT_VERSION == 1
+    assert MCP_CONTRACT_VERSION == 2
     assert config_schema["properties"]["version"]["const"] == CONFIG_SCHEMA_VERSION
     assert plan_schema["properties"]["format_version"]["const"] == PLAN_FORMAT_VERSION
     assert config_schema["additionalProperties"] is False

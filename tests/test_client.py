@@ -1,7 +1,8 @@
 import httpx
 import pytest
 
-from lanweave.client import ControllerSettings, CredentialsError, UniFiClient
+from lanweave.adapters import ADAPTER_LOCAL_CLASSIC, AUTH_MODE_API_KEY
+from lanweave.client import ControllerSettings, CredentialsError, LocalClassicAdapter, UniFiClient
 
 
 def test_classic_site_url_is_controller_relative() -> None:
@@ -79,6 +80,19 @@ def test_api_key_mutations_are_blocked() -> None:
 
     with pytest.raises(RuntimeError, match="read-only"):
         client.post("/somewhere", json={"name": "must-not-change"})
+
+
+def test_local_classic_adapter_preserves_client_name_and_capabilities() -> None:
+    settings = ControllerSettings(host="https://controller.example", api_key="test")
+    adapter = LocalClassicAdapter(settings)
+    legacy_client = UniFiClient(settings)
+
+    assert adapter.adapter_name == ADAPTER_LOCAL_CLASSIC
+    assert adapter.capabilities.adapter == ADAPTER_LOCAL_CLASSIC
+    assert adapter.capabilities.auth_modes == (AUTH_MODE_API_KEY,)
+    assert adapter.capabilities.supports("devices", "read")
+    assert not adapter.capabilities.supports("networks", "apply")
+    assert isinstance(legacy_client, LocalClassicAdapter)
 
 
 def test_api_error_does_not_echo_request_body() -> None:

@@ -18,7 +18,7 @@ from .adapters import (
     UnsupportedCapabilityError,
     local_classic_capabilities,
 )
-from .client import ControllerSettings, UniFiClient
+from .client import ControllerSettings, LocalClassicAdapter, UniFiClient
 from .config import ConfigError, load_config, validate_config
 from .contracts import (
     CAPABILITY_FORMAT_VERSION,
@@ -46,6 +46,7 @@ __all__ = [
     "CAPABILITY_FORMAT_VERSION",
     "CONFIG_SCHEMA_VERSION",
     "ControllerSettings",
+    "LocalClassicAdapter",
     "MCP_CONTRACT_VERSION",
     "PLAN_FORMAT_VERSION",
     "UnsupportedCapabilityError",

@@ -5,11 +5,19 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Self
 from urllib.parse import urljoin
 
 import httpx
 from dotenv import load_dotenv
+
+from .adapters import (
+    ADAPTER_LOCAL_CLASSIC,
+    AUTH_MODE_API_KEY,
+    AUTH_MODE_SESSION,
+    AdapterCapabilities,
+    local_classic_capabilities,
+)
 
 INTEGRATION_API_PREFIX = "/proxy/network/integration/v1"
 
@@ -176,8 +184,10 @@ class ControllerSettings:
         return settings
 
 
-class UniFiClient:
-    """HTTP client with API-key and session authentication support."""
+class LocalClassicAdapter:
+    """Local UniFi classic adapter with v0.2 behavior preserved."""
+
+    adapter_name = ADAPTER_LOCAL_CLASSIC
 
     def __init__(
         self,
@@ -195,7 +205,13 @@ class UniFiClient:
         self._csrf_token: str | None = None
         self._integration_site_id: str | None = None
 
-    def __enter__(self) -> UniFiClient:
+    @property
+    def capabilities(self) -> AdapterCapabilities:
+        """Return capabilities for the selected local authentication mode."""
+        auth_mode = AUTH_MODE_API_KEY if self.settings.api_key else AUTH_MODE_SESSION
+        return local_classic_capabilities(auth_mode)
+
+    def __enter__(self) -> Self:
         if not self.settings.api_key:
             self.login()
         return self
@@ -370,3 +386,7 @@ class UniFiClient:
                 }
             ]
         return self.get(self.site_url("stat/health")) or []
+
+
+class UniFiClient(LocalClassicAdapter):
+    """Backward-compatible public name for :class:`LocalClassicAdapter`."""

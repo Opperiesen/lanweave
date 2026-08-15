@@ -1,7 +1,12 @@
 import json
 from pathlib import Path
 
-from lanweave.contracts import CONFIG_SCHEMA_VERSION, MCP_CONTRACT_VERSION, PLAN_FORMAT_VERSION
+from lanweave.contracts import (
+    CONFIG_SCHEMA_VERSION,
+    MCP_CONTRACT_VERSION,
+    PLAN_FORMAT_VERSION,
+    PROFILE_LAYER_VERSION,
+)
 
 ROOT = Path(__file__).parents[1]
 
@@ -18,6 +23,7 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     )
 
     assert CONFIG_SCHEMA_VERSION == 1
+    assert PROFILE_LAYER_VERSION == 2
     assert PLAN_FORMAT_VERSION == 1
     assert MCP_CONTRACT_VERSION == 1
     assert config_schema["properties"]["version"]["const"] == CONFIG_SCHEMA_VERSION

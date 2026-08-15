@@ -32,12 +32,13 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave is an early alpha. The complete first product slice is implemented
-and tested against simulated controller responses, with an initial read-only
-integration run on one designated UniFi OS controller. It targets the classic
-local UniFi Network API used by self-hosted UniFi Network applications and
-UniFi OS consoles; see [compatibility](docs/compatibility.md) for the exact
-scope and tested matrix.
+Lanweave is an early alpha. The first real-controller reliability slice is
+implemented and tested against simulated controller responses, with read-only
+and authorized mutation evidence on one designated UniFi OS controller. It
+targets the classic local UniFi Network API used by self-hosted UniFi Network
+applications and UniFi OS consoles; see [compatibility](docs/compatibility.md)
+and the [apply recovery model](docs/recovery.md) for the exact scope, tested
+matrix and partial-failure behavior.
 
 Supported resource families in this release:
 
@@ -98,6 +99,8 @@ lanweave clients --filter phone  # connected-client view
 `--prune` is opt-in. It never targets the controller's WAN or `Default`
 network, and it requires a separate `DELETE` confirmation in interactive mode.
 Non-interactive mutation requires `--yes`; there is no implicit apply.
+If an apply stops part-way through, review a fresh plan before retrying; see
+[apply recovery](docs/recovery.md).
 
 ## MCP adapter
 

@@ -35,7 +35,7 @@ implemented.
 | `v0.3.0` | Adapter architecture | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local and optional cloud adapters expose explicit capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
-## Current release — `v0.1.0a1`
+## Current release — `v0.1.0a2`
 
 The first alpha currently provides:
 
@@ -50,32 +50,16 @@ The first alpha currently provides:
 - redacted local backups;
 - health, device and client views;
 - six read-only MCP tools;
-- public CI, security policy and contribution workflow.
+- public CI, security policy and contribution workflow;
+- exact controller compatibility evidence with separate read-only and
+  authorized mutation paths;
+- dependency-safe partial apply reporting and manual recovery semantics;
+- a documented boundary between confirmed, uncertain and not-started state.
 
 The supported API surface is documented in
-[compatibility.md](compatibility.md). The release is deliberately limited to
-networks, WLANs and read-oriented operational views.
-
-## `v0.1.0a2` — controller integration and reliability
-
-This is the next implementation target.
-
-Tracked work:
-
-- [#5 — disposable-controller integration workflow](https://github.com/Opperiesen/lanweave/issues/5);
-- [#11 — compatibility matrix and support policy](https://github.com/Opperiesen/lanweave/issues/11);
-- [#12 — apply failure recovery and rollback semantics](https://github.com/Opperiesen/lanweave/issues/12).
-
-The release must establish:
-
-- exact controller versions exercised by tests;
-- separated unit, read-only integration and opt-in mutation suites;
-- protected credentials and sanitized fixtures;
-- idempotence and dependency-order coverage;
-- explicit behavior for partial apply failures;
-- public compatibility results without private topology.
-
-No new resource family should be added before this milestone is complete.
+[compatibility.md](compatibility.md), and partial apply behavior is documented
+in [recovery.md](recovery.md). The release is deliberately limited to networks,
+WLANs and read-oriented operational views.
 
 ## `v0.1.0b1` — core contract freeze
 

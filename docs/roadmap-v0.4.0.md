@@ -290,16 +290,18 @@ read-only MCP boundary.
 
 ## Future resource sequence
 
-The open backlog is moved to milestone
-[`v0.5.0+`](https://github.com/Opperiesen/lanweave/milestone/7):
+The open backlog is split across independent release milestones:
 
-- [#15 — firewall resources](https://github.com/Opperiesen/lanweave/issues/15);
-- [#18 — NAT and port forwarding](https://github.com/Opperiesen/lanweave/issues/18);
-- [#19 — VPN resources](https://github.com/Opperiesen/lanweave/issues/19).
+- [#15 — firewall resources](https://github.com/Opperiesen/lanweave/issues/15) in
+  [`v0.5.0`](https://github.com/Opperiesen/lanweave/milestone/7);
+- [#18 — NAT and port forwarding](https://github.com/Opperiesen/lanweave/issues/18) in
+  [`v0.6.0`](https://github.com/Opperiesen/lanweave/milestone/8);
+- [#19 — VPN resources](https://github.com/Opperiesen/lanweave/issues/19) in
+  [`v0.7.0`](https://github.com/Opperiesen/lanweave/milestone/9).
 
-They remain independent workstreams. Firewall ordering and policy safety should
-come first, then NAT exposure analysis, then VPN dependencies and secret
-handling. None is part of the v0.4.0 release claim.
+They remain independent workstreams. Firewall ordering and policy safety come
+first, then NAT exposure analysis, then VPN dependencies and secret handling.
+Only the firewall work is planned for the next release.
 
 ## Definition of done
 

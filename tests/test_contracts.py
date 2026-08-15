@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from lanweave.contracts import (
+    CAPABILITY_FORMAT_VERSION,
     CONFIG_SCHEMA_VERSION,
     MCP_CONTRACT_VERSION,
     PLAN_FORMAT_VERSION,
@@ -24,11 +25,15 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     config_v2_schema = json.loads(
         (ROOT / "docs/contracts/config-v2.schema.json").read_text(encoding="utf-8")
     )
+    capability_schema = json.loads(
+        (ROOT / "docs/contracts/adapter-capabilities-v1.schema.json").read_text(encoding="utf-8")
+    )
 
     assert CONFIG_SCHEMA_VERSION == 1
     assert PROFILE_LAYER_VERSION == 2
     assert PLAN_FORMAT_VERSION == 1
     assert MCP_CONTRACT_VERSION == 2
+    assert CAPABILITY_FORMAT_VERSION == 1
     assert config_schema["properties"]["version"]["const"] == CONFIG_SCHEMA_VERSION
     assert plan_schema["properties"]["format_version"]["const"] == PLAN_FORMAT_VERSION
     assert config_schema["additionalProperties"] is False
@@ -52,6 +57,8 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
         "wlans",
     ]
     assert config_v2_schema["additionalProperties"] is False
+    assert capability_schema["properties"]["format_version"]["const"] == 1
+    assert capability_schema["additionalProperties"] is False
 
 
 def test_profile_contract_fixtures_cover_legacy_and_multi_target_shapes() -> None:

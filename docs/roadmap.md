@@ -68,14 +68,19 @@ in [recovery.md](recovery.md). The release is deliberately limited to networks,
 WLANs and read-oriented operational views. The complete frozen surface is in
 [contracts.md](contracts.md).
 
-This release does not include cloud support, new resource families or
+This release does not include cloud resource mutations, firewall, NAT, VPN or
 write-capable MCP tools.
 
-## Current release — `v0.3.0`
+## Current release — `v0.4.0`
 
 The current stable release provides:
 
-- the complete local-first `v0.2.0` surface;
+- the complete local-first `v0.3.0` surface;
+- portable local DNS `A`, `AAAA` and `CNAME` records;
+- official Integration API DNS reads, export, deterministic plan and
+  API-key-only apply/prune;
+- protected system/unknown-origin ownership rules and manual recovery;
+- fixture-backed and authorized controller evidence for Network 10.5.67;
 - explicit `local-classic` and opt-in `cloud-site-manager` adapters;
 - deterministic, secret-free capability discovery through the CLI;
 - adapter-aware plans, status output and read-only MCP contract v3;
@@ -85,12 +90,13 @@ The current stable release provides:
 - migration, compatibility, redaction and release verification notes.
 
 The public cloud claim remains deliberately limited to the documented
-read-only Site Manager slice. Cloud clients, networks, WLANs, export, plan,
-apply, prune, new resource families and write-capable MCP remain excluded.
+read-only Site Manager slice. Cloud clients, networks, WLANs, DNS, export,
+plan, apply, prune, new resource families and write-capable MCP remain
+excluded from the cloud adapter.
 The sanitized evidence is recorded in [workflow run
 31895015047](https://github.com/Opperiesen/lanweave/actions/runs/31895015047),
-and the complete scope is maintained in
-[roadmap-v0.3.0.md](roadmap-v0.3.0.md).
+and the complete DNS scope is maintained in
+[roadmap-v0.4.0.md](roadmap-v0.4.0.md).
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 

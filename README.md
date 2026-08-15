@@ -1,4 +1,4 @@
-# Lanweave
+ # Lanweave
 
 [![CI](https://github.com/Opperiesen/lanweave/actions/workflows/ci.yml/badge.svg)](https://github.com/Opperiesen/lanweave/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/Opperiesen/lanweave)](LICENSE)
@@ -89,7 +89,7 @@ wlans:
   - name: Home
     ssid: Home
     network: Home
-    security: wpapsk
+    security: wpa2
     password_env: WIFI_HOME_PASSWORD
 
 dns:

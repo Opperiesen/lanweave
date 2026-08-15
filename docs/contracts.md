@@ -1,9 +1,10 @@
 # Lanweave configuration, CLI and adapter contracts
 
-The v1 sections are normative for the `v0.1.x` line. The v2 sections define
-the backward-compatible local profile additions for `v0.2.0`. Both versions
-keep the public configuration, CLI, plan JSON and read-only MCP surfaces
-explicit; neither adds new resource families or write-capable MCP tools.
+The v1 sections are normative for the original configuration contract. The v2
+sections define the backward-compatible local profile additions for `v0.2.0`.
+The `v0.4.0` DNS extension is additive within those schema and plan versions:
+it adds optional local `A`, `AAAA` and `CNAME` records without adding a
+write-capable MCP tool.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
@@ -216,5 +217,5 @@ valid. A breaking configuration, CLI, plan or MCP change requires all of:
 4. a release decision recorded in the roadmap and release notes.
 
 No write-capable MCP tool or cloud mutation is part of this contract. The
-v0.3 cloud adapter is read-only and limited to its documented Site Manager
-capabilities; new resource families remain future work.
+v0.3/v0.4 cloud adapter remains read-only and limited to its documented Site
+Manager capabilities; firewall, NAT and VPN remain future resource families.

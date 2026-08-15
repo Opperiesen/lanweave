@@ -84,6 +84,12 @@ tracks.
 
 ## Authentication and TLS
 
+- The v0.3 adapter name for this surface is `local-classic`.
+- Session authentication exposes read, export, plan, apply and explicit prune
+  for the supported network and WLAN resources.
+- API-key authentication remains read-only at the controller boundary; it can
+  inventory, export and plan the supported resources but cannot apply or
+  prune them.
 - API-key authentication targets the v1 Integration API and is read-only for
   now.
 - Username/password session authentication targets the classic API and is

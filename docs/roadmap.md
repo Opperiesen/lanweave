@@ -264,7 +264,7 @@ verified package and publication.
 Device adoption, restart, firmware and other high-impact mutations remain
 post-`v1.0.0` candidates unless an independent safety model is approved.
 
-## Next release — `v0.5.0` firewall
+## Current release — `v0.5.0` firewall
 
 The complete decomposition is maintained in
 [roadmap-v0.5.0.md](roadmap-v0.5.0.md) and tracked by parent issue
@@ -279,10 +279,12 @@ The work is ordered as follows:
 5. [#90 — existing CLI, capabilities and read-only MCP surfaces](https://github.com/Opperiesen/lanweave/issues/90);
 6. [#91 — v0.5.0 evidence, documentation and release gates](https://github.com/Opperiesen/lanweave/issues/91).
 
-The release gates are `v0.5.0a1` for the contract and read foundation,
+The release gates were `v0.5.0a1` for the contract and read foundation,
 `v0.5.0b1` for the read/export/plan surface, `v0.5.0rc1` for authorized
 mutation and recovery evidence, and `v0.5.0` for the verified package and
-publication.
+publication. The protected controller gates passed in workflow run
+[31903782251](https://github.com/Opperiesen/lanweave/actions/runs/31903782251);
+the package tag and publication remain the final release action.
 
 ## Subsequent independent releases
 

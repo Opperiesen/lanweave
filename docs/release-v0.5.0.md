@@ -32,8 +32,8 @@ priorité depuis l'index d'un tableau contrôleur.
 
 La compatibilité publiée est limitée à la matrice testée dans
 [`compatibility.md`](compatibility.md). Les deux portes contrôleur de
-[`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md) doivent être
-`passed` avant la publication stable.
+[`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md) sont passées dans
+le workflow protégé 31903782251.
 
 ## Migration
 
@@ -48,9 +48,10 @@ Depuis un checkout propre :
 ```shell
 uv sync --extra dev --extra mcp --locked
 uv run python scripts/verify_v050_evidence.py
+LANWEAVE_REQUIRE_V050_LIVE_EVIDENCE=true uv run python scripts/verify_v050_evidence.py
 uv run pytest -m "not integration and not integration_mutation" -q
 uv build
 ```
 
-La release finale ajoute la vérification de l'évidence live, du tag annoté,
-des checksums, de la provenance, de GitHub Release et de PyPI.
+Le workflow de release ajoute la vérification du tag annoté, de la version
+projet, des checksums, de la provenance, de GitHub Release et de PyPI.

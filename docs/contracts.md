@@ -7,7 +7,13 @@ explicit; neither adds new resource families or write-capable MCP tools.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
-schema `1`, profile layer `2`, plan format `1` and MCP contract `2`.
+schema `1`, profile layer `2`, plan format `1`, MCP contract `2` and adapter
+capability format `1`.
+
+The v0.3 adapter boundary is defined by
+[`adapter-capabilities-v1.schema.json`](contracts/adapter-capabilities-v1.schema.json).
+It is additive to the v0.2 contracts: it describes adapter capabilities but
+does not yet change profile selection, plan JSON or the MCP tool set.
 
 The `v0.2.0` profile design is documented separately in
 [`profiles.md`](profiles.md). It adds a version-2 local connection layer while

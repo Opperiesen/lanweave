@@ -4,6 +4,14 @@
 
 - no unreleased changes.
 
+## 0.1.0 — 2026-08-15
+
+- publish the first stable local-first Lanweave package to PyPI;
+- enable PyPI Trusted Publishing and PEP 740 attestations;
+- document PyPI installation, checksum verification and provenance verification;
+- mark the frozen CLI, configuration, plan JSON and read-only MCP contracts as
+  stable for the `0.1.x` line.
+
 ## 0.1.0rc1 — 2026-08-15
 
 - add a protected release workflow that runs the complete required CI;

@@ -35,9 +35,9 @@ implemented.
 | `v0.3.0` | Adapter architecture | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local and optional cloud adapters expose explicit capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
-## Current release — `v0.1.0rc1`
+## Current release — `v0.1.0`
 
-The release candidate currently provides:
+The stable release currently provides:
 
 - local classic UniFi Network API access;
 - API-key and session authentication;
@@ -59,6 +59,7 @@ The release candidate currently provides:
 - a protected release rehearsal workflow with tag/version and artifact checks;
 - clean wheel and source-distribution installation checks;
 - GitHub artifact checksums and signed build provenance.
+- PyPI Trusted Publishing and package attestations.
 
 The supported API surface is documented in
 [compatibility.md](compatibility.md), and partial apply behavior is documented

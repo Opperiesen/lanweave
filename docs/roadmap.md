@@ -17,7 +17,7 @@ must never bypass the plan safety boundary.
 - a new minor release adds a meaningful capability or resource family;
 - a major release is reserved for a breaking public contract.
 
-The first stable local-first package is planned as `v0.1.0`. `v1.0.0` means
+The first stable local-first package was `v0.1.0`. `v1.0.0` means
 that the CLI, configuration, plan format and read-only MCP contract are ready
 for long-term compatibility; it does not require every UniFi endpoint to be
 implemented.
@@ -35,7 +35,7 @@ implemented.
 | `v0.3.0` | Adapter architecture | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local and optional cloud adapters expose explicit capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
-## Current release — `v0.1.0`
+## Current release — `v0.2.0`
 
 The stable release currently provides:
 
@@ -49,7 +49,7 @@ The stable release currently provides:
 - opt-in pruning with a separate confirmation;
 - redacted local backups;
 - health, device and client views;
-- six read-only MCP tools;
+- six read-only MCP tools with explicit v2 target selection;
 - public CI, security policy and contribution workflow;
 - exact controller compatibility evidence with separate read-only and
   authorized mutation paths;
@@ -67,8 +67,8 @@ in [recovery.md](recovery.md). The release is deliberately limited to networks,
 WLANs and read-oriented operational views. The complete frozen surface is in
 [contracts.md](contracts.md).
 
-This milestone does not include cloud support, multi-site profiles, new
-resource families or write-capable MCP tools.
+This release does not include cloud support, new resource families or
+write-capable MCP tools.
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 

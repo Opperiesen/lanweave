@@ -8,14 +8,14 @@ signed provenance before making the GitHub Release public.
 ## Install from PyPI
 
 ```shell
-uv tool install lanweave==0.1.0
+uv tool install lanweave==0.2.0
 lanweave --version
 ```
 
 The MCP adapter remains optional:
 
 ```shell
-uv tool install 'lanweave[mcp]==0.1.0'
+uv tool install 'lanweave[mcp]==0.2.0'
 ```
 
 ## Verify a GitHub Release
@@ -24,8 +24,8 @@ Download the release assets into one directory. The checksum file contains
 asset names relative to that directory:
 
 ```shell
-gh release download v0.1.0 --repo Opperiesen/lanweave --dir release-v0.1.0
-cd release-v0.1.0
+gh release download v0.2.0 --repo Opperiesen/lanweave --dir release-v0.2.0
+cd release-v0.2.0
 sha256sum -c SHA256SUMS
 ```
 
@@ -33,9 +33,9 @@ Verify the signed SLSA provenance for the wheel with GitHub CLI:
 
 ```shell
 gh attestation verify \
-  lanweave-0.1.0-py3-none-any.whl \
+  lanweave-0.2.0-py3-none-any.whl \
   --repo Opperiesen/lanweave \
-  --source-ref refs/tags/v0.1.0 \
+  --source-ref refs/tags/v0.2.0 \
   --signer-workflow Opperiesen/lanweave/.github/workflows/release.yml
 ```
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.2.0 — 2026-08-15
+
 - define the v0.2.0 local profile shape, selector precedence and version-1
   migration contract;
 - add the reusable version-1/version-2 local target resolver;

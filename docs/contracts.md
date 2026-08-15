@@ -104,10 +104,24 @@ The canonical schema is
 ```json
 {
   "format_version": 1,
+  "target": {
+    "profile": "office",
+    "controller": "local",
+    "site": "default"
+  },
   "summary": {"create": 0, "update": 0, "delete": 0, "noop": 0},
   "changes": []
 }
 ```
+
+`target` is optional for compatibility with plans produced before `v0.2.0`.
+The `v0.2.0` CLI always includes it and the value is the non-secret tuple of
+profile, controller and site. The plan format deliberately remains version 1:
+adding this optional field does not change the meaning of any existing field,
+so old v1 plan JSON remains valid and readable. A target-bound plan cannot be
+applied without the same selected identity; a mismatch is rejected before any
+controller mutation. Legacy plans without `target` retain their v1 behavior and
+should be regenerated when more than one target is available.
 
 Every change has `kind`, `action`, `name`, `id`, `changed_fields` and a
 `payload`. `changes` excludes `noop` entries, while `summary.noop` retains the

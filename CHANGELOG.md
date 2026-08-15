@@ -9,6 +9,8 @@
   list and validation commands.
 - thread explicit profile and configuration selectors through controller-facing
   CLI commands, with sanitized target announcements and early conflict checks.
+- add non-secret target identity to v2 plans and reject mismatched plan targets
+  before any mutation.
 
 ## 0.1.0 — 2026-08-15
 

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from .client import UniFiClient
 from .contracts import PLAN_FORMAT_VERSION
+from .profiles import TargetIdentity
 
 SENSITIVE_FIELDS = {
     "api_key",
@@ -204,6 +205,7 @@ class ResourceDiff:
 @dataclass
 class Plan:
     diffs: list[ResourceDiff] = field(default_factory=list)
+    target: TargetIdentity | None = None
 
     def has_changes(self) -> bool:
         return any(diff.action != "noop" for diff in self.diffs)
@@ -217,11 +219,14 @@ class Plan:
         }
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        rendered = {
             "format_version": PLAN_FORMAT_VERSION,
             "summary": self.summary(),
             "changes": [diff.to_dict() for diff in self.diffs if diff.action != "noop"],
         }
+        if self.target is not None:
+            rendered["target"] = self.target.to_dict()
+        return rendered
 
 
 def _diff_label(diff: ResourceDiff) -> str:
@@ -299,6 +304,32 @@ class PlanApplyError(RuntimeError):
         }
 
 
+class PlanTargetMismatchError(RuntimeError):
+    """A target-bound plan does not match the selected live target."""
+
+    def __init__(
+        self,
+        *,
+        expected: TargetIdentity,
+        actual: TargetIdentity | None,
+    ) -> None:
+        self.expected = expected
+        self.actual = actual
+        super().__init__(self._message())
+
+    def _message(self) -> str:
+        actual = self.actual.label() if self.actual is not None else "none"
+        return f"plan target mismatch: expected={self.expected.label()}; selected={actual}"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a deterministic, secret-free mismatch report."""
+        return {
+            "error": "plan_target_mismatch",
+            "expected_target": self.expected.to_dict(),
+            "selected_target": self.actual.to_dict() if self.actual is not None else None,
+        }
+
+
 def _index_by_name(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {item["name"]: item for item in items if item.get("name")}
 
@@ -371,7 +402,13 @@ def _append_resource_plan(
             )
 
 
-def build_plan(client: UniFiClient, config: dict[str, Any], prune: bool = False) -> Plan:
+def build_plan(
+    client: UniFiClient,
+    config: dict[str, Any],
+    prune: bool = False,
+    *,
+    target: TargetIdentity | None = None,
+) -> Plan:
     """Build a deterministic plan from the live controller and desired config."""
     current_networks = client.networks()
     current_wlans = client.wlans()
@@ -380,7 +417,7 @@ def build_plan(client: UniFiClient, config: dict[str, Any], prune: bool = False)
         for network in current_networks
         if network.get("name") and _object_id(network)
     }
-    plan = Plan()
+    plan = Plan(target=target)
     _append_resource_plan(
         plan,
         kind="network",
@@ -415,8 +452,10 @@ def _created_id(result: Any) -> str | None:
     return None
 
 
-def _target_label(client: UniFiClient) -> str:
+def _target_label(client: UniFiClient, identity: TargetIdentity | None = None) -> str:
     """Build a target label without ever including URL userinfo or secrets."""
+    if identity is not None:
+        return identity.label()
     settings = getattr(client, "settings", None)
     raw_host = str(getattr(settings, "host", "") or "")
     try:
@@ -449,6 +488,7 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
 
 def _raise_apply_error(
     client: UniFiClient,
+    plan: Plan,
     *,
     ordered: list[ResourceDiff],
     completed: list[ResourceDiff],
@@ -461,7 +501,7 @@ def _raise_apply_error(
 ) -> None:
     pending_start = len(completed) + (1 if failed is not None else 0)
     raise PlanApplyError(
-        target=_target_label(client),
+        target=_target_label(client, plan.target),
         resource=resource,
         operation=operation,
         phase=phase,
@@ -472,8 +512,24 @@ def _raise_apply_error(
     ) from None
 
 
-def apply_plan(client: UniFiClient, plan: Plan) -> None:
+def _verify_plan_target(
+    plan: Plan,
+    selected_target: TargetIdentity | None,
+) -> None:
+    if plan.target is None:
+        return
+    if selected_target != plan.target:
+        raise PlanTargetMismatchError(expected=plan.target, actual=selected_target)
+
+
+def apply_plan(
+    client: UniFiClient,
+    plan: Plan,
+    *,
+    target: TargetIdentity | None = None,
+) -> None:
     """Apply a plan with dependency ordering and safe partial-failure reports."""
+    _verify_plan_target(plan, target)
     network_base = client.site_url("rest/networkconf")
     wlan_base = client.site_url("rest/wlanconf")
     ordered = _ordered_apply_diffs(plan)
@@ -500,6 +556,7 @@ def apply_plan(client: UniFiClient, plan: Plan) -> None:
         except Exception as exc:
             _raise_apply_error(
                 client,
+                plan,
                 ordered=ordered,
                 completed=completed,
                 failed=diff,
@@ -529,6 +586,7 @@ def apply_plan(client: UniFiClient, plan: Plan) -> None:
     except Exception as exc:
         _raise_apply_error(
             client,
+            plan,
             ordered=ordered,
             completed=completed,
             failed=None,
@@ -569,6 +627,7 @@ def apply_plan(client: UniFiClient, plan: Plan) -> None:
         except Exception as exc:
             _raise_apply_error(
                 client,
+                plan,
                 ordered=ordered,
                 completed=completed,
                 failed=diff,
@@ -591,6 +650,7 @@ def apply_plan(client: UniFiClient, plan: Plan) -> None:
         except Exception as exc:
             _raise_apply_error(
                 client,
+                plan,
                 ordered=ordered,
                 completed=completed,
                 failed=diff,

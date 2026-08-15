@@ -33,6 +33,13 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     assert plan_schema["properties"]["format_version"]["const"] == PLAN_FORMAT_VERSION
     assert config_schema["additionalProperties"] is False
     assert plan_schema["additionalProperties"] is False
+    assert "target" in plan_schema["properties"]
+    assert "target" not in plan_schema["required"]
+    assert plan_schema["$defs"]["target"]["required"] == [
+        "profile",
+        "controller",
+        "site",
+    ]
     assert profile_schema["properties"]["version"]["const"] == 2
     assert profile_schema["required"] == ["version", "controllers", "profiles"]
     assert profile_schema["additionalProperties"] is False

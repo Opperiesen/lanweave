@@ -7,6 +7,7 @@
   "required": ["format_version", "summary", "changes"],
   "properties": {
     "format_version": { "const": 1 },
+    "target": { "$ref": "#/$defs/target" },
     "summary": { "$ref": "#/$defs/summary" },
     "changes": {
       "type": "array",
@@ -14,6 +15,16 @@
     }
   },
   "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "controller", "site"],
+      "properties": {
+        "profile": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "controller": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "site": { "type": "string", "minLength": 1 }
+      }
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,

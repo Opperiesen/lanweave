@@ -31,7 +31,7 @@ implemented.
 | `v0.1.0b1` | Core contract freeze | [milestone](https://github.com/Opperiesen/lanweave/milestone/2) | Configuration, CLI, plan JSON and read-only MCP contracts are documented and tested |
 | `v0.1.0rc1` | Release rehearsal | [milestone](https://github.com/Opperiesen/lanweave/milestone/3) | Protected release workflow builds and verifies installable artifacts |
 | `v0.1.0` | Stable local-first core | [milestone](https://github.com/Opperiesen/lanweave/milestone/3) | PyPI publication, provenance and compatibility matrix are complete |
-| `v0.2.0` | Multi-controller profiles | [milestone](https://github.com/Opperiesen/lanweave/milestone/4) | Explicit multi-site targeting works without breaking version-1 configs |
+| `v0.2.0` | Multi-controller and multi-site profiles | [milestone](https://github.com/Opperiesen/lanweave/milestone/4) | Explicit local target selection works across CLI, plans and read-only MCP without breaking version-1 configs |
 | `v0.3.0` | Adapter architecture | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local and optional cloud adapters expose explicit capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
@@ -93,9 +93,34 @@ multi-site management, firewall, DNS, NAT, VPN or device mutation workflows.
 
 ## `v0.2.0` — multi-controller and multi-site profiles
 
-Tracked work:
+This release is tracked as an umbrella epic:
 
 - [#3 — explicit multi-controller and multi-site profiles](https://github.com/Opperiesen/lanweave/issues/3).
+
+The work is deliberately decomposed into the following sequence.
+
+### Foundation
+
+- [#40 — define the profile contract and precedence rules](https://github.com/Opperiesen/lanweave/issues/40);
+- [#41 — implement local profile resolution and credential sources](https://github.com/Opperiesen/lanweave/issues/41);
+- [#42 — add version-2 configuration validation and profile commands](https://github.com/Opperiesen/lanweave/issues/42).
+
+### Operator surfaces
+
+- [#43 — thread explicit profiles through the CLI and apply safety checks](https://github.com/Opperiesen/lanweave/issues/43);
+- [#44 — add stable target identity to plan JSON and planning outputs](https://github.com/Opperiesen/lanweave/issues/44);
+- [#45 — make MCP profile and target selection explicit](https://github.com/Opperiesen/lanweave/issues/45).
+
+### Evidence and release
+
+- [#46 — validate v0.2.0 with integration evidence, migration docs and release gates](https://github.com/Opperiesen/lanweave/issues/46).
+
+Expected release gates:
+
+- `v0.2.0a1`: profile contract, resolver and version-1 compatibility are usable;
+- `v0.2.0b1`: CLI, plan JSON and MCP surfaces are implemented with focused tests;
+- `v0.2.0rc1`: integration evidence, migration documentation, redaction and wrong-target safety checks are complete;
+- `v0.2.0`: all required checks pass and compatibility notes are published.
 
 The profile model must:
 
@@ -106,6 +131,10 @@ The profile model must:
 - preserve version-1 single-controller files;
 - reject incomplete or ambiguous profiles;
 - prevent cross-controller and cross-site apply mistakes.
+
+The release is limited to local controllers and sites. Cloud adapters remain in
+`v0.3.0`; new resource families remain in `v0.4.0+`; write-capable MCP and
+implicit controller discovery remain out of scope.
 
 ## `v0.3.0` — adapter capability boundary
 

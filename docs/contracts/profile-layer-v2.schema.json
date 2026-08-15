@@ -36,6 +36,10 @@
       "additionalProperties": false,
       "required": ["host_env", "auth"],
       "properties": {
+        "adapter": {
+          "enum": ["local-classic", "cloud-site-manager"],
+          "default": "local-classic"
+        },
         "host_env": { "$ref": "#/$defs/env_name" },
         "verify_tls": { "type": "boolean", "default": true },
         "auth": { "$ref": "#/$defs/auth" }

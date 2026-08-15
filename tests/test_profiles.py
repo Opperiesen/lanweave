@@ -9,6 +9,7 @@ from lanweave.profiles import TargetIdentity, resolve_target, validate_profile_d
 
 ROOT = Path(__file__).parents[1]
 V2_FIXTURE = ROOT / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+ADAPTER_FIXTURE = ROOT / "tests/fixtures/profiles/config-v2-adapters.yaml"
 
 
 def _v2_config() -> dict:
@@ -57,6 +58,7 @@ def test_v2_configuration_resolves_the_declared_profile() -> None:
         "profile": "office",
         "controller": "local",
         "site": "default",
+        "adapter": "local-classic",
     }
     assert resolved.settings.host == "https://local.example"
     assert resolved.settings.api_key == "local-key"
@@ -121,6 +123,55 @@ def test_literal_profile_credentials_are_rejected() -> None:
         validate_profile_document(config)
 
     assert "literal-secret" not in str(caught.value)
+
+
+def test_explicit_adapters_are_validated_and_included_in_identity() -> None:
+    config = yaml.safe_load(ADAPTER_FIXTURE.read_text(encoding="utf-8"))
+
+    validate_profile_document(config)
+    resolved = resolve_target(
+        config,
+        environ={
+            "LANWEAVE_LOCAL_HOST": "https://local.example",
+            "LANWEAVE_LOCAL_API_KEY": "local-key",
+            "LANWEAVE_CLOUD_HOST": "https://api.example",
+            "LANWEAVE_CLOUD_API_KEY": "cloud-key",
+        },
+    )
+
+    assert resolved.identity == TargetIdentity("local-office", "local", "default", "local-classic")
+    assert resolved.target_dict()["adapter"] == "local-classic"
+
+    cloud_config = dict(config)
+    cloud_config["profile"] = "cloud-overview"
+    cloud = resolve_target(
+        cloud_config,
+        environ={
+            "LANWEAVE_LOCAL_HOST": "https://local.example",
+            "LANWEAVE_LOCAL_API_KEY": "local-key",
+            "LANWEAVE_CLOUD_HOST": "https://api.example",
+            "LANWEAVE_CLOUD_API_KEY": "cloud-key",
+        },
+    )
+    assert cloud.identity == TargetIdentity(
+        "cloud-overview", "cloud", "organization", "cloud-site-manager"
+    )
+
+
+def test_legacy_target_identity_defaults_to_local_classic() -> None:
+    identity = TargetIdentity.from_dict(
+        {"profile": "office", "controller": "local", "site": "default"}
+    )
+
+    assert identity == TargetIdentity("office", "local", "default", "local-classic")
+
+
+def test_unknown_adapter_is_rejected_before_credentials_are_loaded() -> None:
+    config = _v2_config()
+    config["controllers"]["local"]["adapter"] = "unknown"
+
+    with pytest.raises(ConfigError, match="must be one of"):
+        validate_profile_document(config)
 
 
 def test_invalid_auth_form_and_unknown_controller_are_rejected() -> None:

@@ -1,0 +1,27 @@
+version: 2
+profile: local-office
+
+controllers:
+  local:
+    adapter: local-classic
+    host_env: LANWEAVE_LOCAL_HOST
+    verify_tls: true
+    auth:
+      api_key_env: LANWEAVE_LOCAL_API_KEY
+  cloud:
+    adapter: cloud-site-manager
+    host_env: LANWEAVE_CLOUD_HOST
+    verify_tls: true
+    auth:
+      api_key_env: LANWEAVE_CLOUD_API_KEY
+
+profiles:
+  local-office:
+    controller: local
+    site: default
+  cloud-overview:
+    controller: cloud
+    site: organization
+
+networks: []
+wlans: []

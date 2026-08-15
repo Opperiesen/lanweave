@@ -45,9 +45,13 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
         "controller",
         "site",
     ]
+    assert plan_schema["$defs"]["target"]["properties"]["adapter"]["default"] == ("local-classic")
     assert profile_schema["properties"]["version"]["const"] == 2
     assert profile_schema["required"] == ["version", "controllers", "profiles"]
     assert profile_schema["additionalProperties"] is False
+    assert profile_schema["$defs"]["controller"]["properties"]["adapter"]["default"] == (
+        "local-classic"
+    )
     assert config_v2_schema["properties"]["version"]["const"] == 2
     assert config_v2_schema["required"] == [
         "version",
@@ -79,3 +83,9 @@ def test_profile_contract_fixtures_cover_legacy_and_multi_target_shapes() -> Non
     assert set(v2["profiles"]) == {"office", "guest", "backup-default"}
     assert v2["profiles"]["guest"] == {"controller": "local", "site": "guest"}
     assert "fixture-secret" not in v2_path.read_text(encoding="utf-8")
+
+    adapter_path = ROOT / "tests/fixtures/profiles/config-v2-adapters.yaml"
+    adapter_config = yaml.safe_load(adapter_path.read_text(encoding="utf-8"))
+    validate_config(adapter_config)
+    assert adapter_config["controllers"]["cloud"]["adapter"] == "cloud-site-manager"
+    assert "cloud-key" not in adapter_path.read_text(encoding="utf-8")

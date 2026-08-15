@@ -61,7 +61,7 @@ def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -
 
     assert main(["profiles", "list", "--config", str(path)]) == 0
     output = capsys.readouterr().out
-    assert "profile=backup-default controller=backup site=default" in output
+    assert "profile=backup-default controller=backup site=default adapter=local-classic" in output
     assert "LANWEAVE_" not in output
 
 
@@ -99,7 +99,10 @@ def test_controller_command_announces_the_selected_target(
 
     assert main(["status", "--config", str(path)]) == 0
 
-    assert "target: profile=office controller=local site=default" in capsys.readouterr().err
+    assert (
+        "target: profile=office controller=local site=default adapter=local-classic"
+        in capsys.readouterr().err
+    )
 
 
 def test_plan_outputs_the_selected_target_in_table_and_json(
@@ -137,10 +140,14 @@ def test_plan_outputs_the_selected_target_in_table_and_json(
         "profile": "office",
         "controller": "local",
         "site": "default",
+        "adapter": "local-classic",
     }
 
     assert main(["plan", "--config", str(path)]) == 0
-    assert "Target: profile=office controller=local site=default" in capsys.readouterr().out
+    assert (
+        "Target: profile=office controller=local site=default adapter=local-classic"
+        in capsys.readouterr().out
+    )
 
 
 def test_plan_rejects_a_conflicting_explicit_profile_before_controller_access(

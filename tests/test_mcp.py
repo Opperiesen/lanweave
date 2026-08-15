@@ -162,6 +162,7 @@ def test_mcp_v2_requires_selection_and_exposes_only_sanitized_target(
         "profile": "office",
         "controller": "local",
         "site": "default",
+        "adapter": "local-classic",
     }
     assert "fixture-secret" not in str(health)
 
@@ -220,4 +221,5 @@ def test_mcp_v1_environment_only_health_remains_callable(monkeypatch: pytest.Mon
         "profile": "legacy",
         "controller": "legacy",
         "site": "default",
+        "adapter": "local-classic",
     }

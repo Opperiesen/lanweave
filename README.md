@@ -33,10 +33,11 @@ requirement and not a write path around the plan safety boundary.
 ## Status
 
 Lanweave is an early alpha. The complete first product slice is implemented
-and tested against simulated controller responses. It targets the classic
+and tested against simulated controller responses, with an initial read-only
+integration run on one designated UniFi OS controller. It targets the classic
 local UniFi Network API used by self-hosted UniFi Network applications and
 UniFi OS consoles; see [compatibility](docs/compatibility.md) for the exact
-scope.
+scope and tested matrix.
 
 Supported resource families in this release:
 

@@ -9,6 +9,7 @@
 - add a manually triggered, protected controller integration workflow with
   redacted compatibility reports;
 - separate live read-only probes from an explicitly authorized mutation suite.
+- publish the first designated-controller read-only compatibility evidence.
 
 ## 0.1.0a1 — 2026-08-15
 

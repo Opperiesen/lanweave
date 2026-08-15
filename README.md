@@ -32,16 +32,15 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.5.0` is the stable local firewall resource release. It preserves
-the local-first profile behavior tested against simulated controller responses,
-with read-only and authorized mutation evidence on one designated UniFi OS
-controller, adds an explicit, read-only Site Manager cloud adapter, and
-manages local DNS policies through the official Integration API. It
-targets the classic local UniFi Network API used by self-hosted UniFi Network
-applications and UniFi OS consoles; see [compatibility](docs/compatibility.md)
-and the [apply recovery model](docs/recovery.md) for the exact scope, tested
-matrix and partial-failure behavior. The frozen public surfaces are described
-in [contracts](docs/contracts.md).
+Lanweave `0.6.0` is the stable local NAT and port-forwarding resource release.
+It preserves the local-first profile behavior, the read-only Site Manager
+cloud adapter, local DNS and firewall families, and adds a tested, guarded NAT
+surface for the classic local UniFi Network API. It targets the classic local
+UniFi Network API used by self-hosted UniFi Network applications and UniFi OS
+consoles; see [compatibility](docs/compatibility.md) and the [apply recovery
+model](docs/recovery.md) for the exact scope, tested matrix and partial-failure
+behavior. The frozen public surfaces are described in
+[contracts](docs/contracts.md).
 
 Supported resource families in this release:
 
@@ -49,6 +48,7 @@ Supported resource families in this release:
 - WLANs, including references to environment-provided passwords;
 - local DNS `A`, `AAAA` and `CNAME` records;
 - local firewall zones, address groups, port groups and ordered rules;
+- local NAT and port-forwarding mappings in the documented IPv4 subset;
 - local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
@@ -61,8 +61,9 @@ The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-NAT, VPN and device mutation workflows remain outside v0.5.0. They need their
-own fixtures, dependency rules and rollback story before being safe to expose.
+VPN and device mutation workflows remain outside v0.6.0. NAT support is limited
+to the documented IPv4 subset, with explicit exposure warnings and protected
+ownership behavior; see [NAT](docs/nat.md) and the [v0.6.0 roadmap](docs/roadmap-v0.6.0.md).
 
 ## Quick start
 
@@ -70,7 +71,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.5.0
+uv tool install lanweave==0.6.0
 lanweave --version
 ```
 

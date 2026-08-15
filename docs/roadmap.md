@@ -73,9 +73,9 @@ WLANs and read-oriented operational views. The complete frozen surface is in
 This release does not include cloud resource mutations, firewall, NAT, VPN or
 write-capable MCP tools.
 
-## Release status — `v0.5.0`
+## Historical release — `v0.5.0`
 
-`v0.5.0` is the current stable release. It provides the complete local-first
+`v0.5.0` was the stable release that provided the complete local-first
 surface through the safe local firewall family:
 
 - the released `v0.4.0` DNS resource family and `v0.3.0` adapter surface;
@@ -94,10 +94,37 @@ The package was published by [the protected release workflow
 and is available as the [GitHub Release](https://github.com/Opperiesen/lanweave/releases/tag/v0.5.0)
 and on [PyPI](https://pypi.org/project/lanweave/0.5.0/).
 
-Milestone `v0.5.0` is closed with all seven issues completed. The next open
-milestone is `v0.6.0` for NAT and port forwarding; `v0.7.0` remains the
-following VPN milestone. The complete firewall scope is maintained in
+Milestone `v0.5.0` is closed with all seven issues completed. The complete
+firewall scope is maintained in
 [roadmap-v0.5.0.md](roadmap-v0.5.0.md).
+
+## Release status — `v0.6.0`
+
+`v0.6.0` is the current stable release. It adds the safe local NAT and
+port-forwarding family while preserving the v0.5 firewall, v0.4 DNS, profile,
+cloud-read-only and read-only MCP surfaces.
+
+The release includes:
+
+- portable NAT mappings without controller IDs or raw payloads;
+- deterministic exposure, conflict and dependency analysis;
+- guarded local-classic session mutations for the supported IPv4 subset;
+- protected ownership, explicit prune and partial-failure recovery semantics;
+- sanitized controller evidence and reproducible package gates.
+
+The protected NAT controller lifecycle passed in [workflow run
+31907918542](https://github.com/Opperiesen/lanweave/actions/runs/31907918542).
+The package, tag, provenance, PyPI and GitHub publication gates passed in
+[release workflow
+31908100009](https://github.com/Opperiesen/lanweave/actions/runs/31908100009).
+The release is available as the [GitHub
+Release](https://github.com/Opperiesen/lanweave/releases/tag/v0.6.0) and on
+[PyPI](https://pypi.org/project/lanweave/0.6.0/).
+
+Milestone `v0.6.0` is closed with all seven issues completed. The next active
+milestone is `v0.7.0` for safe local VPN resources; its read-only-first scope
+remains outside the v0.6.0 release gate. The complete NAT scope is maintained
+in [roadmap-v0.6.0.md](roadmap-v0.6.0.md).
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 
@@ -285,23 +312,13 @@ publication. The protected controller gates passed in workflow run
 [31903782251](https://github.com/Opperiesen/lanweave/actions/runs/31903782251),
 and the package/tag/publication gates passed in workflow run
 [31904325887](https://github.com/Opperiesen/lanweave/actions/runs/31904325887).
-The `v0.5.0` milestone is now closed; `v0.6.0` is the next active release
-train.
+The `v0.5.0` milestone remains closed; its successor `v0.6.0` is now the
+current stable release.
 
-## Subsequent independent releases
+## Next independent release
 
 Each resource family has a different blast radius, controller contract and
 release gate. The next release is now decomposed and active:
-
-### `v0.6.0` — safe local NAT and port forwarding
-
-The complete decomposition is maintained in
-[roadmap-v0.6.0.md](roadmap-v0.6.0.md) and tracked by
-[epic #18](https://github.com/Opperiesen/lanweave/issues/18). Its six child
-issues are #97–#102, all assigned to the open
-[v0.6.0 milestone](https://github.com/Opperiesen/lanweave/milestone/8).
-The release starts with the mapping contract and requires exposure/conflict
-analysis before any write.
 
 ### `v0.7.0` — safe local VPN resources
 
@@ -310,7 +327,7 @@ the open [v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9)
 with a read-only-first rollout and strict secret/route handling. It remains
 outside the v0.6.0 release gate.
 
-Both families remain outside the v0.5.0 implementation and release gate.
+The v0.7.0 family remains outside the v0.6.0 implementation and release gate.
 
 ## MCP roadmap
 

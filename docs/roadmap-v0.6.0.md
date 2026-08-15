@@ -1,8 +1,16 @@
 # Lanweave v0.6.0 roadmap
 
-Lanweave v0.6.0 is the next release after the stable firewall resource family.
-It adds only local NAT and port-forwarding resources. VPN remains an
+Lanweave v0.6.0 is the completed release after the stable firewall resource
+family. It adds only local NAT and port-forwarding resources. VPN remains an
 independent v0.7.0 release with a separate secret and route safety model.
+
+The public release is available as the [GitHub
+Release](https://github.com/Opperiesen/lanweave/releases/tag/v0.6.0) and on
+[PyPI](https://pypi.org/project/lanweave/0.6.0/). Its protected controller
+evidence passed in [workflow run
+31907918542](https://github.com/Opperiesen/lanweave/actions/runs/31907918542),
+and the package, provenance and publication gates passed in [release workflow
+31908100009](https://github.com/Opperiesen/lanweave/actions/runs/31908100009).
 
 The release builds on the v0.4 resource lifecycle, the v0.5 firewall safety
 analysis, explicit profile selection, capability reporting and manual recovery
@@ -243,6 +251,9 @@ pass the repository policy before merge.
   verify from a fresh checkout;
 - the v0.6.0 milestone is closed and the v0.7.0 VPN milestone remains outside
   the gate.
+
+All release-gate conditions are satisfied by the published tag v0.6.0. The
+milestone is closed with the epic and all six child issues completed.
 
 ## Definition of done
 

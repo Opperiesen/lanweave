@@ -54,9 +54,9 @@ story before being safe to expose.
 
 ## Quick start
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The beta release
-is currently installed from a checkout; package-index publication is tracked
-in the [roadmap](docs/roadmap.md).
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The release
+candidate is currently installed from its GitHub release or a checkout;
+package-index publication is tracked in the [roadmap](docs/roadmap.md).
 
 ```shell
 uv sync --extra dev

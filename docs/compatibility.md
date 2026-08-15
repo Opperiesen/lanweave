@@ -80,6 +80,7 @@ treated as supported without a corresponding report.
 | Deployment | UniFi OS | UniFi Network | Authentication | TLS | Read-only probes | Mutations |
 | --- | --- | --- | --- | --- | --- | --- |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | **tested** — [create/update/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31884501527) |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session (NAT v0.6.0) | verification disabled locally | **tested** — [protected NAT probes passed](https://github.com/Opperiesen/lanweave/actions/runs/31907918542) | **tested** — [NAT create/update/protected-prune/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31907918542) |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | **tested** — DNS create/update/prune |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [6 passed](https://github.com/Opperiesen/lanweave/actions/runs/31903782251) | **tested** — [firewall create/update/reorder/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31903782251) |
 
@@ -99,11 +100,10 @@ Mutation` role and created, updated and deleted one VLAN-only network on the
 dedicated target; the final controller inventory contains no mutation target.
 
 This matrix currently proves read-only session and API-key authentication,
-session network mutations, API-key DNS policy mutations and API-key firewall
-mutations for one exact controller combination. NAT remains pending its
-protected v0.6.0 read-only and lifecycle run; it is not a published controller
-compatibility claim until that gate is complete. A second controller version
-remains a separate evidence track.
+session network and NAT mutations, API-key DNS policy mutations and API-key
+firewall mutations for one exact controller combination. The NAT claim is
+limited to the documented IPv4 subset and the session-scoped ownership rule;
+a second controller version remains a separate evidence track.
 
 ## Authentication and TLS
 

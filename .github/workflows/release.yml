@@ -45,7 +45,7 @@ jobs:
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
           python scripts/verify_release_artifacts.py "$version" dist
-          sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS
+          (cd dist && sha256sum *.whl *.tar.gz > SHA256SUMS)
       - name: Install wheel in a clean environment
         run: |
           set -euo pipefail
@@ -83,22 +83,35 @@ jobs:
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
+          release_args=(
+            --repo "$REPOSITORY"
+            --verify-tag
+            --draft
+            --title "Lanweave $version"
+            --generate-notes
+          )
+          expected_prerelease=false
+          if [[ "$RELEASE_TAG" =~ (a|b|rc)[0-9]+$ ]]; then
+            release_args+=(--prerelease)
+            expected_prerelease=true
+          fi
           if existing="$(gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft 2>/dev/null)"; then
             if [[ "$(jq -r '.isDraft' <<<"$existing")" != "true" ]]; then
               echo "A published release already exists for $RELEASE_TAG." >&2
               exit 1
             fi
+            if [[ "$expected_prerelease" == "true" ]]; then
+              gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --prerelease
+            fi
           else
-            gh release create "$RELEASE_TAG" \
-              --repo "$REPOSITORY" \
-              --verify-tag \
-              --draft \
-              --title "Lanweave $version" \
-              --generate-notes
+            gh release create "$RELEASE_TAG" "${release_args[@]}"
           fi
           gh release upload "$RELEASE_TAG" dist/* --repo "$REPOSITORY" --clobber
           for asset in dist/*; do
             gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json assets \
               --jq '.assets[].name' | grep -Fxq "$(basename "$asset")"
           done
+          release_state="$(gh release view "$RELEASE_TAG" --repo "$REPOSITORY" --json isDraft,isPrerelease)"
+          test "$(jq -r '.isDraft' <<<"$release_state")" = "true"
+          test "$(jq -r '.isPrerelease' <<<"$release_state")" = "$expected_prerelease"
           gh release edit "$RELEASE_TAG" --repo "$REPOSITORY" --draft=false

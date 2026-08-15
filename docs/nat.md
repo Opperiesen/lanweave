@@ -97,3 +97,16 @@ The classic response is a single inventory list rather than a paginated
 Integration API collection. The adapter accepts an empty `data` list and fails
 closed if a future response changes the envelope or mapping shape; it does not
 invent pagination semantics for an endpoint that does not expose them.
+
+## Planning boundary
+
+The planning layer compares mappings by name, sorts the result by that stable
+identity and refuses overlapping public flows when interface, address, port,
+protocol and source scope can collide. Disabled mappings do not create an
+active-flow conflict. A plan warning names the public boundary and private
+service, and can call out unrestricted sources, interface-selected addresses,
+privileged ports, hairpin uncertainty and an unproven firewall dependency.
+
+The current tranche only plans these changes. It does not send NAT writes;
+session capabilities stop at `plan`, and apply/prune remain blocked until the
+controlled mutation and recovery tranche.

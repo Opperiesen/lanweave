@@ -27,6 +27,13 @@ from .firewall import (
     firewall_zone_to_unifi,
     validate_firewall,
 )
+from .nat import (
+    NatError,
+    analyze_nat_exposure,
+    nat_export_mapping,
+    nat_is_user_managed,
+    validate_nat_conflicts,
+)
 from .profiles import TargetIdentity
 from .resources import DependencyGraph, ResourceContractError, ResourceKey
 
@@ -518,6 +525,113 @@ def _append_dns_plan(
                 action="delete",
                 name=name,
                 current=_dns_current_payload(existing),
+                object_id=object_id,
+            )
+        )
+
+
+def _nat_unique_name_index(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    indexed: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = item.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ResourceContractError("NAT mapping is missing a stable name")
+        if name in indexed:
+            raise ResourceContractError(f"ambiguous NAT mapping name: {name}")
+        indexed[name] = item
+    return indexed
+
+
+def _nat_current_payload(mapping: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return nat_export_mapping(mapping)
+    except NatError as exc:
+        raise ResourceContractError(f"invalid current NAT mapping {mapping.get('name')}") from exc
+
+
+def _append_nat_plan(
+    plan: Plan,
+    *,
+    desired: Any,
+    current: list[dict[str, Any]],
+    network_names: set[str],
+    prune: bool,
+) -> None:
+    try:
+        desired_mappings = validate_nat_conflicts(
+            desired,
+        )
+        desired_mappings = [nat_export_mapping(mapping) for mapping in desired_mappings]
+        warnings = analyze_nat_exposure(desired_mappings)
+    except NatError as exc:
+        raise ResourceContractError(str(exc)) from None
+
+    for mapping in desired_mappings:
+        private_network = mapping.get("private", {}).get("network")
+        if private_network is not None and private_network not in network_names:
+            raise ResourceContractError(
+                f"NAT mapping refers to an unknown network: {private_network}"
+            )
+
+    current_by_name = _nat_unique_name_index(current)
+    desired_names = {mapping["name"] for mapping in desired_mappings}
+    for source in sorted(desired_mappings, key=lambda item: item["name"]):
+        name = source["name"]
+        payload = nat_export_mapping(source)
+        existing = current_by_name.get(name)
+        if existing is None:
+            plan.diffs.append(
+                ResourceDiff(
+                    kind="nat",
+                    action="create",
+                    name=name,
+                    payload=payload,
+                    source=source,
+                    warnings=warnings[name],
+                )
+            )
+            continue
+
+        current_payload = _nat_current_payload(existing)
+        if not _significant_diff(payload, current_payload):
+            plan.diffs.append(ResourceDiff(kind="nat", action="noop", name=name, source=source))
+            continue
+        if not nat_is_user_managed(existing):
+            origin = existing.get("_origin", "UNKNOWN")
+            raise ResourceContractError(
+                f"refusing to mutate NAT mapping with protected origin {origin}: {name}"
+            )
+        object_id = _object_id(existing)
+        if not object_id:
+            raise ResourceContractError(f"managed NAT mapping has no controller id: {name}")
+        plan.diffs.append(
+            ResourceDiff(
+                kind="nat",
+                action="update",
+                name=name,
+                payload=payload,
+                current=current_payload,
+                object_id=object_id,
+                source=source,
+                warnings=warnings[name],
+            )
+        )
+
+    if not prune:
+        return
+    for name in sorted(set(current_by_name) - desired_names):
+        existing = current_by_name[name]
+        if not nat_is_user_managed(existing):
+            continue
+        object_id = _object_id(existing)
+        if not object_id:
+            raise ResourceContractError(f"managed NAT mapping has no controller id: {name}")
+        plan.diffs.append(
+            ResourceDiff(
+                kind="nat",
+                action="delete",
+                name=name,
+                current=_nat_current_payload(existing),
                 object_id=object_id,
             )
         )
@@ -1044,6 +1158,20 @@ def build_plan(
             current_networks=current_networks,
             prune=prune,
         )
+    desired_nat = config.get("nat")
+    if desired_nat or (prune and "nat" in config):
+        capabilities = getattr(client, "capabilities", None)
+        if capabilities is not None:
+            capabilities.require("nat", "plan")
+        if not callable(getattr(client, "nat", None)):
+            raise RuntimeError("selected adapter cannot read NAT mappings")
+        _append_nat_plan(
+            plan,
+            desired=desired_nat or [],
+            current=client.nat(),
+            network_names={str(network["name"]) for network in config.get("networks", [])},
+            prune=prune,
+        )
     return plan
 
 
@@ -1212,6 +1340,14 @@ def apply_plan(
 ) -> None:
     """Apply a plan with dependency ordering and safe partial-failure reports."""
     _verify_plan_target(plan, target)
+    nat_changes = [diff for diff in plan.diffs if diff.kind == "nat" and diff.action != "noop"]
+    if nat_changes:
+        capabilities = getattr(client, "capabilities", None)
+        if capabilities is not None:
+            capabilities.require("nat", "apply")
+        raise ResourceContractError(
+            "NAT mutation is deferred until the v0.6.0 apply and recovery tranche"
+        )
     if plan.risk_warnings() and not acknowledge_firewall_risk:
         raise PlanRiskError(plan.risk_warnings())
     network_base = client.site_url("rest/networkconf")

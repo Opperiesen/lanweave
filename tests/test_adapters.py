@@ -118,7 +118,8 @@ def test_nat_read_and_export_are_session_only_until_mutation_support_exists() ->
 
     assert session.supports("nat", "read")
     assert session.supports("nat", "export")
-    assert not session.supports("nat", "plan")
+    assert session.supports("nat", "plan")
+    assert not session.supports("nat", "apply")
     assert not api_key.supports("nat", "read")
 
 

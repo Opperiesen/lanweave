@@ -458,6 +458,124 @@ def nat_export_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     return normalize_nat_mapping(portable, "nat export")
 
 
+def _nat_port_bounds(value: int | Mapping[str, Any]) -> tuple[int, int]:
+    if isinstance(value, int):
+        return value, value
+    return int(value["start"]), int(value["stop"])
+
+
+def _nat_protocol_set(value: str) -> frozenset[str]:
+    if value == "TCP_UDP":
+        return frozenset({"TCP", "UDP"})
+    return frozenset({value})
+
+
+def _nat_port_text(value: int | Mapping[str, Any]) -> str:
+    start, stop = _nat_port_bounds(value)
+    return str(start) if start == stop else f"{start}-{stop}"
+
+
+def _nat_private_service(value: Mapping[str, Any]) -> str:
+    private = value["private"]
+    address = str(private["address"])
+    if ":" in address:
+        address = f"[{address}]"
+    return f"{address}:{_nat_port_text(private['port'])}"
+
+
+def _nat_source_networks(value: Mapping[str, Any]) -> list[ipaddress._BaseNetwork]:
+    networks: list[ipaddress._BaseNetwork] = []
+    for address in (value.get("source") or {}).get("addresses", []):
+        parsed = ipaddress.ip_network(address, strict=False)
+        networks.append(parsed)
+    return networks
+
+
+def nat_mapping_conflict(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+    """Return whether two normalized mappings compete for the same public flow."""
+    if not left.get("enabled", True) or not right.get("enabled", True):
+        return False
+    if str(left["ip_version"]) != str(right["ip_version"]):
+        return False
+    if str(left["public"]["interface"]).casefold() != str(right["public"]["interface"]).casefold():
+        return False
+    left_address = left["public"].get("address")
+    right_address = right["public"].get("address")
+    if left_address is not None and right_address is not None and left_address != right_address:
+        return False
+    left_start, left_stop = _nat_port_bounds(left["public"]["port"])
+    right_start, right_stop = _nat_port_bounds(right["public"]["port"])
+    if left_stop < right_start or right_stop < left_start:
+        return False
+    if not _nat_protocol_set(left["protocol"]).intersection(_nat_protocol_set(right["protocol"])):
+        return False
+
+    left_sources = _nat_source_networks(left)
+    right_sources = _nat_source_networks(right)
+    if not left_sources or not right_sources:
+        return True
+    return any(
+        left_network.overlaps(right_network)
+        for left_network in left_sources
+        for right_network in right_sources
+    )
+
+
+def validate_nat_conflicts(value: Any) -> list[dict[str, Any]]:
+    """Validate desired mappings and reject ambiguous public bindings."""
+    normalized = validate_nat(value)
+    ordered = sorted(normalized, key=lambda item: item["name"])
+    for index, left in enumerate(ordered):
+        for right in ordered[index + 1 :]:
+            if nat_mapping_conflict(left, right):
+                raise NatError(
+                    f"NAT mappings have an overlapping public binding: "
+                    f"{left['name']} and {right['name']}"
+                )
+    return normalized
+
+
+def analyze_nat_exposure(value: Any) -> dict[str, tuple[str, ...]]:
+    """Return deterministic risk warnings for validated desired mappings."""
+    normalized = validate_nat_conflicts(value)
+    warnings: dict[str, list[str]] = {mapping["name"]: [] for mapping in normalized}
+    for mapping in normalized:
+        name = mapping["name"]
+        public = mapping["public"]
+        interface = str(public["interface"]).casefold()
+        private_service = _nat_private_service(mapping)
+        if nat_is_broad(mapping):
+            warnings[name].append(
+                f"source scope is unrestricted for private service {private_service}"
+            )
+        external_boundary = any(
+            token in interface for token in ("wan", "internet", "external", "untrusted")
+        )
+        if external_boundary:
+            warnings[name].append(
+                f"public boundary {public['interface']} may expose private service "
+                f"{private_service} at an Internet boundary"
+            )
+            warnings[name].append(
+                f"firewall dependency for private service {private_service} is not proven "
+                "by NAT analysis"
+            )
+        if public.get("address") is None:
+            warnings[name].append(
+                f"public address is interface-selected; exact WAN binding for private service "
+                f"{private_service} is not explicit"
+            )
+        public_start, _public_stop = _nat_port_bounds(public["port"])
+        if public_start <= 1024:
+            warnings[name].append(f"privileged public port is in scope for {private_service}")
+        if mapping.get("hairpin"):
+            warnings[name].append(
+                f"hairpin behavior for private service {private_service} is not proven by "
+                "the local classic adapter"
+            )
+    return {name: tuple(values) for name, values in warnings.items()}
+
+
 def nat_is_broad(value: Mapping[str, Any]) -> bool:
     """Return whether a mapping accepts traffic from any source address."""
     source = value.get("source") or {}
@@ -487,9 +605,12 @@ __all__ = [
     "nat_is_user_managed",
     "nat_mapping_identity",
     "nat_export_mapping",
+    "nat_mapping_conflict",
     "normalize_controller_nat",
     "normalize_controller_nat_list",
     "normalize_nat_mapping",
     "normalize_nat_port",
+    "analyze_nat_exposure",
+    "validate_nat_conflicts",
     "validate_nat",
 ]

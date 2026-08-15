@@ -73,32 +73,31 @@ WLANs and read-oriented operational views. The complete frozen surface is in
 This release does not include cloud resource mutations, firewall, NAT, VPN or
 write-capable MCP tools.
 
-## Current release — `v0.4.0`
+## Release status — `v0.5.0`
 
-The current stable release provides:
+`v0.5.0` is the current stable release. It provides the complete local-first
+surface through the safe local firewall family:
 
-- the complete local-first `v0.3.0` surface;
-- portable local DNS `A`, `AAAA` and `CNAME` records;
-- official Integration API DNS reads, export, deterministic plan and
-  API-key-only apply/prune;
-- protected system/unknown-origin ownership rules and manual recovery;
-- fixture-backed and authorized controller evidence for Network 10.5.67;
-- explicit `local-classic` and opt-in `cloud-site-manager` adapters;
-- deterministic, secret-free capability discovery through the CLI;
-- adapter-aware plans, status output and read-only MCP contract v3;
-- read-only Site Manager hosts, sites, devices and derived health views;
-- explicit unsupported-capability errors and no local/cloud fallback;
-- protected real-account Site Manager evidence for API v1.0.0;
-- migration, compatibility, redaction and release verification notes.
+- the released `v0.4.0` DNS resource family and `v0.3.0` adapter surface;
+- local firewall zones, address groups, port groups and ordered rules;
+- deterministic firewall planning with exposure and dependency analysis;
+- explicit apply, prune, acknowledgement and manual recovery boundaries;
+- fixture-backed read-only evidence and authorized controller mutation
+  evidence for Network 10.5.67;
+- protected tag/version checks, clean installs, checksums and signed
+  provenance.
 
-The public cloud claim remains deliberately limited to the documented
-read-only Site Manager slice. Cloud clients, networks, WLANs, DNS, export,
-plan, apply, prune, new resource families and write-capable MCP remain
-excluded from the cloud adapter.
-The sanitized evidence is recorded in [workflow run
-31895015047](https://github.com/Opperiesen/lanweave/actions/runs/31895015047),
-and the complete DNS scope is maintained in
-[roadmap-v0.4.0.md](roadmap-v0.4.0.md).
+The protected controller evidence is recorded in [workflow run
+31903782251](https://github.com/Opperiesen/lanweave/actions/runs/31903782251).
+The package was published by [the protected release workflow
+31904325887](https://github.com/Opperiesen/lanweave/actions/runs/31904325887),
+and is available as the [GitHub Release](https://github.com/Opperiesen/lanweave/releases/tag/v0.5.0)
+and on [PyPI](https://pypi.org/project/lanweave/0.5.0/).
+
+Milestone `v0.5.0` is closed with all seven issues completed. The next open
+milestone is `v0.6.0` for NAT and port forwarding; `v0.7.0` remains the
+following VPN milestone. The complete firewall scope is maintained in
+[roadmap-v0.5.0.md](roadmap-v0.5.0.md).
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 
@@ -264,7 +263,7 @@ verified package and publication.
 Device adoption, restart, firmware and other high-impact mutations remain
 post-`v1.0.0` candidates unless an independent safety model is approved.
 
-## Current release — `v0.5.0` firewall
+## `v0.5.0` — safe local firewall resource family
 
 The complete decomposition is maintained in
 [roadmap-v0.5.0.md](roadmap-v0.5.0.md) and tracked by parent issue
@@ -283,8 +282,11 @@ The release gates were `v0.5.0a1` for the contract and read foundation,
 `v0.5.0b1` for the read/export/plan surface, `v0.5.0rc1` for authorized
 mutation and recovery evidence, and `v0.5.0` for the verified package and
 publication. The protected controller gates passed in workflow run
-[31903782251](https://github.com/Opperiesen/lanweave/actions/runs/31903782251);
-the package tag and publication remain the final release action.
+[31903782251](https://github.com/Opperiesen/lanweave/actions/runs/31903782251),
+and the package/tag/publication gates passed in workflow run
+[31904325887](https://github.com/Opperiesen/lanweave/actions/runs/31904325887).
+The `v0.5.0` milestone is now closed; `v0.6.0` is the next active release
+train.
 
 ## Subsequent independent releases
 

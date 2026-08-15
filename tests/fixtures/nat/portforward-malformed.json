@@ -1,0 +1,14 @@
+{
+  "data": [
+    {
+      "_id": "nat-malformed-1",
+      "name": "malformed",
+      "enabled": true,
+      "pfwd_interface": "wan",
+      "src": "any",
+      "dst_port": "443",
+      "fwd": "192.0.2.10",
+      "fwd_port": "8443"
+    }
+  ]
+}

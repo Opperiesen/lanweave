@@ -17,6 +17,7 @@ plans/
 *.json
 !docs/contracts/*.schema.json
 !tests/fixtures/dns/*.json
+!tests/fixtures/nat/*.json
 *.yaml
 !examples/*.yaml
 !tests/fixtures/profiles/*.yaml

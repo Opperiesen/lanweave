@@ -10,6 +10,11 @@ automation, not as a harmless status client.
 - keep TLS verification enabled unless the controller certificate is
   deliberately managed elsewhere;
 - review the plan before applying it;
+- treat NAT and port-forwarding changes as reachability changes: use disabled,
+  uniquely prefixed test mappings and a dedicated session account for evidence;
+- require an explicit risk acknowledgement before applying broad or
+  Internet-facing NAT plans, and never infer support for an undocumented
+  controller variant;
 - keep exports and backups outside Git;
 - never paste API keys, passwords, exports or controller logs into issues.
 

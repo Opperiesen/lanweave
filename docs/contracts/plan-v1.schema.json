@@ -46,7 +46,7 @@
       "additionalProperties": false,
       "required": ["kind", "action", "name", "id", "changed_fields", "payload"],
       "properties": {
-        "kind": { "enum": ["network", "wlan", "dns", "firewall_zone", "firewall_group", "firewall_rule"] },
+        "kind": { "enum": ["network", "wlan", "dns", "nat", "firewall_zone", "firewall_group", "firewall_rule"] },
         "action": { "enum": ["create", "update", "delete", "reorder"] },
         "name": { "type": "string", "minLength": 1 },
         "id": { "type": ["string", "null"] },

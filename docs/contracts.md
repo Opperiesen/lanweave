@@ -2,11 +2,12 @@
 
 The v1 sections are normative for the original configuration contract. The v2
 sections define the backward-compatible local profile additions for `v0.2.0`.
-The `v0.4.0` DNS and `v0.5.0` firewall extensions are additive within those
-schema and plan versions. DNS adds optional local `A`, `AAAA` and `CNAME`
-records. Firewall adds optional local zones, address groups, port groups and
-ordered rules without adding a write-capable MCP tool. See
-[`firewall.md`](firewall.md) for the portable resource contract.
+The `v0.4.0` DNS, `v0.5.0` firewall and `v0.6.0 NAT` extensions are additive
+within those schema and plan versions. DNS adds optional local `A`, `AAAA` and
+`CNAME` records. Firewall adds optional local zones, address groups, port
+groups and ordered rules. NAT adds optional local port-forwarding mappings
+without adding a write-capable MCP tool. See [`firewall.md`](firewall.md) and
+[`nat.md`](nat.md) for the portable resource contracts.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
@@ -42,6 +43,8 @@ networks: []
 wlans: []
 # optional local DNS records
 dns: []
+# optional local NAT mappings
+nat: []
 ```
 
 The public fields are:
@@ -58,6 +61,9 @@ The public fields are:
 - optional `firewall`: `zones[]`, `address_groups[]`, `port_groups[]` and
   `rules[]`; zones and groups use names, rules use explicit relative order and
   placement, and controller IDs/origins are never portable fields.
+- optional `nat[]`: named public interfaces, source scopes, private endpoints,
+  protocols and translated port ranges; controller IDs/origins are never
+  portable fields.
 
 Unknown fields fail validation at every documented object level. Literal
 passwords, secret-manager references and unresolved environment values are
@@ -84,7 +90,7 @@ Version-2 files add:
   explicitly selected `cloud-site-manager` backend;
 - `profiles`: named controller/site targets;
 - optional `profile`: an explicit document-level selector;
-- the unchanged `networks[]` and `wlans[]` resource model.
+- the unchanged `networks[]`, `wlans[]`, DNS, firewall and NAT resource model.
 
 `validate` and `profiles validate` reject unknown, incomplete or ambiguous
 profile fields locally. `profiles list` prints only sanitized profile target
@@ -108,7 +114,7 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | `doctor` | `--check`, `--config`, `--profile` | Inspect settings; probe health only with `--check` |
 | `export` | `--out`, `--force`, `--config`, `--profile` | Write secret-free v1 YAML or stdout |
 | `plan` | `--config`, `--profile`, `--prune`, `--output table/json` | Print deterministic changes; JSON is plan format v1 |
-| `apply` | `--config`, `--profile`, `--prune`, `--output table/json`, `--yes`, `--acknowledge-firewall-risk` | Apply only after confirmation; firewall warnings require explicit risk acknowledgement |
+| `apply` | `--config`, `--profile`, `--prune`, `--output table/json`, `--yes`, `--acknowledge-risk` (`--acknowledge-firewall-risk` alias) | Apply only after confirmation; firewall and NAT warnings require explicit risk acknowledgement |
 | `backup` | `--output`, `--config`, `--profile` | Write a local redacted snapshot with mode `0600` |
 | `status` | `--output table/json`, `--config`, `--profile` | Show health and device summary |
 | `clients` | `--filter`, `--wired`, `--output table/json`, `--config`, `--profile` | Show filtered client inventory |
@@ -158,7 +164,8 @@ Firewall plans may use `kind` values `firewall_zone`, `firewall_group` and
 `changed_fields` value of `order`, and a payload containing the
 source/destination zone names plus the explicit before/after lists. Risk text
 is carried in an optional `warnings` array and never contains request payloads
-or credentials.
+or credentials. NAT plans use `kind: nat`, keep the portable mapping in the
+redacted payload, and carry exposure/conflict warnings through the same field.
 
 The redaction guarantee is part of the format: the plan contains no current
 controller object, request body outside the redacted payload, response body or

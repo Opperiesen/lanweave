@@ -10,8 +10,9 @@ semantics. It must preserve the read-only MCP boundary and all existing
 network, WLAN, DNS and firewall behavior.
 
 The frozen field-level contract is documented in [nat.md](nat.md). Controller
-payload conversion and live endpoint semantics remain outside this foundation
-and are handled by the following issues.
+payload conversion and live endpoint semantics are implemented only for the
+session-authenticated local-classic subset described by the work breakdown and
+compatibility evidence below.
 
 ## Product outcome
 
@@ -138,8 +139,9 @@ model or weakening the v0.5 safety boundary.
 
 [#98 — add NAT inventory, export and versioned controller fixtures](https://github.com/Opperiesen/lanweave/issues/98)
 
-Cover normalized reads, secret-free export, bounded pagination, malformed and
-unsupported responses, protected origins and exact controller/API evidence.
+Cover normalized reads, secret-free export, the non-paginated classic response
+envelope, malformed and unsupported responses, protected origins and exact
+controller/API evidence.
 
 Exit condition: the supported NAT response shape is stable and fixture-backed.
 
@@ -158,9 +160,9 @@ fails or warns before mutation.
 
 [#100 — add controlled NAT apply, prune and recovery semantics](https://github.com/Opperiesen/lanweave/issues/100)
 
-Implement supported local writes, explicit warnings and confirmations,
-dependency-safe ordering, protected prune, partial-failure reporting and
-authorized controller evidence.
+Implement the supported local-session writes, explicit warnings and
+confirmations, dependency-safe ordering, protected prune, partial-failure
+reporting and the separate authorized NAT controller lifecycle.
 
 Exit condition: a designated controller demonstrates a safe NAT lifecycle and a
 documented fresh-plan recovery path.
@@ -180,8 +182,9 @@ without a second mutation path.
 
 [#102 — complete v0.6.0 NAT evidence, documentation and release gates](https://github.com/Opperiesen/lanweave/issues/102)
 
-Update examples, migration, compatibility, recovery, security, changelog and
-release notes. Add reproducible evidence checks and verify package, checksums,
+Update schemas, examples, migration, compatibility, recovery, security,
+changelog and release notes. Add the offline evidence verifier, the dedicated
+read-only and NAT mutation workflow gates, and verify package, checksums,
 provenance, PyPI and GitHub publication.
 
 Exit condition: the published package and documentation describe the same
@@ -221,7 +224,9 @@ pass the repository policy before merge.
 ### v0.6.0rc1 — controlled mutation and evidence freeze
 
 - #100 is merged;
-- protected read-only and separately authorized mutation evidence passes;
+- protected read-only and separately authorized NAT mutation evidence passes;
+- the NAT lifecycle job is session-only, uses a disabled `lanweave-ci-*`
+  mapping and leaves no test resource behind;
 - timeout, partial failure, protected prune and fresh-plan recovery are
   documented and tested;
 - only release-blocking fixes remain.

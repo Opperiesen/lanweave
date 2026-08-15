@@ -15,14 +15,15 @@ The plan engine uses this dependency-safe order:
 3. create or update firewall zones;
 4. create or update firewall groups;
 5. create or update firewall rules;
-6. refresh network, zone and group inventory;
+6. create or update supported NAT mappings;
 7. delete WLANs;
 8. delete user-managed DNS policies;
-9. delete firewall rules;
-10. reorder firewall policies;
-11. create or update WLANs;
-12. delete firewall groups and zones;
-13. delete networks.
+9. delete user-managed NAT mappings;
+10. delete firewall rules;
+11. reorder firewall policies;
+12. create or update WLANs;
+13. delete firewall groups and zones;
+14. delete networks.
 
 This ensures a WLAN can reference a network before it is written, and that a
 network is not deleted before its dependent WLANs have been removed. Operations
@@ -40,6 +41,14 @@ IDs are read again before a reorder. Rules, groups and zones with unknown or
 protected origins are never implicit prune targets. An apply containing
 firewall warnings also requires the explicit risk acknowledgement described in
 [`firewall.md`](firewall.md).
+
+NAT writes run after firewall rule writes and before user-managed NAT deletes.
+The local classic adapter supports only the proven IPv4 payload subset and
+requires session authentication. Public WAN boundaries, broad sources,
+privileged ports and unproven firewall dependencies remain visible risk
+warnings. Unknown or system-origin mappings are never prune targets. A NAT
+request that fails is uncertain until a fresh inventory and newly reviewed plan
+confirm the live state.
 
 ## Failure report
 

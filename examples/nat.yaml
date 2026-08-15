@@ -1,0 +1,23 @@
+version: 1
+
+controller:
+  site: default
+
+networks: []
+wlans: []
+
+nat:
+  - name: disabled-web-check
+    enabled: false
+    protocol: TCP
+    ip_version: IPV4
+    public:
+      interface: wan
+      port: 54443
+    source:
+      addresses:
+        - 198.51.100.0/24
+    private:
+      address: 192.0.2.10
+      port: 54443
+    hairpin: false

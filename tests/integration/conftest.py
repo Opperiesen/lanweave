@@ -86,6 +86,16 @@ class FirewallMutationTarget:
     second_rule: str
 
 
+@dataclass(frozen=True)
+class NatMutationTarget:
+    """Names and ports for a disabled, isolated NAT mapping."""
+
+    client: UniFiClient
+    name: str
+    initial_port: int
+    updated_port: int
+
+
 @pytest.fixture(scope="session")
 def mutation_target(integration_client: UniFiClient) -> MutationTarget:
     """Return a uniquely named, explicitly authorized mutation target."""
@@ -183,4 +193,53 @@ def firewall_mutation_target(integration_client: UniFiClient) -> FirewallMutatio
         prefix=resource_prefix,
         zone="Internal",
         **names,
+    )
+
+
+@pytest.fixture(scope="session")
+def nat_mutation_target(integration_client: UniFiClient) -> NatMutationTarget:
+    """Return an explicitly authorized local-session NAT test scope."""
+
+    if _env("LANWEAVE_INTEGRATION_NAT_MUTATIONS").lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        pytest.skip("NAT mutation suite is disabled")
+    if _env("LANWEAVE_INTEGRATION_NAT_MUTATION_CONFIRM") != "I_UNDERSTAND":
+        pytest.skip("NAT mutation confirmation is not enabled")
+    if integration_client.settings.api_key:
+        pytest.fail("NAT mutations require local session authentication")
+    if not integration_client.settings.username or not integration_client.settings.password:
+        pytest.fail("NAT mutations require session username and password")
+
+    prefix = _env("LANWEAVE_INTEGRATION_NAT_MUTATION_PREFIX")
+    if not prefix.startswith("lanweave-ci-"):
+        pytest.fail("NAT mutation prefix must start with lanweave-ci-")
+    run_id = _env("LANWEAVE_INTEGRATION_RUN_ID") or "local"
+    name = f"{prefix}{run_id}-nat"
+    if len(name) > 64:
+        pytest.fail("NAT mutation name must be at most 64 characters")
+
+    ports: list[int] = []
+    for env_name, default in (
+        ("LANWEAVE_INTEGRATION_NAT_INITIAL_PORT", "54443"),
+        ("LANWEAVE_INTEGRATION_NAT_UPDATED_PORT", "54444"),
+    ):
+        value = _env(env_name) or default
+        try:
+            port = int(value)
+        except ValueError:
+            pytest.fail(f"{env_name} must be an integer")
+        if not 1025 <= port <= 65535:
+            pytest.fail(f"{env_name} must be an unprivileged port between 1025 and 65535")
+        ports.append(port)
+    if ports[0] == ports[1]:
+        pytest.fail("NAT initial and updated ports must differ")
+    return NatMutationTarget(
+        client=integration_client,
+        name=name,
+        initial_port=ports[0],
+        updated_port=ports[1],
     )

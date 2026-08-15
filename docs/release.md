@@ -8,14 +8,14 @@ signed provenance before making the GitHub Release public.
 ## Install from PyPI
 
 ```shell
-uv tool install lanweave==0.4.0
+uv tool install lanweave==0.6.0
 lanweave --version
 ```
 
 The MCP adapter remains optional:
 
 ```shell
-uv tool install 'lanweave[mcp]==0.4.0'
+uv tool install 'lanweave[mcp]==0.6.0'
 ```
 
 After upgrading a profile-backed installation, inspect the selected adapter
@@ -71,8 +71,8 @@ Download the release assets into one directory. The checksum file contains
 asset names relative to that directory:
 
 ```shell
-gh release download v0.4.0 --repo Opperiesen/lanweave --dir release-v0.4.0
-cd release-v0.4.0
+gh release download v0.6.0 --repo Opperiesen/lanweave --dir release-v0.6.0
+cd release-v0.6.0
 sha256sum -c SHA256SUMS
 ```
 
@@ -80,9 +80,9 @@ Verify the signed SLSA provenance for the wheel with GitHub CLI:
 
 ```shell
 gh attestation verify \
-  lanweave-0.4.0-py3-none-any.whl \
+  lanweave-0.6.0-py3-none-any.whl \
   --repo Opperiesen/lanweave \
-  --source-ref refs/tags/v0.4.0 \
+  --source-ref refs/tags/v0.6.0 \
   --signer-workflow Opperiesen/lanweave/.github/workflows/release.yml
 ```
 
@@ -90,8 +90,12 @@ PyPI distributions are published through Trusted Publishing with GitHub OIDC
 and receive PyPI's PEP 740 digital attestations. No long-lived PyPI token is
 stored in the repository.
 
-The v0.4.0 scope is documented in [the roadmap](roadmap-v0.4.0.md), with
-[migration-v0.4.md](migration-v0.4.md) and
-[release-v0.4.0.md](release-v0.4.0.md). Previous adapter and profile releases
-remain documented in [migration-v0.3.md](migration-v0.3.md) and
-[release-v0.3.0.md](release-v0.3.0.md).
+The current v0.6.0 scope is documented in [the roadmap](roadmap-v0.6.0.md),
+with [migration-v0.6.md](migration-v0.6.md),
+[release-v0.6.0.md](release-v0.6.0.md) and the [NAT evidence](evidence/v0.6.0-nat.md).
+The protected controller lifecycle passed in
+[workflow run 31907918542](https://github.com/Opperiesen/lanweave/actions/runs/31907918542),
+and the package/tag/publication gates passed in
+[release workflow 31908100009](https://github.com/Opperiesen/lanweave/actions/runs/31908100009).
+Earlier adapter, DNS and firewall releases remain documented in their
+versioned migration and release notes.

@@ -34,7 +34,9 @@ implemented.
 | `v0.2.0` | Multi-controller and multi-site profiles | [milestone](https://github.com/Opperiesen/lanweave/milestone/4) | Explicit local target selection works across CLI, plans and read-only MCP without breaking version-1 configs |
 | `v0.3.0` | Adapter architecture and read-only cloud inventory | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local compatibility is preserved and the opt-in Site Manager adapter exposes documented capabilities |
 | `v0.4.0` | Safe local DNS resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | DNS read/export/plan/apply/prune is fixture-backed, deterministic and recoverable |
-| `v0.5.0+` | Firewall, NAT and VPN resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/7) | Each high-impact family has its own security model, fixtures and independent release gate |
+| `v0.5.0` | Safe local firewall resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/7) | Firewall ordering, exposure analysis, fixtures and protected lifecycle are independently verified |
+| `v0.6.0` | Safe local NAT and port-forwarding resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/8) | NAT exposure, conflict analysis, fixtures and protected lifecycle are independently verified |
+| `v0.7.0` | Safe local VPN resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/9) | VPN secrets, routes, dependencies, fixtures and read-only-first lifecycle are independently verified |
 
 ## `v0.2.0` — stable local-first core
 
@@ -259,13 +261,40 @@ The intended gates are `v0.4.0a1` for the contract and fixture foundation,
 controller mutation and recovery evidence, and `v0.4.0` for the complete
 verified package and publication.
 
-Firewall, NAT and VPN remain future families in
-[`v0.5.0+`](https://github.com/Opperiesen/lanweave/milestone/7). Their
-security and ordering requirements are too different to bundle into the DNS
-release.
-
 Device adoption, restart, firmware and other high-impact mutations remain
 post-`v1.0.0` candidates unless an independent safety model is approved.
+
+## Next release — `v0.5.0` firewall
+
+The complete decomposition is maintained in
+[roadmap-v0.5.0.md](roadmap-v0.5.0.md) and tracked by parent issue
+[#15](https://github.com/Opperiesen/lanweave/issues/15).
+
+The work is ordered as follows:
+
+1. [#86 — firewall resource contract and ordering model](https://github.com/Opperiesen/lanweave/issues/86);
+2. [#87 — firewall inventory, export and versioned controller fixtures](https://github.com/Opperiesen/lanweave/issues/87);
+3. [#88 — deterministic firewall validation and dependency-aware planning](https://github.com/Opperiesen/lanweave/issues/88);
+4. [#89 — controlled firewall apply, prune and recovery](https://github.com/Opperiesen/lanweave/issues/89);
+5. [#90 — existing CLI, capabilities and read-only MCP surfaces](https://github.com/Opperiesen/lanweave/issues/90);
+6. [#91 — v0.5.0 evidence, documentation and release gates](https://github.com/Opperiesen/lanweave/issues/91).
+
+The release gates are `v0.5.0a1` for the contract and read foundation,
+`v0.5.0b1` for the read/export/plan surface, `v0.5.0rc1` for authorized
+mutation and recovery evidence, and `v0.5.0` for the verified package and
+publication.
+
+## Subsequent independent releases
+
+The previous umbrella milestone was split because each family has a different
+blast radius, controller contract and release gate:
+
+- `v0.6.0` — [NAT and port forwarding](https://github.com/Opperiesen/lanweave/issues/18),
+  with exposure and conflict analysis before writes;
+- `v0.7.0` — [VPN resources](https://github.com/Opperiesen/lanweave/issues/19),
+  with a read-only-first rollout and strict secret/route handling.
+
+These families remain outside the v0.5.0 implementation and release gate.
 
 ## MCP roadmap
 

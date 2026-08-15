@@ -40,6 +40,15 @@ def test_cli_contract_exposes_stable_options() -> None:
     assert profiles.profiles_command == "list"
     assert profiles.config.name == "profiles.yaml"
 
+    doctor = build_parser().parse_args(
+        ["doctor", "--config", "profiles.yaml", "--profile", "office"]
+    )
+    assert doctor.config.name == "profiles.yaml"
+    assert doctor.profile == "office"
+
+    plan = build_parser().parse_args(["plan", "--config", "profiles.yaml", "--profile", "guest"])
+    assert plan.profile == "guest"
+
 
 def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -> None:
     fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
@@ -53,6 +62,56 @@ def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -
     output = capsys.readouterr().out
     assert "profile=backup-default controller=backup site=default" in output
     assert "LANWEAVE_" not in output
+
+
+def test_controller_command_announces_the_selected_target(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setenv("LANWEAVE_LOCAL_HOST", "https://local.example")
+    monkeypatch.setenv("LANWEAVE_LOCAL_API_KEY", "local-key")
+
+    class FakeClient:
+        def __init__(self, settings) -> None:
+            self.settings = settings
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def health(self):
+            return []
+
+        def clients(self):
+            return []
+
+        def devices(self):
+            return []
+
+    monkeypatch.setattr("lanweave.cli.UniFiClient", FakeClient)
+
+    assert main(["status", "--config", str(path)]) == 0
+
+    assert "target: profile=office controller=local site=default" in capsys.readouterr().err
+
+
+def test_plan_rejects_a_conflicting_explicit_profile_before_controller_access(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert main(["plan", "--config", str(path), "--profile", "guest"]) == 2
+
+    assert "conflicting profile selectors" in capsys.readouterr().err
 
 
 def test_cli_rejected_overwrite_and_missing_config_use_exit_code_two(

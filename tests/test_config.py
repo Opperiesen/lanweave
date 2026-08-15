@@ -9,6 +9,7 @@ from lanweave.config import (
     load_config_with_options,
     validate_config,
 )
+from lanweave.contracts import CONFIG_SCHEMA_VERSION
 
 
 def test_example_configuration_is_valid() -> None:
@@ -24,8 +25,19 @@ def test_load_config_from_file(tmp_path: Path) -> None:
 
     config = load_config(path)
 
-    assert config["version"] == 1
+    assert config["version"] == CONFIG_SCHEMA_VERSION
     assert len(config["networks"]) == 2
+
+
+def test_minimal_version_one_configuration_remains_valid() -> None:
+    validate_config(
+        {
+            "version": CONFIG_SCHEMA_VERSION,
+            "controller": {"site": "default"},
+            "networks": [],
+            "wlans": [],
+        }
+    )
 
 
 def test_literal_password_is_rejected() -> None:

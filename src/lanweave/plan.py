@@ -8,8 +8,18 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .client import UniFiClient
+from .contracts import PLAN_FORMAT_VERSION
 
-SENSITIVE_FIELDS = {"api_key", "password", "passphrase", "secret", "token", "x_passphrase"}
+SENSITIVE_FIELDS = {
+    "api_key",
+    "password",
+    "passphrase",
+    "private_key",
+    "secret",
+    "token",
+    "x_iapp_key",
+    "x_passphrase",
+}
 READ_ONLY_FIELDS = {
     "_id",
     "id",
@@ -208,6 +218,7 @@ class Plan:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "format_version": PLAN_FORMAT_VERSION,
             "summary": self.summary(),
             "changes": [diff.to_dict() for diff in self.diffs if diff.action != "noop"],
         }

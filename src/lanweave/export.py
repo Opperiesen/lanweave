@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from .client import UniFiClient
+from .contracts import CONFIG_SCHEMA_VERSION
 
 
 def _network_subnet(value: str | None) -> str | None:
@@ -91,7 +92,7 @@ def export_config(client: UniFiClient) -> dict[str, Any]:
         if network.get("name") and (network.get("_id") or network.get("id"))
     }
     return {
-        "version": 1,
+        "version": CONFIG_SCHEMA_VERSION,
         "controller": {"site": client.settings.site},
         "networks": [
             network_from_unifi(network) for network in networks if network.get("purpose") != "wan"

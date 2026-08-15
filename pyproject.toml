@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lanweave"
-version = "0.1.0a2"
+version = "0.1.0b1"
 description = "Safe, declarative configuration and diagnostics for local UniFi Network controllers"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 keywords = ["unifi", "network-automation", "gitops", "mcp", "infrastructure-as-code"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: Apache Software License",

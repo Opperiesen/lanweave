@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Opperiesen/lanweave/blob/main/docs/contracts/plan-v1.schema.json",
+  "title": "Lanweave plan format v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "summary", "changes"],
+  "properties": {
+    "format_version": { "const": 1 },
+    "summary": { "$ref": "#/$defs/summary" },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" }
+    }
+  },
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "update", "delete", "noop"],
+      "properties": {
+        "create": { "type": "integer", "minimum": 0 },
+        "update": { "type": "integer", "minimum": 0 },
+        "delete": { "type": "integer", "minimum": 0 },
+        "noop": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "action", "name", "id", "changed_fields", "payload"],
+      "properties": {
+        "kind": { "enum": ["network", "wlan"] },
+        "action": { "enum": ["create", "update", "delete"] },
+        "name": { "type": "string", "minLength": 1 },
+        "id": { "type": ["string", "null"] },
+        "changed_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

@@ -96,6 +96,26 @@ def test_empty_controller_produces_network_and_wlan_creates() -> None:
     assert all("test-secret" not in str(diff.to_dict()) for diff in plan.diffs)
 
 
+def test_plan_json_has_version_and_redacts_sensitive_payloads() -> None:
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="wlan",
+                action="create",
+                name="Home",
+                payload={"name": "Home", "x_passphrase": "fixture-secret"},
+            )
+        ]
+    )
+
+    rendered = plan.to_dict()
+
+    assert rendered["format_version"] == 1
+    assert rendered["summary"] == {"create": 1, "update": 0, "delete": 0, "noop": 0}
+    assert rendered["changes"][0]["payload"]["x_passphrase"] == "***"
+    assert "fixture-secret" not in str(rendered)
+
+
 def test_password_change_is_planned_when_controller_returns_the_old_value() -> None:
     config = yaml.safe_load(EXAMPLE_CONFIG)
     config["wlans"][0].pop("password_env")

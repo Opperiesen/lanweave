@@ -32,13 +32,14 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave is an early alpha. The first real-controller reliability slice is
+Lanweave is an early beta. The first real-controller reliability slice is
 implemented and tested against simulated controller responses, with read-only
 and authorized mutation evidence on one designated UniFi OS controller. It
 targets the classic local UniFi Network API used by self-hosted UniFi Network
 applications and UniFi OS consoles; see [compatibility](docs/compatibility.md)
 and the [apply recovery model](docs/recovery.md) for the exact scope, tested
-matrix and partial-failure behavior.
+matrix and partial-failure behavior. The frozen v1 surfaces are described in
+[contracts](docs/contracts.md).
 
 Supported resource families in this release:
 
@@ -53,7 +54,7 @@ story before being safe to expose.
 
 ## Quick start
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The alpha release
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The beta release
 is currently installed from a checkout; package-index publication is tracked
 in the [roadmap](docs/roadmap.md).
 
@@ -115,6 +116,8 @@ The server exposes health, devices, clients, secret-free export, local
 validation and redacted planning. It intentionally exposes no apply or delete
 tool. A desktop MCP client should launch `lanweave-mcp` from this checkout (or
 from the installed package) with the required `UNIFI_*` environment variables.
+The tool names, parameters and error codes are frozen in
+[the MCP contract](docs/contracts.md#read-only-mcp-contract-v1).
 
 ## Configuration and credentials
 
@@ -151,5 +154,6 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 - [source repository](https://github.com/Opperiesen/lanweave);
 - [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
+- [v1 contracts](docs/contracts.md);
 - [security policy](SECURITY.md);
 - [contribution guide](CONTRIBUTING.md).

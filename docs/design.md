@@ -41,3 +41,7 @@ rollback behavior.
 
 The schema is versioned. Unknown top-level fields should fail validation so a
 typo cannot silently produce a partial network configuration.
+
+The v1 configuration, CLI, plan JSON and read-only MCP contracts are frozen in
+[contracts.md](contracts.md). Breaking changes require an explicit version and
+migration decision.

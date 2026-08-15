@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to rebuild and publish"
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: read
@@ -27,6 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -35,7 +45,7 @@ jobs:
         with:
           enable-cache: false
       - name: Verify tag and project version
-        run: python scripts/verify_release.py "${GITHUB_REF_NAME}"
+        run: python scripts/verify_release.py "$RELEASE_TAG"
       - name: Build wheel and source distribution
         run: |
           rm -rf dist
@@ -43,13 +53,13 @@ jobs:
       - name: Verify release artifacts
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           python scripts/verify_release_artifacts.py "$version" dist
           (cd dist && sha256sum *.whl *.tar.gz > SHA256SUMS)
       - name: Install wheel in a clean environment
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           venv="$RUNNER_TEMP/lanweave-release-wheel"
           uv venv --python 3.11 "$venv"
           uv pip install --python "$venv/bin/python" "dist/lanweave-${version}-py3-none-any.whl"
@@ -57,7 +67,7 @@ jobs:
       - name: Install source distribution in a clean environment
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           venv="$RUNNER_TEMP/lanweave-release-sdist"
           uv venv --python 3.11 "$venv"
           uv pip install --python "$venv/bin/python" "dist/lanweave-${version}.tar.gz"
@@ -72,13 +82,13 @@ jobs:
           PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
         run: |
           set -euo pipefail
-          bundle="dist/lanweave-${GITHUB_REF_NAME#v}-provenance.intoto.jsonl"
+          bundle="dist/lanweave-${RELEASE_TAG#v}-provenance.intoto.jsonl"
           cp "$PROVENANCE_BUNDLE" "$bundle"
           test -s "$bundle"
       - name: Upload release bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lanweave-release-${{ github.ref_name }}
+          name: lanweave-release-${{ env.RELEASE_TAG }}
           path: |
             dist/*.whl
             dist/*.tar.gz
@@ -89,7 +99,7 @@ jobs:
       - name: Upload PyPI distributions
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: lanweave-pypi-${{ github.ref_name }}
+          name: lanweave-pypi-${{ env.RELEASE_TAG }}
           path: |
             dist/*.whl
             dist/*.tar.gz
@@ -102,9 +112,9 @@ jobs:
     if: >-
       ${{
         needs.build.result == 'success'
-        && !contains(github.ref_name, 'a')
-        && !contains(github.ref_name, 'b')
-        && !contains(github.ref_name, 'rc')
+        && !contains(inputs.tag || github.ref_name, 'a')
+        && !contains(inputs.tag || github.ref_name, 'b')
+        && !contains(inputs.tag || github.ref_name, 'rc')
       }}
     runs-on: ubuntu-latest
     environment:
@@ -117,11 +127,13 @@ jobs:
       - name: Download PyPI distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: lanweave-pypi-${{ github.ref_name }}
+          name: lanweave-pypi-${{ env.RELEASE_TAG }}
           path: dist
       - name: Publish package with Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+        uses: docker://ghcr.io/pypa/gh-action-pypi-publish@sha256:5c2f7030fbef8308068eb4cc9080fd3c9e157ccf6d511924d69f8f4b23dc95c # pypa/gh-action-pypi-publish v1.14.2
         with:
+          user: __token__
+          repository-url: https://upload.pypi.org/legacy/
           packages-dir: dist/
           verify-metadata: true
           print-hash: true
@@ -143,12 +155,12 @@ jobs:
       - name: Download release bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: lanweave-release-${{ github.ref_name }}
+          name: lanweave-release-${{ env.RELEASE_TAG }}
           path: dist
       - name: Publish draft GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail

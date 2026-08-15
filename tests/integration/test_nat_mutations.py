@@ -48,6 +48,34 @@ def _find(target: NatTarget) -> dict[str, object] | None:
     )
 
 
+def _is_exact_test_mapping(
+    target: NatTarget,
+    mapping: dict[str, object],
+    object_id: str,
+) -> bool:
+    public = mapping.get("public")
+    source = mapping.get("source")
+    private = mapping.get("private")
+    if (
+        not isinstance(public, dict)
+        or not isinstance(source, dict)
+        or not isinstance(private, dict)
+    ):
+        return False
+    return (
+        str(mapping.get("_id") or mapping.get("id") or "") == object_id
+        and mapping.get("name") == target.name
+        and mapping.get("enabled") is False
+        and mapping.get("protocol") == "TCP"
+        and public.get("interface") == "wan"
+        and public.get("port") in {target.initial_port, target.updated_port}
+        and source == {"addresses": ["198.51.100.0/24"]}
+        and private.get("address") == "192.0.2.10"
+        and private.get("port") in {target.initial_port, target.updated_port}
+        and mapping.get("hairpin") is False
+    )
+
+
 def test_nat_create_update_protected_prune_and_cleanup(nat_mutation_target: NatTarget) -> None:
     """Exercise the complete isolated NAT lifecycle with a disabled mapping."""
 
@@ -62,6 +90,7 @@ def test_nat_create_update_protected_prune_and_cleanup(nat_mutation_target: NatT
     validate_config(updated)
     validate_config(empty)
 
+    created_id: str | None = None
     try:
         create_plan = build_plan(target.client, initial)
         assert [(diff.action, diff.name) for diff in create_plan.diffs] == [("create", target.name)]
@@ -70,6 +99,8 @@ def test_nat_create_update_protected_prune_and_cleanup(nat_mutation_target: NatT
 
         created = _find(target)
         assert created is not None
+        created_id = str(created.get("_id") or created.get("id") or "")
+        assert created_id
         assert created.get("enabled") is False
         assert nat_is_user_managed(created)
 
@@ -96,8 +127,8 @@ def test_nat_create_update_protected_prune_and_cleanup(nat_mutation_target: NatT
     finally:
         remaining = _find(target)
         if remaining is not None:
-            if not nat_is_user_managed(remaining):
-                raise AssertionError("refusing to delete a protected NAT mutation target")
-            object_id = remaining.get("_id") or remaining.get("id")
-            if object_id:
-                target.client.delete_nat(str(object_id))
+            if not created_id or not _is_exact_test_mapping(target, remaining, created_id):
+                raise AssertionError("refusing to delete a non-exact NAT mutation target")
+            # This is explicit cleanup of the object created by this test, not
+            # prune: the id, name and complete safe fingerprint must match.
+            target.client.delete_nat(created_id)

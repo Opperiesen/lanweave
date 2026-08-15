@@ -6,6 +6,9 @@
 - exercise the optional MCP extra on the supported Python boundary versions;
 - pin GitHub Actions to reviewed commit SHAs and disable checkout credential
   persistence.
+- add a manually triggered, protected controller integration workflow with
+  redacted compatibility reports;
+- separate live read-only probes from an explicitly authorized mutation suite.
 
 ## 0.1.0a1 — 2026-08-15
 

@@ -73,6 +73,19 @@ class DnsMutationTarget:
     updated_address: str
 
 
+@dataclass(frozen=True)
+class FirewallMutationTarget:
+    """Names for disabled, isolated firewall resources used by the live suite."""
+
+    client: UniFiClient
+    prefix: str
+    zone: str
+    address_group: str
+    port_group: str
+    first_rule: str
+    second_rule: str
+
+
 @pytest.fixture(scope="session")
 def mutation_target(integration_client: UniFiClient) -> MutationTarget:
     """Return a uniquely named, explicitly authorized mutation target."""
@@ -134,3 +147,34 @@ def dns_mutation_target(integration_client: UniFiClient) -> DnsMutationTarget:
         initial_address=_env("LANWEAVE_INTEGRATION_DNS_INITIAL_ADDRESS") or "192.0.2.10",
         updated_address=_env("LANWEAVE_INTEGRATION_DNS_UPDATED_ADDRESS") or "192.0.2.11",
     )
+
+
+@pytest.fixture(scope="session")
+def firewall_mutation_target(integration_client: UniFiClient) -> FirewallMutationTarget:
+    """Return an explicitly authorized API-key firewall test scope."""
+
+    if _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATIONS").lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        pytest.skip("firewall mutation suite is disabled")
+    if _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATION_CONFIRM") != "I_UNDERSTAND":
+        pytest.skip("firewall mutation confirmation is not enabled")
+    if not integration_client.settings.api_key:
+        pytest.fail("firewall mutations require a local Integration API key")
+
+    prefix = _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATION_PREFIX")
+    if not prefix.startswith("lanweave-ci-"):
+        pytest.fail("firewall mutation prefix must start with lanweave-ci-")
+    run_id = _env("LANWEAVE_INTEGRATION_RUN_ID") or "local"
+    names = {
+        "address_group": f"{prefix}{run_id}-fw-addresses",
+        "port_group": f"{prefix}{run_id}-fw-ports",
+        "first_rule": f"{prefix}{run_id}-fw-first",
+        "second_rule": f"{prefix}{run_id}-fw-second",
+    }
+    if any(len(name) > 64 for name in names.values()):
+        pytest.fail("firewall mutation resource names must be at most 64 characters")
+    return FirewallMutationTarget(client=integration_client, prefix=prefix, zone="LAN", **names)

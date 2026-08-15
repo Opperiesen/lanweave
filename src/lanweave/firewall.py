@@ -1164,10 +1164,11 @@ def _firewall_endpoint_to_unifi(
     side: Mapping[str, Any],
     *,
     network_ids_by_name: Mapping[str, str],
+    zone_ids_by_name: Mapping[str, str],
     group_ids_by_name: Mapping[str, str],
 ) -> dict[str, Any]:
     try:
-        zone_id = group_ids_by_name[side["zone"]]
+        zone_id = zone_ids_by_name[side["zone"]]
     except KeyError as exc:
         raise FirewallError(f"firewall rule refers to an unknown zone: {side.get('zone')}") from exc
     endpoint: dict[str, Any] = {"zoneId": zone_id}
@@ -1225,8 +1226,6 @@ def firewall_rule_to_unifi(
     group_ids_by_name: Mapping[str, str],
 ) -> dict[str, Any]:
     """Convert one portable rule to the official Integration API payload."""
-    endpoint_ids = dict(group_ids_by_name)
-    endpoint_ids.update(zone_ids_by_name)
     payload: dict[str, Any] = {
         "name": rule["name"],
         "enabled": rule.get("enabled", True),
@@ -1234,12 +1233,14 @@ def firewall_rule_to_unifi(
         "source": _firewall_endpoint_to_unifi(
             rule["source"],
             network_ids_by_name=network_ids_by_name,
-            group_ids_by_name=endpoint_ids,
+            zone_ids_by_name=zone_ids_by_name,
+            group_ids_by_name=group_ids_by_name,
         ),
         "destination": _firewall_endpoint_to_unifi(
             rule["destination"],
             network_ids_by_name=network_ids_by_name,
-            group_ids_by_name=endpoint_ids,
+            zone_ids_by_name=zone_ids_by_name,
+            group_ids_by_name=group_ids_by_name,
         ),
         "ipProtocolScope": {"ipVersion": rule.get("ip_version", "IPV4_AND_IPV6")},
         "loggingEnabled": rule.get("logging", False),

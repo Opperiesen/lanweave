@@ -559,6 +559,20 @@ def _firewall_order_position(
     )
 
 
+def _firewall_unique_name_index(
+    items: list[dict[str, Any]], resource: str
+) -> dict[str, dict[str, Any]]:
+    indexed: dict[str, dict[str, Any]] = {}
+    for item in items:
+        name = item.get("name")
+        if not isinstance(name, str) or not name:
+            raise ResourceContractError(f"firewall {resource} is missing a stable name")
+        if name in indexed:
+            raise ResourceContractError(f"ambiguous firewall {resource} name: {name}")
+        indexed[name] = item
+    return indexed
+
+
 def _read_firewall_inventory(
     client: Adapter,
     current_networks: list[dict[str, Any]],
@@ -567,6 +581,9 @@ def _read_firewall_inventory(
     zones = client.firewall_zones()
     groups = client.firewall_traffic_matching_lists()
     policies = client.firewall_policies()
+    zones_by_name = _firewall_unique_name_index(zones, "zone")
+    groups_by_name = _firewall_unique_name_index(groups, "group")
+    policies_by_name = _firewall_unique_name_index(policies, "policy")
     network_names_by_id = {
         str(network.get("_id") or network.get("id")): str(network["name"])
         for network in current_networks
@@ -605,6 +622,9 @@ def _read_firewall_inventory(
         "zones": zones,
         "groups": groups,
         "policies": policies,
+        "zones_by_name": zones_by_name,
+        "groups_by_name": groups_by_name,
+        "policies_by_name": policies_by_name,
         "orderings": orderings,
         "zone_names_by_id": zone_names_by_id,
         "network_names_by_id": network_names_by_id,
@@ -683,9 +703,9 @@ def _append_firewall_plan(
     except FirewallError as exc:
         raise ResourceContractError(str(exc)) from None
     inventory = _read_firewall_inventory(client, current_networks)
-    current_zones = {str(zone["name"]): zone for zone in inventory["zones"]}
-    current_groups = {str(group["name"]): group for group in inventory["groups"]}
-    current_policies = {str(policy["name"]): policy for policy in inventory["policies"]}
+    current_zones = inventory["zones_by_name"]
+    current_groups = inventory["groups_by_name"]
+    current_policies = inventory["policies_by_name"]
     current_rules = inventory["current_rules"]
 
     desired_zones = desired["zones"]

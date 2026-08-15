@@ -17,6 +17,7 @@ PORT_GROUP_KEYS = {"name", "ports"}
 RULE_KEYS = {
     "name",
     "order",
+    "placement",
     "source",
     "destination",
     "action",
@@ -43,6 +44,8 @@ SUPPORTED_ACTIONS = {"ALLOW", "BLOCK", "REJECT"}
 SUPPORTED_IP_VERSIONS = {"IPV4", "IPV4_AND_IPV6", "IPV6"}
 SUPPORTED_CONNECTION_STATES = {"NEW", "INVALID", "ESTABLISHED", "RELATED"}
 SUPPORTED_IPSEC = {"MATCH_ENCRYPTED", "MATCH_NOT_ENCRYPTED"}
+SUPPORTED_PLACEMENTS = {"before_system_defined", "after_system_defined"}
+FIREWALL_USER_ORIGINS = frozenset({"USER", "USER_DEFINED", "CUSTOM"})
 
 # This is the named-protocol subset exposed by the first portable contract.
 # Protocol numbers remain available for less common protocols.
@@ -72,6 +75,10 @@ SUPPORTED_PROTOCOLS = {
 
 class FirewallError(ValueError):
     """Raised when portable firewall state is malformed or unsafe."""
+
+
+class UnsupportedFirewallVariantError(FirewallError):
+    """Raised when a controller returns a firewall variant outside v0.5."""
 
 
 def _mapping(value: Any, label: str) -> dict[str, Any]:
@@ -322,6 +329,11 @@ def _validate_rule(
     order = rule.get("order")
     if isinstance(order, bool) or not isinstance(order, int) or order < 0:
         raise FirewallError(f"{label}.order must be a non-negative integer")
+    placement = str(rule.get("placement", "after_system_defined")).strip().lower()
+    if placement not in SUPPORTED_PLACEMENTS:
+        raise FirewallError(
+            f"{label}.placement must be one of: {', '.join(sorted(SUPPORTED_PLACEMENTS))}"
+        )
     source = _validate_side(
         rule.get("source"),
         f"{label}.source",
@@ -399,6 +411,7 @@ def _validate_rule(
     normalized: dict[str, Any] = {
         "name": name,
         "order": order,
+        "placement": placement,
         "source": source,
         "destination": destination,
         "action": action,
@@ -485,7 +498,13 @@ def validate_firewall(
     if len(set(rule_names)) != len(rule_names):
         raise FirewallError("firewall.rules must not contain duplicate names")
     order_keys = [
-        (rule["source"]["zone"], rule["destination"]["zone"], rule["order"]) for rule in rules
+        (
+            rule["source"]["zone"],
+            rule["destination"]["zone"],
+            rule["placement"],
+            rule["order"],
+        )
+        for rule in rules
     ]
     if len(set(order_keys)) != len(order_keys):
         raise FirewallError("firewall.rules order must be unique per source/destination zone pair")
@@ -531,22 +550,600 @@ def firewall_rule_match_key(rule: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
+def _controller_origin(value: Mapping[str, Any]) -> str:
+    metadata = value.get("metadata")
+    origin = metadata.get("origin") if isinstance(metadata, Mapping) else None
+    return str(origin or "UNKNOWN").strip().upper()
+
+
+def _controller_id(value: Mapping[str, Any]) -> str | None:
+    identifier = value.get("id") or value.get("_id")
+    return str(identifier) if identifier else None
+
+
+def _controller_address_item(value: Any, label: str) -> str | dict[str, str]:
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, Mapping):
+        raise UnsupportedFirewallVariantError(f"unsupported controller address item at {label}")
+    item_type = str(value.get("type") or "").upper()
+    if item_type in {"IP_ADDRESS", "SUBNET"} and isinstance(value.get("value"), str):
+        return value["value"]
+    if item_type == "IP_ADDRESS_RANGE":
+        start = value.get("start")
+        stop = value.get("stop")
+        if isinstance(start, str) and isinstance(stop, str):
+            return {"start": start, "stop": stop}
+    raise UnsupportedFirewallVariantError(f"unsupported controller address item at {label}")
+
+
+def _controller_port_item(value: Any, label: str) -> int | dict[str, int]:
+    if not isinstance(value, Mapping):
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value
+        raise UnsupportedFirewallVariantError(f"unsupported controller port item at {label}")
+    item_type = str(value.get("type") or "").upper()
+    if item_type == "PORT_NUMBER" and isinstance(value.get("value"), int):
+        return value["value"]
+    if item_type == "PORT_NUMBER_RANGE":
+        start = value.get("start")
+        stop = value.get("stop")
+        if isinstance(start, int) and isinstance(stop, int):
+            return {"start": start, "stop": stop}
+    raise UnsupportedFirewallVariantError(f"unsupported controller port item at {label}")
+
+
+def normalize_controller_firewall_zone(
+    value: Mapping[str, Any], label: str = "controller.zone"
+) -> dict[str, Any]:
+    """Normalize one Integration API firewall zone without exposing metadata."""
+    if not isinstance(value, Mapping):
+        raise FirewallError(f"{label} must be a mapping")
+    identifier = _controller_id(value)
+    name = value.get("name")
+    network_ids = value.get("networkIds", value.get("network_ids", []))
+    if not identifier or not isinstance(name, str) or not name.strip():
+        raise FirewallError(f"{label} is missing id or name")
+    if not isinstance(network_ids, list) or not all(isinstance(item, str) for item in network_ids):
+        raise FirewallError(f"{label}.networkIds must be a list of strings")
+    result: dict[str, Any] = {
+        "_id": identifier,
+        "id": identifier,
+        "name": name.strip(),
+        "network_ids": list(dict.fromkeys(network_ids)),
+        "_origin": _controller_origin(value),
+    }
+    metadata = value.get("metadata")
+    if isinstance(metadata, Mapping) and "configurable" in metadata:
+        result["_configurable"] = bool(metadata["configurable"])
+    return result
+
+
+def normalize_controller_traffic_matching_list(
+    value: Mapping[str, Any], label: str = "controller.traffic_matching_list"
+) -> dict[str, Any]:
+    """Normalize one supported address or port group from the Integration API."""
+    if not isinstance(value, Mapping):
+        raise FirewallError(f"{label} must be a mapping")
+    identifier = _controller_id(value)
+    name = value.get("name")
+    list_type = str(value.get("type") or "").strip().upper()
+    if not identifier or not isinstance(name, str) or not name.strip():
+        raise FirewallError(f"{label} is missing id or name")
+    raw_items = value.get("items")
+    if not isinstance(raw_items, list):
+        raise FirewallError(f"{label}.items must be a list")
+    if list_type in {"IPV4_ADDRESSES", "IPV6_ADDRESSES"}:
+        items = [
+            _controller_address_item(item, f"{label}.items[{index}]")
+            for index, item in enumerate(raw_items)
+        ]
+        normalized = normalize_address_items(items, f"{label}.items")
+        expected_family = 4 if list_type == "IPV4_ADDRESSES" else 6
+        if any(item["family"] != expected_family for item in normalized):
+            raise FirewallError(f"{label} contains an item from the wrong IP version")
+        group_type = "address_group"
+        portable_items = [_portable_address_item(item) for item in normalized]
+    elif list_type == "PORTS":
+        normalized = normalize_port_items(
+            [
+                _controller_port_item(item, f"{label}.items[{index}]")
+                for index, item in enumerate(raw_items)
+            ],
+            f"{label}.items",
+        )
+        group_type = "port_group"
+        portable_items = [_portable_port_item(item) for item in normalized]
+    else:
+        raise UnsupportedFirewallVariantError(
+            f"unsupported controller traffic matching list type: {list_type or 'missing'}"
+        )
+    return {
+        "_id": identifier,
+        "id": identifier,
+        "name": name.strip(),
+        "type": list_type,
+        "group_type": group_type,
+        "items": portable_items,
+        "_origin": _controller_origin(value),
+    }
+
+
+def _normalize_controller_endpoint(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise FirewallError(f"{label} must be a mapping")
+    zone_id = value.get("zoneId") or value.get("zone_id")
+    if not isinstance(zone_id, str) or not zone_id:
+        raise FirewallError(f"{label}.zoneId must be a non-empty string")
+    result: dict[str, Any] = {"zone_id": zone_id}
+    traffic_filter = value.get("trafficFilter", value.get("traffic_filter"))
+    if traffic_filter is not None:
+        if not isinstance(traffic_filter, Mapping):
+            raise FirewallError(f"{label}.trafficFilter must be a mapping")
+        result["traffic_filter"] = dict(traffic_filter)
+    return result
+
+
+def normalize_controller_firewall_policy(
+    value: Mapping[str, Any], label: str = "controller.firewall_policy"
+) -> dict[str, Any]:
+    """Normalize a policy while preserving supported filter details for export."""
+    if not isinstance(value, Mapping):
+        raise FirewallError(f"{label} must be a mapping")
+    identifier = _controller_id(value)
+    name = value.get("name")
+    if not identifier or not isinstance(name, str) or not name.strip():
+        raise FirewallError(f"{label} is missing id or name")
+    action = value.get("action")
+    if isinstance(action, Mapping):
+        action_type = str(action.get("type") or "").strip().upper()
+        allow_return_traffic = bool(action.get("allowReturnTraffic", False))
+    else:
+        action_type = str(action or "").strip().upper()
+        allow_return_traffic = False
+    if action_type not in SUPPORTED_ACTIONS:
+        raise UnsupportedFirewallVariantError(
+            f"unsupported controller firewall action: {action_type or 'missing'}"
+        )
+    scope = value.get("ipProtocolScope", value.get("ip_protocol_scope"))
+    if not isinstance(scope, Mapping):
+        raise FirewallError(f"{label}.ipProtocolScope must be a mapping")
+    ip_version = str(scope.get("ipVersion") or scope.get("ip_version") or "").upper()
+    if ip_version not in SUPPORTED_IP_VERSIONS:
+        raise UnsupportedFirewallVariantError(f"unsupported controller IP version: {ip_version}")
+    result: dict[str, Any] = {
+        "_id": identifier,
+        "id": identifier,
+        "name": name.strip(),
+        "enabled": bool(value.get("enabled", True)),
+        "action": action_type,
+        "allow_return_traffic": allow_return_traffic,
+        "source": _normalize_controller_endpoint(value.get("source"), f"{label}.source"),
+        "destination": _normalize_controller_endpoint(
+            value.get("destination"), f"{label}.destination"
+        ),
+        "ip_version": ip_version,
+        "logging": bool(value.get("loggingEnabled", value.get("logging", False))),
+        "_origin": _controller_origin(value),
+    }
+    protocol_filter = scope.get("protocolFilter", scope.get("protocol_filter"))
+    if protocol_filter is not None:
+        if not isinstance(protocol_filter, Mapping):
+            raise FirewallError(f"{label}.protocolFilter must be a mapping")
+        result["protocol_filter"] = dict(protocol_filter)
+    states = value.get("connectionStateFilter", value.get("connection_states"))
+    if states is not None:
+        if not isinstance(states, list) or not all(isinstance(item, str) for item in states):
+            raise FirewallError(f"{label}.connectionStateFilter must be a list of strings")
+        result["connection_states"] = [str(item).upper() for item in states]
+    ipsec = value.get("ipsecFilter", value.get("ipsec"))
+    if ipsec is not None:
+        result["ipsec"] = str(ipsec).upper()
+    if value.get("description") is not None:
+        result["description"] = str(value["description"])
+    if value.get("schedule") is not None:
+        result["schedule"] = value["schedule"]
+    if value.get("index") is not None:
+        result["controller_index"] = value["index"]
+    return result
+
+
+def _group_name_for_id(
+    group_id: Any,
+    groups_by_id: Mapping[str, Mapping[str, Any]],
+    expected_type: str,
+    label: str,
+) -> str:
+    identifier = str(group_id or "")
+    group = groups_by_id.get(identifier)
+    if group is None:
+        raise FirewallError(f"{label} refers to an unknown traffic matching list")
+    if group.get("group_type") != expected_type:
+        raise FirewallError(f"{label} refers to a group of the wrong type")
+    if not firewall_is_user_managed(group):
+        raise FirewallError(f"{label} refers to a protected traffic matching list")
+    return str(group["name"])
+
+
+def _generated_group(
+    generated: list[dict[str, Any]],
+    used_names: set[str],
+    *,
+    base_name: str,
+    group_type: str,
+    items: list[Any],
+) -> str:
+    """Create a deterministic portable group for an inline controller filter."""
+    import re
+
+    base = re.sub(r"[^a-zA-Z0-9_-]+", "-", base_name).strip("-_").lower() or "rule"
+    candidate = base
+    suffix = 2
+    while candidate in used_names:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used_names.add(candidate)
+    key = "addresses" if group_type == "address_group" else "ports"
+    generated.append({"name": candidate, key: items})
+    return candidate
+
+
+def _export_api_address_filter(
+    value: Mapping[str, Any],
+    *,
+    groups_by_id: Mapping[str, Mapping[str, Any]],
+    generated: list[dict[str, Any]],
+    used_names: set[str],
+    label: str,
+) -> tuple[str, bool]:
+    filter_type = str(value.get("type") or "").upper()
+    match_opposite = bool(value.get("matchOpposite", False))
+    if filter_type == "TRAFFIC_MATCHING_LIST":
+        return (
+            _group_name_for_id(
+                value.get("trafficMatchingListId"), groups_by_id, "address_group", label
+            ),
+            match_opposite,
+        )
+    if filter_type != "IP_ADDRESSES":
+        raise UnsupportedFirewallVariantError(f"unsupported controller address filter at {label}")
+    raw_items = value.get("items")
+    if not isinstance(raw_items, list):
+        raise FirewallError(f"{label}.items must be a list")
+    items = [
+        _controller_address_item(item, f"{label}.items[{index}]")
+        for index, item in enumerate(raw_items)
+    ]
+    normalized = normalize_address_items(items, f"{label}.items")
+    return (
+        _generated_group(
+            generated,
+            used_names,
+            base_name=label,
+            group_type="address_group",
+            items=[_portable_address_item(item) for item in normalized],
+        ),
+        match_opposite,
+    )
+
+
+def _export_api_port_filter(
+    value: Mapping[str, Any],
+    *,
+    groups_by_id: Mapping[str, Mapping[str, Any]],
+    generated: list[dict[str, Any]],
+    used_names: set[str],
+    label: str,
+) -> tuple[str, bool]:
+    filter_type = str(value.get("type") or "").upper()
+    match_opposite = bool(value.get("matchOpposite", False))
+    if filter_type == "TRAFFIC_MATCHING_LIST":
+        return (
+            _group_name_for_id(
+                value.get("trafficMatchingListId"), groups_by_id, "port_group", label
+            ),
+            match_opposite,
+        )
+    if filter_type != "PORTS":
+        raise UnsupportedFirewallVariantError(f"unsupported controller port filter at {label}")
+    raw_items = value.get("items")
+    if not isinstance(raw_items, list):
+        raise FirewallError(f"{label}.items must be a list")
+    items = [
+        _controller_port_item(item, f"{label}.items[{index}]")
+        for index, item in enumerate(raw_items)
+    ]
+    normalized = normalize_port_items(items, f"{label}.items")
+    return (
+        _generated_group(
+            generated,
+            used_names,
+            base_name=label,
+            group_type="port_group",
+            items=[_portable_port_item(item) for item in normalized],
+        ),
+        match_opposite,
+    )
+
+
+def _export_endpoint(
+    endpoint: Mapping[str, Any],
+    *,
+    is_source: bool,
+    zone_names_by_id: Mapping[str, str],
+    network_names_by_id: Mapping[str, str],
+    groups_by_id: Mapping[str, Mapping[str, Any]],
+    generated: list[dict[str, Any]],
+    used_names: set[str],
+    label: str,
+) -> dict[str, Any]:
+    zone_id = str(endpoint.get("zone_id") or "")
+    zone_name = zone_names_by_id.get(zone_id)
+    if zone_name is None:
+        raise FirewallError(f"{label}.zone_id refers to an unknown firewall zone")
+    result: dict[str, Any] = {"zone": zone_name}
+    traffic_filter = endpoint.get("traffic_filter")
+    if traffic_filter is None:
+        return result
+    if not isinstance(traffic_filter, Mapping):
+        raise FirewallError(f"{label}.traffic_filter must be a mapping")
+    filter_type = str(traffic_filter.get("type") or "").upper()
+    if filter_type == "NETWORK":
+        network_filter = traffic_filter.get("networkFilter")
+        if not isinstance(network_filter, Mapping):
+            raise FirewallError(f"{label}.networkFilter must be a mapping")
+        network_ids = network_filter.get("networkIds")
+        if not isinstance(network_ids, list) or not all(
+            isinstance(item, str) for item in network_ids
+        ):
+            raise FirewallError(f"{label}.networkFilter.networkIds must be a list")
+        try:
+            result["networks"] = [network_names_by_id[item] for item in network_ids]
+        except KeyError as exc:
+            raise FirewallError(f"{label}.networkFilter refers to an unknown network") from exc
+        if network_filter.get("matchOpposite"):
+            result["match_opposite"] = True
+    elif filter_type == "IP_ADDRESS":
+        address_filter = traffic_filter.get("ipAddressFilter")
+        if not isinstance(address_filter, Mapping):
+            raise FirewallError(f"{label}.ipAddressFilter must be a mapping")
+        group_name, match_opposite = _export_api_address_filter(
+            address_filter,
+            groups_by_id=groups_by_id,
+            generated=generated,
+            used_names=used_names,
+            label=f"{label}.ipAddressFilter",
+        )
+        result["address_group"] = group_name
+        if match_opposite:
+            result["match_opposite"] = True
+    elif filter_type != "PORT":
+        raise UnsupportedFirewallVariantError(f"unsupported controller traffic filter at {label}")
+
+    port_filter = traffic_filter.get("portFilter")
+    if port_filter is not None:
+        if not isinstance(port_filter, Mapping):
+            raise FirewallError(f"{label}.portFilter must be a mapping")
+        group_name, match_opposite = _export_api_port_filter(
+            port_filter,
+            groups_by_id=groups_by_id,
+            generated=generated,
+            used_names=used_names,
+            label=f"{label}.portFilter",
+        )
+        result["port_group"] = group_name
+        if match_opposite:
+            result["port_match_opposite"] = True
+    elif filter_type == "PORT":
+        raise FirewallError(f"{label} is missing portFilter")
+    return result
+
+
+def _export_protocol_filter(value: Mapping[str, Any], label: str) -> dict[str, Any]:
+    filter_type = str(value.get("type") or "").upper()
+    if filter_type == "NAMED_PROTOCOL":
+        protocol = value.get("protocol")
+        if not isinstance(protocol, Mapping) or not isinstance(protocol.get("name"), str):
+            raise FirewallError(f"{label}.protocol must be a mapping with a name")
+        result = {"protocol": str(protocol["name"]).upper()}
+    elif filter_type == "PRESET":
+        preset = value.get("preset")
+        if not isinstance(preset, Mapping) or not isinstance(preset.get("name"), str):
+            raise FirewallError(f"{label}.preset must be a mapping with a name")
+        result = {"protocol": str(preset["name"]).upper()}
+    elif filter_type == "PROTOCOL_NUMBER":
+        protocol_number = value.get("protocolNumber")
+        if isinstance(protocol_number, bool) or not isinstance(protocol_number, int):
+            raise FirewallError(f"{label}.protocolNumber must be an integer")
+        result = {"protocol_number": protocol_number}
+    else:
+        raise UnsupportedFirewallVariantError(f"unsupported controller protocol filter at {label}")
+    if value.get("matchOpposite"):
+        raise UnsupportedFirewallVariantError(
+            f"opposite protocol filters are not portable at {label}"
+        )
+    return result
+
+
+def firewall_policy_to_portable(
+    policy: Mapping[str, Any],
+    *,
+    order: int,
+    placement: str,
+    zone_names_by_id: Mapping[str, str],
+    network_names_by_id: Mapping[str, str],
+    groups_by_id: Mapping[str, Mapping[str, Any]],
+    generated: list[dict[str, Any]],
+    used_names: set[str],
+) -> dict[str, Any]:
+    """Convert one normalized live policy to the portable rule contract."""
+    source = _export_endpoint(
+        policy["source"],
+        is_source=True,
+        zone_names_by_id=zone_names_by_id,
+        network_names_by_id=network_names_by_id,
+        groups_by_id=groups_by_id,
+        generated=generated,
+        used_names=used_names,
+        label=f"firewall rule {policy['name']} source",
+    )
+    destination = _export_endpoint(
+        policy["destination"],
+        is_source=False,
+        zone_names_by_id=zone_names_by_id,
+        network_names_by_id=network_names_by_id,
+        groups_by_id=groups_by_id,
+        generated=generated,
+        used_names=used_names,
+        label=f"firewall rule {policy['name']} destination",
+    )
+    result: dict[str, Any] = {
+        "name": policy["name"],
+        "order": order,
+        "placement": placement,
+        "source": source,
+        "destination": destination,
+        "action": policy["action"],
+        "enabled": policy.get("enabled", True),
+        "ip_version": policy["ip_version"],
+        "logging": policy.get("logging", False),
+        "allow_return_traffic": policy.get("allow_return_traffic", False),
+    }
+    protocol_filter = policy.get("protocol_filter")
+    if protocol_filter is not None:
+        result.update(_export_protocol_filter(protocol_filter, f"firewall rule {policy['name']}"))
+    if policy.get("connection_states") is not None:
+        result["connection_states"] = list(policy["connection_states"])
+    if policy.get("ipsec") is not None:
+        result["ipsec"] = policy["ipsec"]
+    if policy.get("description"):
+        result["description"] = policy["description"]
+    return result
+
+
+def export_firewall_config(
+    *,
+    zones: Sequence[Mapping[str, Any]],
+    groups: Sequence[Mapping[str, Any]],
+    policies: Sequence[Mapping[str, Any]],
+    orderings: Mapping[tuple[str, str], Mapping[str, Sequence[str]]],
+    network_names_by_id: Mapping[str, str],
+) -> dict[str, Any]:
+    """Export user-managed firewall resources without controller IDs."""
+    all_zones = {str(zone["id"]): zone for zone in zones if zone.get("id")}
+    zone_names_by_id = {identifier: str(zone["name"]) for identifier, zone in all_zones.items()}
+    all_groups = {str(group["id"]): group for group in groups if group.get("id")}
+    user_groups = [group for group in groups if firewall_is_user_managed(group)]
+    user_zones = [zone for zone in zones if firewall_is_user_managed(zone)]
+    user_policies = [policy for policy in policies if firewall_is_user_managed(policy)]
+    used_names = {str(group["name"]) for group in user_groups}
+    generated_groups: list[dict[str, Any]] = []
+
+    exported_rules: list[dict[str, Any]] = []
+    for policy in sorted(user_policies, key=lambda item: (str(item["name"]), str(item["id"]))):
+        source_zone_id = policy["source"]["zone_id"]
+        destination_zone_id = policy["destination"]["zone_id"]
+        ordering = orderings.get((source_zone_id, destination_zone_id))
+        if ordering is None:
+            raise FirewallError(
+                f"missing firewall policy ordering for {source_zone_id}/{destination_zone_id}"
+            )
+        placement = "after_system_defined"
+        order = len(ordering.get("after_system_defined", []))
+        for candidate_placement in ("before_system_defined", "after_system_defined"):
+            ids = list(ordering.get(candidate_placement, []))
+            if policy["id"] in ids:
+                placement = candidate_placement
+                order = ids.index(policy["id"])
+                break
+        exported_rules.append(
+            firewall_policy_to_portable(
+                policy,
+                order=order,
+                placement=placement,
+                zone_names_by_id=zone_names_by_id,
+                network_names_by_id=network_names_by_id,
+                groups_by_id=all_groups,
+                generated=generated_groups,
+                used_names=used_names,
+            )
+        )
+
+    exported_zones: list[dict[str, Any]] = []
+    for zone in sorted(user_zones, key=lambda item: (str(item["name"]), str(item["id"]))):
+        network_ids = zone.get("network_ids", [])
+        try:
+            networks = [network_names_by_id[network_id] for network_id in network_ids]
+        except KeyError as exc:
+            raise FirewallError(
+                f"firewall zone {zone['name']} refers to an unknown network"
+            ) from exc
+        exported_zones.append({"name": zone["name"], "networks": networks})
+
+    exported_address_groups = [
+        {"name": group["name"], "addresses": list(group["items"])}
+        for group in sorted(user_groups, key=lambda item: (str(item["name"]), str(item["id"])))
+        if group.get("group_type") == "address_group"
+    ]
+    exported_port_groups = [
+        {"name": group["name"], "ports": list(group["items"])}
+        for group in sorted(user_groups, key=lambda item: (str(item["name"]), str(item["id"])))
+        if group.get("group_type") == "port_group"
+    ]
+    for group in generated_groups:
+        if "addresses" in group:
+            exported_address_groups.append(group)
+        else:
+            exported_port_groups.append(group)
+    exported_address_groups.sort(key=lambda item: item["name"])
+    exported_port_groups.sort(key=lambda item: item["name"])
+    exported_rules.sort(
+        key=lambda item: (
+            item["source"]["zone"],
+            item["destination"]["zone"],
+            item["placement"],
+            item["order"],
+            item["name"],
+        )
+    )
+    return {
+        "zones": exported_zones,
+        "address_groups": exported_address_groups,
+        "port_groups": exported_port_groups,
+        "rules": exported_rules,
+    }
+
+
+def firewall_is_user_managed(value: Mapping[str, Any]) -> bool:
+    """Return whether a live firewall object may be mutated or pruned."""
+    return str(value.get("_origin", "UNKNOWN")).upper() in FIREWALL_USER_ORIGINS
+
+
 __all__ = [
     "ADDRESS_GROUP_KEYS",
     "FIREWALL_KEYS",
+    "FIREWALL_USER_ORIGINS",
     "FirewallError",
+    "UnsupportedFirewallVariantError",
     "PORT_GROUP_KEYS",
     "RULE_KEYS",
     "SUPPORTED_ACTIONS",
     "SUPPORTED_CONNECTION_STATES",
     "SUPPORTED_IPSEC",
+    "SUPPORTED_PLACEMENTS",
     "SUPPORTED_IP_VERSIONS",
     "SUPPORTED_PROTOCOLS",
     "firewall_rule_is_broad",
     "firewall_rule_match_key",
+    "firewall_is_user_managed",
+    "firewall_policy_to_portable",
+    "export_firewall_config",
     "normalize_address_item",
     "normalize_address_items",
     "normalize_port_item",
     "normalize_port_items",
+    "normalize_controller_firewall_policy",
+    "normalize_controller_firewall_zone",
+    "normalize_controller_traffic_matching_list",
     "validate_firewall",
 ]

@@ -19,6 +19,12 @@ from .adapters import (
     local_classic_capabilities,
 )
 from .dns import normalize_controller_dns_list
+from .firewall import (
+    UnsupportedFirewallVariantError,
+    normalize_controller_firewall_policy,
+    normalize_controller_firewall_zone,
+    normalize_controller_traffic_matching_list,
+)
 
 INTEGRATION_API_PREFIX = "/proxy/network/integration/v1"
 INTEGRATION_PAGE_SIZE = 200
@@ -246,9 +252,18 @@ class LocalClassicAdapter:
     def _integration_response(self, method: str, path: str, **kwargs: Any) -> Any:
         normalized_path = path.rstrip("/")
         is_dns_policy_path = "/dns/policies" in normalized_path
-        if method.upper() != "GET" and not is_dns_policy_path:
+        is_firewall_path = any(
+            marker in normalized_path
+            for marker in (
+                "/firewall/zones",
+                "/firewall/policies",
+                "/traffic-matching-lists",
+            )
+        )
+        if method.upper() != "GET" and not (is_dns_policy_path or is_firewall_path):
             raise RuntimeError(
-                "API-key mode supports mutations only for the DNS policy integration endpoint"
+                "API-key mode supports mutations only for supported DNS and firewall "
+                "integration endpoints"
             )
         url = urljoin("/", f"{INTEGRATION_API_PREFIX}/{path.lstrip('/')}")
         response = self._http.request(
@@ -435,6 +450,193 @@ class LocalClassicAdapter:
         return self._integration_request(
             "DELETE",
             self._integration_site_path(f"dns/policies/{object_id}"),
+        )
+
+    def firewall_zones(self) -> list[dict[str, Any]]:
+        """List firewall zones through the official Integration API."""
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return sorted(
+            (
+                normalize_controller_firewall_zone(value, f"controller.firewall.zones[{index}]")
+                for index, value in enumerate(
+                    self._integration_list(self._integration_site_path("firewall/zones"))
+                )
+            ),
+            key=lambda item: (item["name"], item["id"]),
+        )
+
+    def firewall_traffic_matching_lists(self) -> list[dict[str, Any]]:
+        """List address and port groups, fetching detail items when required."""
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        resource = self._integration_site_path("traffic-matching-lists")
+        normalized: list[dict[str, Any]] = []
+        for index, summary in enumerate(self._integration_list(resource)):
+            identifier = summary.get("id") or summary.get("_id")
+            detail = (
+                self._integration_request("GET", f"{resource}/{identifier}")
+                if identifier
+                else summary
+            )
+            if not isinstance(detail, dict):
+                detail = summary
+            merged = {**summary, **detail}
+            try:
+                normalized.append(
+                    normalize_controller_traffic_matching_list(
+                        merged, f"controller.firewall.traffic_matching_lists[{index}]"
+                    )
+                )
+            except UnsupportedFirewallVariantError:
+                # The v0.5 contract is intentionally narrower than the API's
+                # future variants. Preserve a safe read surface by ignoring an
+                # unsupported group; policies referencing it fail closed later.
+                continue
+        return sorted(normalized, key=lambda item: (item["name"], item["id"]))
+
+    def firewall_policies(self) -> list[dict[str, Any]]:
+        """List firewall policies without inferring order from controller indexes."""
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        policies = [
+            normalize_controller_firewall_policy(value, f"controller.firewall.policies[{index}]")
+            for index, value in enumerate(
+                self._integration_list(self._integration_site_path("firewall/policies"))
+            )
+        ]
+        return sorted(
+            policies,
+            key=lambda item: (
+                item["source"]["zone_id"],
+                item["destination"]["zone_id"],
+                item["name"],
+                item["id"],
+            ),
+        )
+
+    def firewall_policy_ordering(
+        self, source_zone_id: str, destination_zone_id: str
+    ) -> dict[str, list[str]]:
+        """Read user-defined order for one source/destination zone pair."""
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        payload = self._integration_request(
+            "GET",
+            self._integration_site_path("firewall/policies/ordering"),
+            params={
+                "sourceFirewallZoneId": source_zone_id,
+                "destinationFirewallZoneId": destination_zone_id,
+            },
+        )
+        if not isinstance(payload, dict):
+            raise RuntimeError("UniFi integration API returned invalid firewall policy ordering")
+        ordered = payload.get(
+            "orderedFirewallPolicyIds", payload.get("ordered_firewall_policy_ids")
+        )
+        if not isinstance(ordered, dict):
+            raise RuntimeError("UniFi integration API returned invalid firewall policy ordering")
+        result: dict[str, list[str]] = {}
+        for api_key, portable_key in (
+            ("afterSystemDefined", "after_system_defined"),
+            ("beforeSystemDefined", "before_system_defined"),
+        ):
+            values = ordered.get(api_key, ordered.get(portable_key, []))
+            if not isinstance(values, list) or not all(isinstance(item, str) for item in values):
+                raise RuntimeError(
+                    "UniFi integration API returned invalid firewall policy ordering"
+                )
+            result[portable_key] = list(values)
+        return result
+
+    def create_firewall_zone(self, payload: dict[str, Any]) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "POST", self._integration_site_path("firewall/zones"), json=payload
+        )
+
+    def update_firewall_zone(self, object_id: str, payload: dict[str, Any]) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "PUT", self._integration_site_path(f"firewall/zones/{object_id}"), json=payload
+        )
+
+    def delete_firewall_zone(self, object_id: str) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "DELETE", self._integration_site_path(f"firewall/zones/{object_id}")
+        )
+
+    def create_firewall_traffic_matching_list(self, payload: dict[str, Any]) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "POST", self._integration_site_path("traffic-matching-lists"), json=payload
+        )
+
+    def update_firewall_traffic_matching_list(self, object_id: str, payload: dict[str, Any]) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "PUT",
+            self._integration_site_path(f"traffic-matching-lists/{object_id}"),
+            json=payload,
+        )
+
+    def delete_firewall_traffic_matching_list(self, object_id: str) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "DELETE", self._integration_site_path(f"traffic-matching-lists/{object_id}")
+        )
+
+    def create_firewall_policy(self, payload: dict[str, Any]) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "POST", self._integration_site_path("firewall/policies"), json=payload
+        )
+
+    def update_firewall_policy(self, object_id: str, payload: dict[str, Any]) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "PUT", self._integration_site_path(f"firewall/policies/{object_id}"), json=payload
+        )
+
+    def delete_firewall_policy(self, object_id: str) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "DELETE", self._integration_site_path(f"firewall/policies/{object_id}")
+        )
+
+    def reorder_firewall_policies(
+        self,
+        source_zone_id: str,
+        destination_zone_id: str,
+        *,
+        after_system_defined: list[str],
+        before_system_defined: list[str],
+    ) -> Any:
+        if not self.settings.api_key:
+            raise RuntimeError("firewall support requires an Integration API key")
+        return self._integration_request(
+            "PUT",
+            self._integration_site_path("firewall/policies/ordering"),
+            params={
+                "sourceFirewallZoneId": source_zone_id,
+                "destinationFirewallZoneId": destination_zone_id,
+            },
+            json={
+                "orderedFirewallPolicyIds": {
+                    "afterSystemDefined": after_system_defined,
+                    "beforeSystemDefined": before_system_defined,
+                }
+            },
         )
 
     def devices(self) -> list[dict[str, Any]]:

@@ -288,6 +288,7 @@
       "properties": {
         "name": { "type": "string", "minLength": 1 },
         "order": { "type": "integer", "minimum": 0 },
+        "placement": { "enum": ["before_system_defined", "after_system_defined"] },
         "source": { "$ref": "#/$defs/firewall_side" },
         "destination": { "$ref": "#/$defs/firewall_side" },
         "action": { "enum": ["ALLOW", "BLOCK", "REJECT"] },

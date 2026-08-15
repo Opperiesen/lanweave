@@ -2,8 +2,12 @@ import pytest
 
 from lanweave.firewall import (
     FirewallError,
+    export_firewall_config,
     firewall_rule_is_broad,
     normalize_address_items,
+    normalize_controller_firewall_policy,
+    normalize_controller_firewall_zone,
+    normalize_controller_traffic_matching_list,
     normalize_port_items,
     validate_firewall,
 )
@@ -142,3 +146,86 @@ def test_broad_firewall_rules_are_detectable() -> None:
     )
 
     assert firewall_rule_is_broad(document["rules"][0])
+
+
+def test_firewall_export_is_secret_free_and_preserves_group_references() -> None:
+    zones = [
+        normalize_controller_firewall_zone(
+            {
+                "id": "zone-lan",
+                "name": "LAN",
+                "networkIds": ["network-home"],
+                "metadata": {"origin": "SYSTEM_DEFINED"},
+            }
+        ),
+        normalize_controller_firewall_zone(
+            {
+                "id": "zone-custom",
+                "name": "Trusted",
+                "networkIds": ["network-home"],
+                "metadata": {"origin": "USER_DEFINED"},
+            }
+        ),
+    ]
+    groups = [
+        normalize_controller_traffic_matching_list(
+            {
+                "id": "group-web",
+                "name": "web",
+                "type": "PORTS",
+                "items": [{"type": "PORT_NUMBER", "value": 443}],
+                "metadata": {"origin": "USER_DEFINED"},
+            }
+        )
+    ]
+    policy = normalize_controller_firewall_policy(
+        {
+            "id": "policy-1",
+            "name": "allow-web",
+            "enabled": True,
+            "action": {"type": "ALLOW", "allowReturnTraffic": True},
+            "source": {"zoneId": "zone-custom"},
+            "destination": {
+                "zoneId": "zone-lan",
+                "trafficFilter": {
+                    "type": "PORT",
+                    "portFilter": {
+                        "type": "TRAFFIC_MATCHING_LIST",
+                        "trafficMatchingListId": "group-web",
+                        "matchOpposite": False,
+                    },
+                },
+            },
+            "ipProtocolScope": {
+                "ipVersion": "IPV4",
+                "protocolFilter": {
+                    "type": "NAMED_PROTOCOL",
+                    "protocol": {"name": "tcp"},
+                    "matchOpposite": False,
+                },
+            },
+            "connectionStateFilter": ["NEW"],
+            "loggingEnabled": False,
+            "metadata": {"origin": "USER_DEFINED"},
+        }
+    )
+
+    exported = export_firewall_config(
+        zones=zones,
+        groups=groups,
+        policies=[policy],
+        orderings={
+            ("zone-custom", "zone-lan"): {
+                "before_system_defined": [],
+                "after_system_defined": ["policy-1"],
+            }
+        },
+        network_names_by_id={"network-home": "Home"},
+    )
+
+    assert exported["zones"] == [{"name": "Trusted", "networks": ["Home"]}]
+    assert exported["port_groups"] == [{"name": "web", "ports": [443]}]
+    assert exported["rules"][0]["destination"] == {"zone": "LAN", "port_group": "web"}
+    assert exported["rules"][0]["protocol"] == "TCP"
+    assert "policy-1" not in str(exported)
+    assert "zone-custom" not in str(exported)

@@ -32,13 +32,15 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.2.0` is the stable local-first profile release. It is tested
-against simulated controller responses, with read-only and authorized mutation
-evidence on one designated UniFi OS controller. It targets the classic local
-UniFi Network API used by self-hosted UniFi Network applications and UniFi OS
-consoles; see [compatibility](docs/compatibility.md) and the [apply recovery
-model](docs/recovery.md) for the exact scope, tested matrix and partial-failure
-behavior. The frozen public surfaces are described in [contracts](docs/contracts.md).
+Lanweave `0.3.0` is the stable adapter and capability release. It preserves
+the local-first profile behavior tested against simulated controller responses,
+with read-only and authorized mutation evidence on one designated UniFi OS
+controller, and adds an explicit, read-only Site Manager cloud adapter. It
+targets the classic local UniFi Network API used by self-hosted UniFi Network
+applications and UniFi OS consoles; see [compatibility](docs/compatibility.md)
+and the [apply recovery model](docs/recovery.md) for the exact scope, tested
+matrix and partial-failure behavior. The frozen public surfaces are described
+in [contracts](docs/contracts.md).
 
 Supported resource families in this release:
 
@@ -47,6 +49,10 @@ Supported resource families in this release:
 - local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
+
+The `cloud-site-manager` adapter exposes only documented read-only hosts,
+sites, devices and derived site health. Run `lanweave capabilities` before
+selecting a target to inspect its supported operations.
 
 Firewall, DNS, NAT, VPN and device mutation workflows are deliberately not
 included yet. They need their own fixtures, dependency rules and rollback
@@ -58,7 +64,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.2.0
+uv tool install lanweave==0.3.0
 lanweave --version
 ```
 
@@ -98,6 +104,7 @@ lanweave doctor --check          # also perform one health request
 lanweave validate                # validate YAML locally
 lanweave profiles list           # list sanitized local targets
 lanweave profiles validate       # validate profiles without contacting UniFi
+lanweave capabilities --output json # inspect selected adapter capabilities
 lanweave export --out live.yaml # export secret-free desired-state YAML
 lanweave plan                    # show create/update/delete operations
 lanweave plan --output json      # machine-readable, redacted plan

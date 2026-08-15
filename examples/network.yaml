@@ -1,0 +1,39 @@
+version: 1
+
+controller:
+  site: default
+
+networks:
+  - name: Home
+    purpose: corporate
+    subnet: 192.168.10.0/24
+    vlan: 10
+    dhcp:
+      enabled: true
+      start: 192.168.10.100
+      stop: 192.168.10.240
+      lease_time: 86400
+
+  - name: IoT
+    purpose: vlan-only
+    subnet: 192.168.20.0/24
+    vlan: 20
+    dhcp:
+      enabled: true
+      start: 192.168.20.100
+      stop: 192.168.20.240
+      lease_time: 86400
+
+wlans:
+  - name: Home
+    ssid: Home
+    network: Home
+    bands: [5g, 6g]
+    security: wpa3
+
+  - name: Home-IoT
+    ssid: Home-IoT
+    network: IoT
+    bands: [2g]
+    security: wpa2
+    client_isolation: true

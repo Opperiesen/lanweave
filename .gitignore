@@ -1,0 +1,19 @@
+.venv/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Never commit controller exports, backups or generated plans.
+backups/
+exports/
+plans/
+*.json
+*.yaml
+!examples/*.yaml

@@ -1,5 +1,38 @@
 # Compatibility
 
+## Version 0.2 profile compatibility
+
+Lanweave `v0.2.0` keeps the version-1 resource and local environment behavior
+while adding a version-2 profile layer for multiple local controllers and
+sites. The sanitized target identity is carried through controller-facing CLI,
+plan and MCP responses; credentials and controller URLs remain outside the
+identity.
+
+Preserved behavior:
+
+- version-1 YAML files remain valid and keep their `controller.site` and
+  `UNIFI_*` precedence;
+- version-1 plan JSON remains valid because `target` is an optional additive
+  field;
+- legacy CLI invocations without a profile continue to resolve the single
+  target from the existing environment;
+- the MCP adapter remains read-only and still supports environment-only target
+  resolution for version-1 usage.
+
+Deliberate v0.2 changes:
+
+- controller-facing CLI commands accept explicit `--config` and `--profile`
+  selectors and reject conflicts before controller access;
+- version-2 plans include `{profile, controller, site}` and reject a missing or
+  different identity before mutation;
+- the MCP contract is v2: controller-facing tools accept `config_path` and
+  `profile`, while list/export responses use a `target` envelope;
+- version-2 configurations require an effective selector and never choose the
+  first profile implicitly.
+
+Cloud adapters, new resource families and write-capable MCP remain outside the
+v0.2.0 compatibility claim.
+
 Lanweave 0.1 supports two local UniFi Network API surfaces. Username/password
 session authentication uses the classic endpoints below `/proxy/network/api`.
 API-key authentication uses the v1 Integration API below
@@ -118,7 +151,10 @@ For local execution, export the same `LANWEAVE_INTEGRATION_*` variables and
 run the read-only suite explicitly:
 
 ```shell
-uv run pytest tests/integration/test_controller.py -m integration -q
+uv run pytest \
+  tests/integration/test_controller.py \
+  tests/integration/test_profile_integration.py \
+  -m integration -q
 ```
 
 Mutations must be run separately and only with a dedicated target:

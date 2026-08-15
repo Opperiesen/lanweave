@@ -3,10 +3,14 @@
 This document freezes the design of Lanweave's local multi-controller and
 multi-site profile layer for `v0.2.0`. It defines selection, target identity,
 credential references and migration. Runtime support is implemented separately
-by the child issues in the [v0.2.0 roadmap](roadmap.md).
+by the child issues in the [v0.2.0 roadmap](roadmap.md) and validated by the
+release evidence workflow.
 
-The existing version-1 configuration remains valid. This document does not
-change the `v0.1.x` CLI, plan JSON or read-only MCP contracts.
+The existing version-1 configuration remains valid and its `v0.1.x` behavior
+is unchanged. The `v0.2.0` read-only MCP surface is explicitly versioned as
+contract v2 because its controller-facing responses now expose a target
+envelope; the migration is documented in
+[`migration-v0.2.md`](migration-v0.2.md).
 
 ## Goals and boundaries
 
@@ -164,8 +168,8 @@ profile=office controller=local site=default
 Target identity never contains `host`, an environment value, a credential,
 an access token or a controller response. The profile name is included even
 when two profiles point to the same controller and site, so an operator can
-see which declared intent produced a plan. Plan JSON and MCP exposure of this
-identity are tracked by the later v0.2.0 workstreams.
+see which declared intent produced a plan. The CLI, plan JSON and MCP
+consumers expose this identity through the v0.2.0 operator surfaces.
 
 ## Migration from version 1
 

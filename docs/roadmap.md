@@ -122,6 +122,30 @@ Expected release gates:
 - `v0.2.0rc1`: integration evidence, migration documentation, redaction and wrong-target safety checks are complete;
 - `v0.2.0`: all required checks pass and compatibility notes are published.
 
+The gates are executable from a checkout:
+
+```shell
+# alpha: contracts, fixtures and resolver behavior
+uv run python scripts/verify_v020_evidence.py
+uv run pytest tests/test_profiles.py tests/test_config.py tests/test_contracts.py -q
+
+# beta: complete non-live operator surface
+uv run pytest -m "not integration and not integration_mutation" -q
+
+# rc: protected controller and profile evidence on the dedicated LAN runner
+uv run pytest tests/integration/test_controller.py tests/integration/test_profile_integration.py \
+  -m integration -q
+
+# stable: reproducible package and release metadata
+uv run pytest -q
+uv build
+```
+
+The rc command requires the protected `LANWEAVE_INTEGRATION_*` environment and
+is run manually by `.github/workflows/integration.yml`. The stable tag workflow
+then verifies the annotated tag, project version, clean artifacts, checksums,
+provenance and publication state.
+
 The profile model must:
 
 - keep credentials in the environment or an approved secret provider;
@@ -135,6 +159,12 @@ The profile model must:
 The release is limited to local controllers and sites. Cloud adapters remain in
 `v0.3.0`; new resource families remain in `v0.4.0+`; write-capable MCP and
 implicit controller discovery remain out of scope.
+
+The migration and deliberate contract changes are recorded in
+[migration-v0.2.md](migration-v0.2.md) and
+[compatibility.md](compatibility.md). The v0.2.0 release notes must retain the
+same exclusions: no cloud adapters, no new resource families and no
+write-capable MCP.
 
 ## `v0.3.0` — adapter capability boundary
 

@@ -17,7 +17,7 @@ from .backup import capture_backup, default_backup_dir, write_backup
 from .client import ControllerSettings, CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
 from .export import export_yaml
-from .plan import Plan, apply_plan, build_plan
+from .plan import Plan, PlanApplyError, apply_plan, build_plan
 from .status import filter_clients, format_bytes, status_summary
 
 
@@ -259,7 +259,14 @@ def _apply(path: Path, prune: bool, output: str, yes: bool) -> int:
             return 0
         if not _confirm_apply(plan, prune, yes):
             return 2
-        apply_plan(client, plan)
+        try:
+            apply_plan(client, plan)
+        except PlanApplyError as exc:
+            if output == "json":
+                print(json.dumps(exc.to_dict(), indent=2, sort_keys=True), file=sys.stderr)
+            else:
+                print(f"apply failed: {exc}", file=sys.stderr)
+            return 2
         print("plan applied")
         return 0
 

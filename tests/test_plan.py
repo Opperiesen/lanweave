@@ -1,10 +1,13 @@
+from types import SimpleNamespace
 from typing import Any
 
+import pytest
 import yaml
 
 from lanweave.config import EXAMPLE_CONFIG
 from lanweave.plan import (
     Plan,
+    PlanApplyError,
     ResourceDiff,
     apply_plan,
     build_plan,
@@ -17,10 +20,14 @@ class FakeController:
         self,
         networks: list[dict[str, Any]] | None = None,
         wlans: list[dict[str, Any]] | None = None,
+        fail_on_call: int | None = None,
     ) -> None:
         self._networks = networks or []
         self._wlans = wlans or []
         self.calls: list[tuple[str, str, Any]] = []
+        self.fail_on_call = fail_on_call
+        self._mutation_call_count = 0
+        self.settings = SimpleNamespace(host="https://controller.test", site="default")
 
     def site_url(self, path: str) -> str:
         return f"/{path}"
@@ -31,8 +38,14 @@ class FakeController:
     def wlans(self) -> list[dict[str, Any]]:
         return self._wlans
 
+    def _record(self, method: str, path: str, json: Any = None) -> None:
+        self.calls.append((method, path, json))
+        self._mutation_call_count += 1
+        if self._mutation_call_count == self.fail_on_call:
+            raise RuntimeError("controller rejected payload secret=fixture-secret")
+
     def post(self, path: str, json: Any = None) -> Any:
-        self.calls.append(("POST", path, json))
+        self._record("POST", path, json)
         if path.endswith("networkconf"):
             created = {"_id": "network-created", **(json or {})}
             self._networks.append(created)
@@ -42,11 +55,17 @@ class FakeController:
         return [created]
 
     def put(self, path: str, json: Any = None) -> Any:
-        self.calls.append(("PUT", path, json))
+        self._record("PUT", path, json)
         return json
 
     def delete(self, path: str) -> Any:
-        self.calls.append(("DELETE", path, None))
+        self._record("DELETE", path)
+        if "wlanconf/" in path:
+            object_id = path.rsplit("/", maxsplit=1)[-1]
+            self._wlans[:] = [item for item in self._wlans if item.get("_id") != object_id]
+        if "networkconf/" in path:
+            object_id = path.rsplit("/", maxsplit=1)[-1]
+            self._networks[:] = [item for item in self._networks if item.get("_id") != object_id]
         return None
 
 
@@ -178,3 +197,122 @@ def test_apply_deletes_wlans_before_their_network() -> None:
     assert [call[0] for call in controller.calls] == ["DELETE", "DELETE"]
     assert controller.calls[0][1].endswith("wlanconf/wlan-1")
     assert controller.calls[1][1].endswith("networkconf/network-1")
+
+
+def test_apply_failure_reports_completed_failed_and_pending_without_secrets() -> None:
+    controller = FakeController(fail_on_call=2)
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="network",
+                action="create",
+                name="Home",
+                payload={"name": "Home", "purpose": "corporate"},
+            ),
+            ResourceDiff(
+                kind="network",
+                action="create",
+                name="IoT",
+                payload={"name": "IoT", "purpose": "vlan-only", "password": "fixture-secret"},
+            ),
+            ResourceDiff(
+                kind="wlan",
+                action="create",
+                name="Home",
+                source={
+                    "name": "Home",
+                    "ssid": "Home",
+                    "network": "Home",
+                    "bands": ["5g"],
+                    "security": "open",
+                },
+            ),
+        ]
+    )
+
+    with pytest.raises(PlanApplyError) as caught:
+        apply_plan(controller, plan)
+
+    error = caught.value
+    report = error.to_dict()
+    assert error.target == "controller=controller.test site=default"
+    assert error.resource == "network/IoT"
+    assert error.operation == "create"
+    assert error.state == "partial"
+    assert report["confirmed_completed"] == ["network/Home:create"]
+    assert report["uncertain_failed"] == "network/IoT:create"
+    assert report["not_started"] == ["wlan/Home:create"]
+    assert "fixture-secret" not in str(error)
+    assert "fixture-secret" not in str(report)
+
+
+def test_wlan_create_finalize_failure_marks_partial_resource_state() -> None:
+    controller = FakeController(fail_on_call=3)
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="network",
+                action="create",
+                name="Home",
+                payload={"name": "Home", "purpose": "corporate"},
+            ),
+            ResourceDiff(
+                kind="wlan",
+                action="create",
+                name="Home",
+                source={
+                    "name": "Home",
+                    "ssid": "Home",
+                    "network": "Home",
+                    "bands": ["5g"],
+                    "security": "open",
+                },
+            ),
+        ]
+    )
+
+    with pytest.raises(PlanApplyError) as caught:
+        apply_plan(controller, plan)
+
+    error = caught.value
+    assert error.resource == "wlan/Home"
+    assert error.phase == "wlan"
+    assert error.partial_request is True
+    assert error.state == "partial"
+    assert error.completed[0] == "network/Home:create"
+    assert controller._wlans[0]["name"] == "Home"
+    assert "automatic_rollback=false" in str(error)
+
+
+def test_prune_failure_reports_confirmed_wlan_delete_and_network_recovery() -> None:
+    controller = FakeController(
+        networks=[{"_id": "network-1", "name": "Old", "purpose": "corporate"}],
+        wlans=[{"_id": "wlan-1", "name": "Old", "networkconf_id": "network-1"}],
+        fail_on_call=2,
+    )
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="network",
+                action="delete",
+                name="Old",
+                object_id="network-1",
+            ),
+            ResourceDiff(
+                kind="wlan",
+                action="delete",
+                name="Old",
+                object_id="wlan-1",
+            ),
+        ]
+    )
+
+    with pytest.raises(PlanApplyError) as caught:
+        apply_plan(controller, plan)
+
+    error = caught.value
+    assert error.resource == "network/Old"
+    assert error.completed[0] == "wlan/Old:delete"
+    assert error.to_dict()["not_started"] == []
+    assert controller._wlans == []
+    assert controller._networks == [{"_id": "network-1", "name": "Old", "purpose": "corporate"}]

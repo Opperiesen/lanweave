@@ -21,6 +21,9 @@ The exact fields returned by UniFi can vary between Network application
 versions. Lanweave keeps the API payload adapter narrow and ignores fields it
 does not own when comparing declarative resources.
 
+Partial apply behavior, dependency ordering, sanitized failure reports and the
+manual retry boundary are documented in [apply recovery](recovery.md).
+
 ## Tested compatibility matrix
 
 Only combinations listed as **tested** have published integration evidence.

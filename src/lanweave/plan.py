@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit
 
 from .client import UniFiClient
 
@@ -212,6 +213,81 @@ class Plan:
         }
 
 
+def _diff_label(diff: ResourceDiff) -> str:
+    return f"{diff.kind}/{diff.name}:{diff.action}"
+
+
+class PlanApplyError(RuntimeError):
+    """A plan stopped after a controller operation failed.
+
+    UniFi's classic API is not transactional.  The error therefore records
+    only facts that Lanweave can establish: completed operations, the failed
+    operation and operations that were not started.  It deliberately omits
+    request payloads, response bodies and exception text.
+    """
+
+    def __init__(
+        self,
+        *,
+        target: str,
+        resource: str,
+        operation: str,
+        phase: str,
+        completed: list[ResourceDiff],
+        pending: list[ResourceDiff],
+        partial_request: bool,
+        cause_type: str,
+    ) -> None:
+        self.target = target
+        self.resource = resource
+        self.operation = operation
+        self.phase = phase
+        self.completed = tuple(_diff_label(diff) for diff in completed)
+        self.pending = tuple(_diff_label(diff) for diff in pending)
+        self.partial_request = partial_request
+        self.cause_type = cause_type
+        super().__init__(self._message())
+
+    @property
+    def state(self) -> str:
+        if self.completed or self.partial_request:
+            return "partial"
+        return "unknown"
+
+    def _message(self) -> str:
+        completed = ", ".join(self.completed) or "none"
+        pending = ", ".join(self.pending) or "none"
+        return (
+            f"apply stopped: target={self.target}; resource={self.resource}; "
+            f"operation={self.operation}; phase={self.phase}; state={self.state}; "
+            f"completed={completed}; pending={pending}; "
+            "automatic_rollback=false; re-read the controller before retrying"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a safe, machine-readable recovery report."""
+        return {
+            "error": "plan_apply_failed",
+            "target": self.target,
+            "failed": {
+                "resource": self.resource,
+                "operation": self.operation,
+                "phase": self.phase,
+            },
+            "state": self.state,
+            "confirmed_completed": list(self.completed),
+            "uncertain_failed": f"{self.resource}:{self.operation}",
+            "not_started": list(self.pending),
+            "automatic_rollback": False,
+            "recovery": [
+                "Read the current controller state again before retrying.",
+                "Review the newly generated plan; do not assume the failed request was reverted.",
+                "Retry only the reviewed plan. Prune remains opt-in and requires "
+                "normal confirmation.",
+            ],
+        }
+
+
 def _index_by_name(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {item["name"]: item for item in items if item.get("name")}
 
@@ -328,76 +404,189 @@ def _created_id(result: Any) -> str | None:
     return None
 
 
+def _target_label(client: UniFiClient) -> str:
+    """Build a target label without ever including URL userinfo or secrets."""
+    settings = getattr(client, "settings", None)
+    raw_host = str(getattr(settings, "host", "") or "")
+    try:
+        parsed = urlsplit(raw_host if "://" in raw_host else f"//{raw_host}")
+        host = parsed.hostname or "controller"
+        port = f":{parsed.port}" if parsed.port else ""
+    except ValueError:
+        host = "controller"
+        port = ""
+    site = str(getattr(settings, "site", "unknown") or "unknown").replace("\n", " ")
+    return f"controller={host}{port} site={site}"
+
+
+def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
+    """Return the exact dependency-safe execution order for a plan."""
+    network_writes = [
+        diff
+        for diff in plan.diffs
+        if diff.kind == "network" and diff.action in {"create", "update"}
+    ]
+    wlan_deletes = [diff for diff in plan.diffs if diff.kind == "wlan" and diff.action == "delete"]
+    wlan_writes = [
+        diff for diff in plan.diffs if diff.kind == "wlan" and diff.action in {"create", "update"}
+    ]
+    network_deletes = [
+        diff for diff in plan.diffs if diff.kind == "network" and diff.action == "delete"
+    ]
+    return network_writes + wlan_deletes + wlan_writes + network_deletes
+
+
+def _raise_apply_error(
+    client: UniFiClient,
+    *,
+    ordered: list[ResourceDiff],
+    completed: list[ResourceDiff],
+    failed: ResourceDiff | None,
+    resource: str,
+    operation: str,
+    phase: str,
+    partial_request: bool,
+    cause_type: str,
+) -> None:
+    pending_start = len(completed) + (1 if failed is not None else 0)
+    raise PlanApplyError(
+        target=_target_label(client),
+        resource=resource,
+        operation=operation,
+        phase=phase,
+        completed=completed,
+        pending=ordered[pending_start:],
+        partial_request=partial_request,
+        cause_type=cause_type,
+    ) from None
+
+
 def apply_plan(client: UniFiClient, plan: Plan) -> None:
-    """Apply a plan in dependency order, deleting dependent WLANs first."""
+    """Apply a plan with dependency ordering and safe partial-failure reports."""
     network_base = client.site_url("rest/networkconf")
     wlan_base = client.site_url("rest/wlanconf")
+    ordered = _ordered_apply_diffs(plan)
+    completed: list[ResourceDiff] = []
 
     # A WLAN may depend on a network. Network creates/updates must happen
     # before WLAN writes, while network deletes must wait until dependent WLAN
-    # deletes have completed.
-    for diff in plan.diffs:
-        if diff.kind != "network" or diff.action not in {"create", "update"}:
-            continue
-        if diff.action == "create":
-            client.post(network_base, json=diff.payload)
-        elif diff.action == "update":
-            if not diff.object_id:
-                raise RuntimeError(f"cannot update network without an id: {diff.name}")
-            client.put(
-                f"{network_base}/{diff.object_id}",
-                json=_merge_for_update(diff.current, diff.payload),
-            )
-        elif diff.action == "delete":
-            if not diff.object_id:
-                raise RuntimeError(f"cannot delete network without an id: {diff.name}")
-            client.delete(f"{network_base}/{diff.object_id}")
-
-    fresh_networks = client.networks()
-    network_ids = {
-        network["name"]: _object_id(network)
-        for network in fresh_networks
-        if network.get("name") and _object_id(network)
-    }
-    existing_wlans = client.wlans()
-    template = {}
-    if existing_wlans:
-        template = {
-            key: value
-            for key, value in existing_wlans[0].items()
-            if key not in READ_ONLY_FIELDS | {"name", "x_passphrase", "x_iapp_key"}
-        }
-
-    for diff in plan.diffs:
-        if diff.kind != "wlan" or diff.action == "noop":
-            continue
-        if diff.action == "delete":
-            if not diff.object_id:
-                raise RuntimeError(f"cannot delete WLAN without an id: {diff.name}")
-            client.delete(f"{wlan_base}/{diff.object_id}")
-            continue
-
-        generated = wlan_to_unifi(diff.source, network_ids)
-        if diff.action == "create":
-            result = client.post(wlan_base, json={**template, **generated})
-            created_id = _created_id(result)
-            if created_id:
-                created = result[0] if isinstance(result, list) else result
+    # deletes have completed. The order is explicit so a failure report can
+    # identify every operation that was not started.
+    network_writes = [
+        diff for diff in ordered if diff.kind == "network" and diff.action in {"create", "update"}
+    ]
+    for diff in network_writes:
+        try:
+            if diff.action == "create":
+                client.post(network_base, json=diff.payload)
+            else:
+                if not diff.object_id:
+                    raise RuntimeError("network update requires a controller object id")
                 client.put(
-                    f"{wlan_base}/{created_id}",
-                    json=_merge_for_update(created, generated),
+                    f"{network_base}/{diff.object_id}",
+                    json=_merge_for_update(diff.current, diff.payload),
                 )
-        elif diff.action == "update":
-            if not diff.object_id:
-                raise RuntimeError(f"cannot update WLAN without an id: {diff.name}")
-            client.put(
-                f"{wlan_base}/{diff.object_id}",
-                json=_merge_for_update(diff.current, generated),
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"network/{diff.name}",
+                operation=diff.action,
+                phase="network",
+                partial_request=False,
+                cause_type=type(exc).__name__,
             )
+        completed.append(diff)
 
-    for diff in plan.diffs:
-        if diff.kind != "network" or diff.action != "delete":
-            continue
-        if not diff.object_id:
-            raise RuntimeError(f"cannot delete network without an id: {diff.name}")
-        client.delete(f"{network_base}/{diff.object_id}")
+    try:
+        fresh_networks = client.networks()
+        network_ids = {
+            network["name"]: _object_id(network)
+            for network in fresh_networks
+            if network.get("name") and _object_id(network)
+        }
+        existing_wlans = client.wlans()
+        template = {}
+        if existing_wlans:
+            template = {
+                key: value
+                for key, value in existing_wlans[0].items()
+                if key not in READ_ONLY_FIELDS | {"name", "x_passphrase", "x_iapp_key"}
+            }
+    except Exception as exc:
+        _raise_apply_error(
+            client,
+            ordered=ordered,
+            completed=completed,
+            failed=None,
+            resource="controller inventory",
+            operation="refresh",
+            phase="inventory",
+            partial_request=False,
+            cause_type=type(exc).__name__,
+        )
+
+    wlan_diffs = [diff for diff in ordered if diff.kind == "wlan"]
+    for diff in wlan_diffs:
+        partial_request = False
+        try:
+            if diff.action == "delete":
+                if not diff.object_id:
+                    raise RuntimeError("WLAN delete requires a controller object id")
+                client.delete(f"{wlan_base}/{diff.object_id}")
+            else:
+                generated = wlan_to_unifi(diff.source, network_ids)
+                if diff.action == "create":
+                    result = client.post(wlan_base, json={**template, **generated})
+                    created_id = _created_id(result)
+                    if created_id:
+                        partial_request = True
+                        created = result[0] if isinstance(result, list) else result
+                        client.put(
+                            f"{wlan_base}/{created_id}",
+                            json=_merge_for_update(created, generated),
+                        )
+                else:
+                    if not diff.object_id:
+                        raise RuntimeError("WLAN update requires a controller object id")
+                    client.put(
+                        f"{wlan_base}/{diff.object_id}",
+                        json=_merge_for_update(diff.current, generated),
+                    )
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"wlan/{diff.name}",
+                operation=diff.action,
+                phase="wlan",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
+
+    network_deletes = [
+        diff for diff in ordered if diff.kind == "network" and diff.action == "delete"
+    ]
+    for diff in network_deletes:
+        try:
+            if not diff.object_id:
+                raise RuntimeError("network delete requires a controller object id")
+            client.delete(f"{network_base}/{diff.object_id}")
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"network/{diff.name}",
+                operation=diff.action,
+                phase="network",
+                partial_request=False,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)

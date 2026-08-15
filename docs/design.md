@@ -27,6 +27,8 @@ mutating API calls outside the plan engine.
 - a plan must be printable and serializable before application;
 - prune is opt-in and requires an explicit confirmation;
 - credentials never appear in logs, plans or exceptions;
+- apply failures report confirmed, uncertain and not-started operations without
+  payloads or exception bodies; no automatic rollback is claimed;
 - self-signed TLS is an explicit setting, never the default;
 - controller compatibility is recorded per resource and endpoint;
 - the MCP server receives no write capability in the public product.

@@ -1,0 +1,29 @@
+version: 2
+profile: office
+
+controllers:
+  local:
+    host_env: LANWEAVE_LOCAL_HOST
+    verify_tls: true
+    auth:
+      api_key_env: LANWEAVE_LOCAL_API_KEY
+  backup:
+    host_env: LANWEAVE_BACKUP_HOST
+    verify_tls: true
+    auth:
+      username_env: LANWEAVE_BACKUP_USER
+      password_env: LANWEAVE_BACKUP_PASSWORD
+
+profiles:
+  office:
+    controller: local
+    site: default
+  guest:
+    controller: local
+    site: guest
+  backup-default:
+    controller: backup
+    site: default
+
+networks: []
+wlans: []

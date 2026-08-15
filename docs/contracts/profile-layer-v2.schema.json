@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Opperiesen/lanweave/blob/main/docs/contracts/profile-layer-v2.schema.json",
+  "title": "Lanweave local profile layer v2",
+  "description": "The version-2 controller and profile layer. Resource fields are composed by the full configuration schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "controllers", "profiles"],
+  "properties": {
+    "version": { "const": 2 },
+    "profile": { "$ref": "#/$defs/identifier" },
+    "controllers": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/controller" }
+    },
+    "profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/profile" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "env_name": {
+      "type": "string",
+      "pattern": "^[A-Z_][A-Z0-9_]*$"
+    },
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_env", "auth"],
+      "properties": {
+        "host_env": { "$ref": "#/$defs/env_name" },
+        "verify_tls": { "type": "boolean", "default": true },
+        "auth": { "$ref": "#/$defs/auth" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controller", "site"],
+      "properties": {
+        "controller": { "$ref": "#/$defs/identifier" },
+        "site": { "type": "string", "minLength": 1 }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": ["api_key_env"],
+          "properties": {
+            "api_key_env": { "$ref": "#/$defs/env_name" }
+          }
+        },
+        {
+          "required": ["username_env", "password_env"],
+          "properties": {
+            "username_env": { "$ref": "#/$defs/env_name" },
+            "password_env": { "$ref": "#/$defs/env_name" }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -8,6 +8,12 @@ The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
 schema `1`, plan format `1` and MCP contract `1`.
 
+The `v0.2.0` profile design is documented separately in
+[`profiles.md`](profiles.md). It adds a version-2 local connection layer while
+keeping the version-1 resource and controller contracts accepted. Runtime
+support is introduced by the profile roadmap issues; this document continues
+to describe the shipped `v0.1.x` surface until that work is released.
+
 ## Configuration schema v1
 
 The canonical machine-readable schema is

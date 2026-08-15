@@ -48,7 +48,8 @@ env:
 jobs:
   read-only:
     name: read-only probes
-    runs-on: ubuntu-latest
+    # This workflow is manual-only and runs on the dedicated LAN runner.
+    runs-on: [self-hosted, linux, lanweave-unifi]
     timeout-minutes: 15
     environment: unifi-integration
     steps:
@@ -86,7 +87,7 @@ jobs:
   mutations:
     name: authorized mutations
     if: ${{ inputs.run_mutations }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, lanweave-unifi]
     timeout-minutes: 15
     environment: unifi-integration
     env:

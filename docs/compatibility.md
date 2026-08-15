@@ -82,6 +82,14 @@ The suite creates, updates and deletes one VLAN-only test network and cleans it
 up in a `finally` block. It must never be enabled against an operator's normal
 production target without a dedicated network and recovery plan.
 
+The integration jobs run on a dedicated self-hosted runner labelled
+`lanweave-unifi` because a GitHub-hosted runner cannot reach a controller on a
+private home network. The runner is isolated in a non-privileged Proxmox
+container with no inbound service; the workflow remains `workflow_dispatch`
+only and the `unifi-integration` environment is protected. Self-hosted jobs are
+not container-isolated, so this runner must not be shared with untrusted
+pull-request workflows.
+
 For local execution, export the same `LANWEAVE_INTEGRATION_*` variables and
 run the read-only suite explicitly:
 

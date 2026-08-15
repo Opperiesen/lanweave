@@ -88,7 +88,10 @@ private home network. The runner is isolated in a non-privileged Proxmox
 container with no inbound service; the workflow remains `workflow_dispatch`
 only and the `unifi-integration` environment is protected. Self-hosted jobs are
 not container-isolated, so this runner must not be shared with untrusted
-pull-request workflows.
+pull-request workflows. The container is provisioned with Debian 13's system
+Python 3.13 and `uv` in `/usr/local/bin`; the integration workflow verifies this
+toolchain directly because `setup-python` does not publish binaries for Debian
+13.
 
 For local execution, export the same `LANWEAVE_INTEGRATION_*` variables and
 run the read-only suite explicitly:

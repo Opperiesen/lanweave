@@ -21,6 +21,9 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     profile_schema = json.loads(
         (ROOT / "docs/contracts/profile-layer-v2.schema.json").read_text(encoding="utf-8")
     )
+    config_v2_schema = json.loads(
+        (ROOT / "docs/contracts/config-v2.schema.json").read_text(encoding="utf-8")
+    )
 
     assert CONFIG_SCHEMA_VERSION == 1
     assert PROFILE_LAYER_VERSION == 2
@@ -33,6 +36,15 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     assert profile_schema["properties"]["version"]["const"] == 2
     assert profile_schema["required"] == ["version", "controllers", "profiles"]
     assert profile_schema["additionalProperties"] is False
+    assert config_v2_schema["properties"]["version"]["const"] == 2
+    assert config_v2_schema["required"] == [
+        "version",
+        "controllers",
+        "profiles",
+        "networks",
+        "wlans",
+    ]
+    assert config_v2_schema["additionalProperties"] is False
 
 
 def test_profile_contract_fixtures_cover_legacy_and_multi_target_shapes() -> None:

@@ -35,6 +35,25 @@ def test_cli_contract_exposes_stable_options() -> None:
     assert args.prune is True
     assert args.output == "json"
 
+    profiles = build_parser().parse_args(["profiles", "list", "--config", "profiles.yaml"])
+    assert profiles.command == "profiles"
+    assert profiles.profiles_command == "list"
+    assert profiles.config.name == "profiles.yaml"
+
+
+def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+
+    assert main(["profiles", "validate", "--config", str(path)]) == 0
+    assert "valid configuration: version=2 profiles=3 networks=0 wlans=0" in capsys.readouterr().out
+
+    assert main(["profiles", "list", "--config", str(path)]) == 0
+    output = capsys.readouterr().out
+    assert "profile=backup-default controller=backup site=default" in output
+    assert "LANWEAVE_" not in output
+
 
 def test_cli_rejected_overwrite_and_missing_config_use_exit_code_two(
     tmp_path: Path, capsys

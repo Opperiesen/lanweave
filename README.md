@@ -95,6 +95,8 @@ lanweave init                    # create a generic config
 lanweave doctor                  # check credentials and TLS settings
 lanweave doctor --check          # also perform one health request
 lanweave validate                # validate YAML locally
+lanweave profiles list           # list sanitized local targets
+lanweave profiles validate       # validate profiles without contacting UniFi
 lanweave export --out live.yaml # export secret-free desired-state YAML
 lanweave plan                    # show create/update/delete operations
 lanweave plan --output json      # machine-readable, redacted plan
@@ -163,5 +165,6 @@ Apache-2.0. See [LICENSE](LICENSE).
 - [source repository](https://github.com/Opperiesen/lanweave);
 - [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
 - [v1 contracts](docs/contracts.md);
+- [v0.2.0 profile design](docs/profiles.md);
 - [security policy](SECURITY.md);
 - [contribution guide](CONTRIBUTING.md).

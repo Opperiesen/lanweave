@@ -67,8 +67,9 @@ wlans: []
 
 The machine-readable contract for the connection layer is
 [`profile-layer-v2.schema.json`](contracts/profile-layer-v2.schema.json).
-The complete resource document schema and runtime validation are delivered by
-the configuration workstream.
+The complete resource document schema is
+[`config-v2.schema.json`](contracts/config-v2.schema.json), and the loader
+validates both the profile layer and the existing resource model.
 
 ### Stable identifiers
 

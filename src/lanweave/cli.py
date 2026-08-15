@@ -18,6 +18,7 @@ from .client import ControllerSettings, CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
 from .export import export_yaml
 from .plan import Plan, PlanApplyError, apply_plan, build_plan
+from .profiles import list_profile_identities
 from .status import filter_clients, format_bytes, status_summary
 
 
@@ -45,6 +46,20 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("config/network.yaml"),
         help="configuration path (default: config/network.yaml)",
     )
+
+    profiles_parser = subparsers.add_parser("profiles", help="inspect local target profiles")
+    profiles_subparsers = profiles_parser.add_subparsers(dest="profiles_command", required=True)
+    for profile_command, help_text in (
+        ("list", "list sanitized profile targets"),
+        ("validate", "validate profiles without contacting a controller"),
+    ):
+        profile_parser = profiles_subparsers.add_parser(profile_command, help=help_text)
+        profile_parser.add_argument(
+            "--config",
+            type=Path,
+            default=Path("config/network.yaml"),
+            help="configuration path (default: config/network.yaml)",
+        )
 
     doctor_parser = subparsers.add_parser(
         "doctor",
@@ -130,6 +145,33 @@ def _validate(path: Path) -> int:
         return 2
     print(
         f"valid configuration: {len(config['networks'])} network(s), {len(config['wlans'])} WLAN(s)"
+    )
+    return 0
+
+
+def _profiles_list(path: Path) -> int:
+    try:
+        config = load_config(path)
+        identities = list_profile_identities(config)
+    except ConfigError as exc:
+        print(f"invalid configuration: {exc}", file=sys.stderr)
+        return 2
+    for identity in identities:
+        print(identity.label())
+    return 0
+
+
+def _profiles_validate(path: Path) -> int:
+    try:
+        config = load_config(path)
+        identities = list_profile_identities(config)
+    except ConfigError as exc:
+        print(f"invalid configuration: {exc}", file=sys.stderr)
+        return 2
+    print(
+        "valid configuration: "
+        f"version={config['version']} profiles={len(identities)} "
+        f"networks={len(config['networks'])} wlans={len(config['wlans'])}"
     )
     return 0
 
@@ -338,6 +380,12 @@ def main(argv: list[str] | None = None) -> int:
         return _init(args.path, args.force)
     if args.command == "validate":
         return _validate(args.config)
+    if args.command == "profiles":
+        if args.profiles_command == "list":
+            return _profiles_list(args.config)
+        if args.profiles_command == "validate":
+            return _profiles_validate(args.config)
+        return 2
     if args.command == "doctor":
         return _doctor(args.check)
     if args.command == "export":

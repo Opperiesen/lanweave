@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from .contracts import CONFIG_SCHEMA_VERSION
+from .contracts import CONFIG_SCHEMA_VERSION, PROFILE_LAYER_VERSION
 
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 PLACEHOLDER_RE = re.compile(r"^\$[{][A-Z_][A-Z0-9_]*[}]$")
@@ -180,7 +180,7 @@ def _resolve_value(value: Any, lookup: Callable[[str], str | None], path: str) -
     if isinstance(value, dict):
         resolved: dict[str, Any] = {}
         for key, child in value.items():
-            if key == "password_env":
+            if key == "password_env" and path.startswith("config.wlans["):
                 name = str(child)
                 secret = lookup(name)
                 if secret is None:
@@ -203,7 +203,26 @@ def _resolve_value(value: Any, lookup: Callable[[str], str | None], path: str) -
 
 
 def validate_config(config: dict[str, Any]) -> None:
-    """Validate the public configuration contract.
+    """Validate a supported version-1 or version-2 configuration."""
+    _require_mapping(config, "config")
+    if config.get("version") == PROFILE_LAYER_VERSION:
+        from .profiles import validate_profile_document
+
+        validate_profile_document(config)
+        _validate_version_one_config(
+            {
+                "version": CONFIG_SCHEMA_VERSION,
+                "controller": {"site": "default"},
+                "networks": config.get("networks"),
+                "wlans": config.get("wlans"),
+            }
+        )
+        return
+    _validate_version_one_config(config)
+
+
+def _validate_version_one_config(config: dict[str, Any]) -> None:
+    """Validate the shipped version-1 resource and controller contract.
 
     This intentionally validates only the portable subset. Controller-specific
     fields will be added through versioned schema changes rather than accepted

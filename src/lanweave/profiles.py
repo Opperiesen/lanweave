@@ -150,6 +150,27 @@ def validate_profile_document(config: Mapping[str, Any]) -> None:
         _require_string(profile, "site", f"profiles.{profile_name}")
 
 
+def list_profile_identities(config: Mapping[str, Any]) -> tuple[TargetIdentity, ...]:
+    """Return all declared target identities without loading credentials."""
+    document = _require_mapping(config, "config")
+    if document.get("version") == 1:
+        validate_config(dict(document))
+        site = str(document["controller"]["site"])
+        return (TargetIdentity("legacy", "legacy", site),)
+    if document.get("version") != PROFILE_LAYER_VERSION:
+        raise ConfigError(f"unsupported profile configuration version: {document.get('version')}")
+    validate_profile_document(document)
+    profiles = _require_mapping(document["profiles"], "profiles")
+    return tuple(
+        TargetIdentity(
+            profile=name,
+            controller=str(_require_mapping(raw, f"profiles.{name}")["controller"]),
+            site=str(_require_mapping(raw, f"profiles.{name}")["site"]),
+        )
+        for name, raw in sorted(profiles.items())
+    )
+
+
 def _runtime_environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
     if environ is not None:
         return environ
@@ -271,6 +292,7 @@ __all__ = [
     "PROFILE_SELECTOR_ENV",
     "ResolvedTarget",
     "TargetIdentity",
+    "list_profile_identities",
     "resolve_target",
     "validate_profile_document",
 ]

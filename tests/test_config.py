@@ -40,6 +40,18 @@ def test_minimal_version_one_configuration_remains_valid() -> None:
     )
 
 
+def test_multi_target_version_two_configuration_is_valid() -> None:
+    import yaml
+
+    config = yaml.safe_load(
+        (
+            Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+        ).read_text(encoding="utf-8")
+    )
+
+    validate_config(config)
+
+
 def test_literal_password_is_rejected() -> None:
     import yaml
 
@@ -105,6 +117,43 @@ def test_password_env_is_resolved_only_when_requested(tmp_path: Path) -> None:
     assert "password" not in unresolved["wlans"][0]
     assert resolved["wlans"][0]["password"] == "home-secret"
     assert "password_env" not in resolved["wlans"][0]
+
+
+def test_profile_password_environment_reference_is_not_resolved_as_wlan_secret(
+    tmp_path: Path,
+) -> None:
+    import yaml
+
+    config = yaml.safe_load(
+        (
+            Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    config["networks"] = [{"name": "Office", "purpose": "corporate"}]
+    config["wlans"] = [
+        {
+            "name": "Office",
+            "ssid": "Office",
+            "network": "Office",
+            "bands": ["5g"],
+            "security": "wpa2",
+            "password_env": "WIFI_OFFICE_PASSWORD",
+        }
+    ]
+    path = tmp_path / "network-v2.yaml"
+    path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    resolved = load_config_with_options(
+        path,
+        resolve_secrets=True,
+        environ={
+            "WIFI_OFFICE_PASSWORD": "wifi-secret",
+            "LANWEAVE_BACKUP_PASSWORD": "profile-password",
+        },
+    )
+
+    assert resolved["wlans"][0]["password"] == "wifi-secret"
+    assert resolved["controllers"]["backup"]["auth"]["password_env"] == ("LANWEAVE_BACKUP_PASSWORD")
 
 
 def test_empty_password_environment_variable_is_rejected(tmp_path: Path) -> None:

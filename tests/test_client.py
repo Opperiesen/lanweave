@@ -6,6 +6,7 @@ import pytest
 
 from lanweave.adapters import ADAPTER_LOCAL_CLASSIC, AUTH_MODE_API_KEY
 from lanweave.client import ControllerSettings, CredentialsError, LocalClassicAdapter, UniFiClient
+from lanweave.firewall import UnsupportedFirewallVariantError
 
 
 def test_classic_site_url_is_controller_relative() -> None:
@@ -237,6 +238,47 @@ def test_api_key_rejects_malformed_firewall_pagination() -> None:
         pytest.raises(RuntimeError, match="invalid pagination metadata"),
     ):
         client.firewall_zones()
+
+
+def test_api_key_rejects_unsupported_firewall_group_variant() -> None:
+    unsupported = json.loads(
+        (
+            Path(__file__).parent
+            / "fixtures"
+            / "firewall"
+            / "firewall-traffic-matching-list-unsupported.json"
+        ).read_text()
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if request.url.path.endswith("/traffic-matching-lists"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": unsupported["id"],
+                            "name": unsupported["name"],
+                            "type": unsupported["type"],
+                        }
+                    ],
+                    "limit": 200,
+                    "offset": 0,
+                    "totalCount": 1,
+                },
+            )
+        if request.url.path.endswith("/traffic-matching-lists/group-domain"):
+            return httpx.Response(200, json=unsupported)
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with (
+        UniFiClient(settings, transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(UnsupportedFirewallVariantError),
+    ):
+        client.firewall_traffic_matching_lists()
 
 
 def test_api_key_firewall_mutations_use_only_official_paths() -> None:

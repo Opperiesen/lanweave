@@ -20,7 +20,6 @@ from .adapters import (
 )
 from .dns import normalize_controller_dns_list
 from .firewall import (
-    UnsupportedFirewallVariantError,
     normalize_controller_firewall_policy,
     normalize_controller_firewall_zone,
     normalize_controller_traffic_matching_list,
@@ -482,17 +481,11 @@ class LocalClassicAdapter:
             if not isinstance(detail, dict):
                 detail = summary
             merged = {**summary, **detail}
-            try:
-                normalized.append(
-                    normalize_controller_traffic_matching_list(
-                        merged, f"controller.firewall.traffic_matching_lists[{index}]"
-                    )
+            normalized.append(
+                normalize_controller_traffic_matching_list(
+                    merged, f"controller.firewall.traffic_matching_lists[{index}]"
                 )
-            except UnsupportedFirewallVariantError:
-                # The v0.5 contract is intentionally narrower than the API's
-                # future variants. Preserve a safe read surface by ignoring an
-                # unsupported group; policies referencing it fail closed later.
-                continue
+            )
         return sorted(normalized, key=lambda item: (item["name"], item["id"]))
 
     def firewall_policies(self) -> list[dict[str, Any]]:

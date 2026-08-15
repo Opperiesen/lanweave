@@ -1,4 +1,4 @@
-"""Public foundation for safe UniFi Network automation."""
+"""Public Python API for safe UniFi Network automation with Lanweave."""
 
 from .client import ControllerSettings, UniFiClient
 from .config import ConfigError, load_config, validate_config

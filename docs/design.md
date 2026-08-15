@@ -16,7 +16,7 @@
                          |
                          +--> explicit CLI apply
                          |
-                         +--> optional MCP plan/apply adapter
+                         +--> optional read-only MCP adapter
 
 The plan is the safety boundary. Interfaces must not construct their own
 mutating API calls outside the plan engine.
@@ -29,7 +29,7 @@ mutating API calls outside the plan engine.
 - credentials never appear in logs, plans or exceptions;
 - self-signed TLS is an explicit setting, never the default;
 - controller compatibility is recorded per resource and endpoint;
-- an MCP server does not receive write capability unless the operator enables it.
+- the MCP server receives no write capability in the public product.
 
 ## Configuration model
 

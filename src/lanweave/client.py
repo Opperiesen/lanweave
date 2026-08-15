@@ -19,7 +19,12 @@ def _env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise CredentialsError(f"{name} must be true or false")
 
 
 def _reject_unresolved(values: dict[str, str]) -> None:
@@ -143,6 +148,18 @@ class UniFiClient:
 
     def post(self, path: str, json: Any = None, **kwargs: Any) -> Any:
         return self.request("POST", path, json=json, **kwargs)
+
+    def put(self, path: str, json: Any = None, **kwargs: Any) -> Any:
+        return self.request("PUT", path, json=json, **kwargs)
+
+    def delete(self, path: str, **kwargs: Any) -> Any:
+        return self.request("DELETE", path, **kwargs)
+
+    def networks(self) -> list[dict[str, Any]]:
+        return self.get(self.site_url("rest/networkconf")) or []
+
+    def wlans(self) -> list[dict[str, Any]]:
+        return self.get(self.site_url("rest/wlanconf")) or []
 
     def devices(self) -> list[dict[str, Any]]:
         return self.get(self.site_url("stat/device")) or []

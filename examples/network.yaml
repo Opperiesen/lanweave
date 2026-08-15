@@ -30,10 +30,12 @@ wlans:
     network: Home
     bands: [5g, 6g]
     security: wpa3
+    password_env: WIFI_HOME_PASSWORD
 
   - name: Home-IoT
     ssid: Home-IoT
     network: IoT
     bands: [2g]
     security: wpa2
+    password_env: WIFI_IOT_PASSWORD
     client_isolation: true

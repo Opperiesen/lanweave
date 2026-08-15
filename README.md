@@ -1,85 +1,135 @@
-# UniFi Network Tools
+# Lanweave
 
-Safe, declarative configuration and diagnostics for local UniFi Network
-controllers.
+![Lanweave logo](assets/logo.svg)
 
-Working name: the project will receive a final name and visual identity after
-the product scope and trademark check are complete.
+Lanweave is a local-first, open-source toolkit for managing and observing
+UniFi Network controllers. It turns a controller into a small, reviewable
+GitOps project without requiring a cloud service.
 
-This project is not affiliated with, endorsed by, or sponsored by Ubiquiti
-Inc. UniFi is a trademark of Ubiquiti Inc.
+The name is intentionally independent from the controller vendor. Lanweave is
+not affiliated with, endorsed by, or sponsored by Ubiquiti Inc. UniFi is a
+trademark of Ubiquiti Inc.
 
-## Product direction
+## Why Lanweave?
 
-The goal is a local-first tool for turning a UniFi network into a small,
-reviewable GitOps project:
+Lanweave is aimed at operators who want a safe middle ground between clicking
+through a controller UI and adopting a complete infrastructure platform:
 
-1. describe the desired networks and WLANs in YAML;
-2. validate the configuration locally;
-3. inspect a readable plan;
-4. apply changes only after explicit confirmation;
-5. export and back up the live state.
+- declare networks and WLANs in YAML;
+- validate locally before contacting the controller;
+- inspect a deterministic, redacted plan;
+- apply only after explicit confirmation;
+- export a portable configuration without Wi-Fi passwords;
+- capture a local, secret-redacted backup;
+- expose the same read-only views to an MCP-compatible AI client.
 
-The same engine will later power a read-only MCP adapter for AI clients.
-The CLI remains useful without an AI client, a cloud account, or a hosted
-service.
+The CLI is the primary interface. MCP is an optional read-only adapter, not a
+requirement and not a write path around the plan safety boundary.
 
-## Current status
+## Status
 
-This repository is the clean public foundation extracted from a private
-operational project. The first slice provides:
+Lanweave is an early alpha. The complete first product slice is implemented
+and tested against simulated controller responses. It targets the classic
+local UniFi Network API used by self-hosted UniFi Network applications and
+UniFi OS consoles; see [compatibility](docs/compatibility.md) for the exact
+scope.
 
-- an installable Python package;
-- a guided init command;
-- local configuration validation;
-- a credentials and controller doctor command;
-- generic examples and public contribution/security rules.
+Supported resource families in this release:
 
-The controller client, export, plan, apply, backup and MCP layers are being
-ported behind tests. They are intentionally not copied wholesale from the
-private repository.
+- networks;
+- WLANs, including references to environment-provided passwords;
+- controller health, devices and clients;
+- redacted snapshots of common operational endpoints.
+
+Firewall, DNS, NAT, VPN and device mutation workflows are deliberately not
+included yet. They need their own fixtures, dependency rules and rollback
+story before being safe to expose.
 
 ## Quick start
 
-Requires Python 3.11+ and uv.
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
-    uv sync --extra dev
-    uv run unifi-tools init
-    uv run unifi-tools validate
+```shell
+uv sync --extra dev
+uv run lanweave init
+cp .env.example .env
+uv run lanweave validate
+```
 
-Configure a local controller without committing credentials:
+Edit `config/network.yaml` and provide secrets only through the environment:
 
-    cp .env.example .env
+```yaml
+wlans:
+  - name: Home
+    ssid: Home
+    network: Home
+    security: wpapsk
+    password_env: WIFI_HOME_PASSWORD
+```
 
-Use a local API key when possible. Self-signed TLS must be opted into
-explicitly with UNIFI_VERIFY_TLS=false; the default is verification enabled.
+Use a local API key when possible. TLS verification is enabled by default;
+set `UNIFI_VERIFY_TLS=false` only when the controller's certificate cannot be
+verified and the risk is understood.
 
-## Planned command surface
+## Command surface
 
-    unifi-tools init
-    unifi-tools doctor
-    unifi-tools validate
-    unifi-tools export
-    unifi-tools plan
-    unifi-tools apply
-    unifi-tools backup
-    unifi-tools status
-    unifi-tools clients
+```shell
+lanweave init                    # create a generic config
+lanweave doctor                  # check credentials and TLS settings
+lanweave doctor --check          # also perform one health request
+lanweave validate                # validate YAML locally
+lanweave export --out live.yaml # export secret-free desired-state YAML
+lanweave plan                    # show create/update/delete operations
+lanweave plan --output json      # machine-readable, redacted plan
+lanweave apply                   # interactive, explicitly confirmed apply
+lanweave apply --yes             # non-interactive apply after review
+lanweave backup                  # write a 0600 redacted local snapshot
+lanweave status                  # health and device summary
+lanweave clients --filter phone  # connected-client view
+```
 
-plan will be read-only. apply and --prune will require explicit,
-non-ambiguous confirmation. Generated exports, backups and plans stay outside
-Git by default.
+`--prune` is opt-in. It never targets the controller's WAN or `Default`
+network, and it requires a separate `DELETE` confirmation in interactive mode.
+Non-interactive mutation requires `--yes`; there is no implicit apply.
+
+## MCP adapter
+
+Install the optional dependency and run the server over local stdio:
+
+```shell
+uv sync --extra mcp
+uv run lanweave-mcp
+```
+
+The server exposes health, devices, clients, secret-free export, local
+validation and redacted planning. It intentionally exposes no apply or delete
+tool. A desktop MCP client should launch `lanweave-mcp` from this checkout (or
+from the installed package) with the required `UNIFI_*` environment variables.
+
+## Configuration and credentials
+
+Copy `.env.example` to `.env`, or export the variables in the process
+environment. `.env` is ignored by Git. API keys are preferred; username and
+password session authentication are supported as a fallback.
+
+Lanweave rejects literal WLAN passwords in YAML and refuses unresolved
+`op://...` secret-manager references. This keeps the public configuration
+portable and makes the secret boundary explicit.
 
 ## Development
 
-    uv sync --extra dev
-    uv run pytest
-    uv run ruff check .
+```shell
+uv sync --extra dev --extra mcp
+uv run ruff check .
+uv run pytest
+uv build
+```
 
+Unit tests use simulated HTTP responses and never need a real controller.
 Hardware compatibility tests must run against disposable or explicitly
-designated controllers. Unit tests use simulated HTTP responses and never
-need a real controller.
+designated controllers. See [contributing](CONTRIBUTING.md),
+[security](SECURITY.md) and the [design notes](docs/design.md).
 
 ## License
 
-Apache-2.0. See LICENSE.
+Apache-2.0. See [LICENSE](LICENSE).

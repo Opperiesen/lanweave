@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "unifi-network-tools"
+name = "lanweave"
 version = "0.1.0a1"
 description = "Safe, declarative configuration and diagnostics for local UniFi Network controllers"
 readme = "README.md"
@@ -20,12 +20,16 @@ dev = [
     "pytest>=8,<9",
     "ruff>=0.15,<1",
 ]
+mcp = [
+    "mcp>=1,<2",
+]
 
 [project.scripts]
-unifi-tools = "unifi_tools.cli:main"
+lanweave = "lanweave.cli:main"
+lanweave-mcp = "lanweave.mcp:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/unifi_tools"]
+packages = ["src/lanweave"]
 
 [tool.ruff]
 line-length = 100

@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from unifi_tools.client import ControllerSettings, CredentialsError, UniFiClient
+from lanweave.client import ControllerSettings, CredentialsError, UniFiClient
 
 
 def test_site_url_is_controller_relative() -> None:
@@ -48,4 +48,13 @@ def test_secret_manager_reference_is_rejected(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.delenv("UNIFI_PASS", raising=False)
 
     with pytest.raises(CredentialsError, match="secret-manager reference"):
+        ControllerSettings.from_env()
+
+
+def test_invalid_tls_setting_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UNIFI_HOST", "https://controller.example")
+    monkeypatch.setenv("UNIFI_API_KEY", "test-key")
+    monkeypatch.setenv("UNIFI_VERIFY_TLS", "sometimes")
+
+    with pytest.raises(CredentialsError, match="must be true or false"):
         ControllerSettings.from_env()

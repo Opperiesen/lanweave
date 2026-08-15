@@ -45,3 +45,8 @@ typo cannot silently produce a partial network configuration.
 The v1 configuration, CLI, plan JSON and read-only MCP contracts are frozen in
 [contracts.md](contracts.md). Breaking changes require an explicit version and
 migration decision.
+
+The local multi-controller and multi-site profile design for `v0.2.0` is in
+[profiles.md](profiles.md). Profile resolution is a separate boundary from
+resource validation and planning: consumers receive one explicit target and
+must not discover or choose another controller implicitly.

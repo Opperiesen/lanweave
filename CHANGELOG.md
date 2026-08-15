@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- no unreleased changes.
+- define the v0.2.0 local profile shape, selector precedence and version-1
+  migration contract; runtime support is tracked separately.
 
 ## 0.1.0 — 2026-08-15
 

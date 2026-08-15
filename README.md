@@ -122,7 +122,7 @@ lanweave plan                    # show create/update/delete operations
 lanweave plan --output json      # machine-readable, redacted plan
 lanweave apply                   # interactive, explicitly confirmed apply
 lanweave apply --yes             # non-interactive apply after review
-lanweave apply --acknowledge-firewall-risk # authorize reviewed firewall warnings
+lanweave apply --acknowledge-risk # authorize reviewed firewall/NAT warnings
 lanweave backup                  # write a 0600 redacted local snapshot
 lanweave status                  # health and device summary
 lanweave clients --filter phone  # connected-client view
@@ -131,9 +131,10 @@ lanweave clients --filter phone  # connected-client view
 `--prune` is opt-in. It never targets the controller's WAN or `Default`
 network, skips system/unknown-origin DNS policies, and requires a separate
 `DELETE` confirmation in interactive mode.
-Firewall changes with broad, external, privileged-port, shadowing or reorder
-warnings additionally require `--acknowledge-firewall-risk` (or the exact
-interactive acknowledgement). The flag does not bypass the plan or prune
+Firewall and NAT changes with broad, external, privileged-port, shadowing,
+reorder or exposure warnings additionally require `--acknowledge-risk` (the
+legacy `--acknowledge-firewall-risk` alias remains accepted) or the exact
+interactive acknowledgement. The flag does not bypass the plan or prune
 confirmation.
 Non-interactive mutation requires `--yes`; there is no implicit apply.
 If an apply stops part-way through, review a fresh plan before retrying; see
@@ -149,8 +150,9 @@ uv run lanweave-mcp
 ```
 
 The server exposes health, devices, clients, secret-free export, local
-validation and redacted planning. It intentionally exposes no apply or delete
-tool. A desktop MCP client should launch `lanweave-mcp` from this checkout (or
+validation and redacted planning, including supported NAT state through export
+and plans. It intentionally exposes no apply or delete tool. A desktop MCP
+client should launch `lanweave-mcp` from this checkout (or
 from the installed package) with the required `UNIFI_*` environment variables.
 The tool names, parameters and error codes are frozen in
 [the MCP contract](docs/contracts.md#read-only-mcp-contract-v3).
@@ -161,7 +163,7 @@ Copy `.env.example` to `.env`, or export the variables in the process
 environment. `.env` is ignored by Git. API keys provide read-only access to
 networks and WLANs through the local Integration API, plus the documented DNS
 policy create/update/delete endpoint. Username and password session
-authentication remains required for network and WLAN mutations.
+authentication remains required for network, WLAN and supported NAT mutations.
 
 Lanweave rejects literal WLAN passwords in YAML and refuses unresolved
 `op://...` secret-manager references. This keeps the public configuration

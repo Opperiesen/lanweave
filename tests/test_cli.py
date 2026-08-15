@@ -63,10 +63,15 @@ def test_cli_contract_exposes_stable_options() -> None:
             "--config",
             "network.yaml",
             "--yes",
-            "--acknowledge-firewall-risk",
+            "--acknowledge-risk",
         ]
     )
-    assert apply.acknowledge_firewall_risk is True
+    assert apply.acknowledge_risk is True
+
+    legacy_apply = build_parser().parse_args(
+        ["apply", "--config", "network.yaml", "--acknowledge-firewall-risk"]
+    )
+    assert legacy_apply.acknowledge_risk is True
 
 
 def test_cli_renders_firewall_reordering_and_warnings(capsys) -> None:
@@ -95,7 +100,7 @@ def test_cli_renders_firewall_reordering_and_warnings(capsys) -> None:
     assert "WARNING  firewall_rule/Trusted -> WAN" in output
 
 
-def test_cli_requires_firewall_risk_acknowledgement_even_with_yes(capsys) -> None:
+def test_cli_requires_risk_acknowledgement_even_with_yes(capsys) -> None:
     plan = Plan(
         diffs=[
             ResourceDiff(
@@ -108,9 +113,9 @@ def test_cli_requires_firewall_risk_acknowledgement_even_with_yes(capsys) -> Non
         ]
     )
 
-    assert _confirm_apply(plan, prune=False, yes=True, acknowledge_firewall_risk=False) is False
-    assert _confirm_apply(plan, prune=False, yes=True, acknowledge_firewall_risk=True) is True
-    assert "refusing risky firewall apply" in capsys.readouterr().err
+    assert _confirm_apply(plan, prune=False, yes=True, acknowledge_risk=False) is False
+    assert _confirm_apply(plan, prune=False, yes=True, acknowledge_risk=True) is True
+    assert "refusing risky apply" in capsys.readouterr().err
 
 
 def test_cli_interactive_firewall_acknowledgement_is_consumed(monkeypatch) -> None:
@@ -134,7 +139,34 @@ def test_cli_interactive_firewall_acknowledgement_is_consumed(monkeypatch) -> No
     monkeypatch.setattr("lanweave.cli.sys.stdin", TTY())
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
-    assert _confirm_apply(plan, prune=False, yes=False, acknowledge_firewall_risk=False) is True
+    assert _confirm_apply(plan, prune=False, yes=False, acknowledge_risk=False) is True
+
+
+def test_validate_reports_nat_mapping_count(tmp_path: Path, capsys) -> None:
+    path = tmp_path / "network.yaml"
+    path.write_text(
+        """\
+version: 1
+controller:
+  site: default
+networks: []
+wlans: []
+nat:
+  - name: web
+    protocol: TCP
+    public:
+      interface: WAN
+      port: 443
+    private:
+      address: 192.0.2.10
+      port: 8443
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["validate", "--config", str(path)]) == 0
+
+    assert "1 NAT mapping(s)" in capsys.readouterr().out
 
 
 def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -> None:
@@ -308,6 +340,41 @@ def test_capabilities_are_offline_and_show_explicit_cloud_scope(
             {"resource": "sites", "operations": ["read"]},
         ],
     }
+
+
+def test_session_capabilities_expose_the_complete_nat_lifecycle_offline(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(
+        fixture.read_text(encoding="utf-8").replace(
+            "profile: office\n", "profile: backup-default\n"
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "capabilities",
+                "--config",
+                str(path),
+                "--profile",
+                "backup-default",
+                "--output",
+                "json",
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    resources = {
+        item["resource"]: item["operations"] for item in rendered["capabilities"]["resources"]
+    }
+    assert resources["nat"] == ["read", "export", "plan", "apply", "prune"]
 
 
 def test_cli_rejected_overwrite_and_missing_config_use_exit_code_two(

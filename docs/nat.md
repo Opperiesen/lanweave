@@ -61,8 +61,8 @@ never exported into YAML.
 - only live mappings with a user-managed origin may later be pruned;
 - system-managed and unknown-origin mappings remain protected;
 - controller-specific payload conversion, exposure conflict analysis and
-  mutation semantics are deliberately deferred to the following v0.6.0
-  issues.
+  mutation semantics are not part of the portable contract; the supported
+  local-session boundary is documented below.
 
 The contract is intentionally smaller than the controller UI. An unsupported
 mapping is rejected rather than approximated with an undocumented endpoint or
@@ -90,8 +90,9 @@ adapters likewise fail before a request is attempted.
 
 Rules without a recognized user-managed origin are protected from export and
 future prune operations. A missing origin is therefore `UNKNOWN`, not an
-implicit user-owned rule. The inventory tranche adds no mutation endpoint;
-controlled apply, prune and recovery remain separate release work.
+implicit user-owned rule. The inventory tranche added no mutation endpoint;
+the later controlled apply, prune and recovery boundary is session-only and
+fail-closed for unsupported variants.
 
 The classic response is a single inventory list rather than a paginated
 Integration API collection. The adapter accepts an empty `data` list and fails
@@ -113,3 +114,21 @@ The apply path requires the existing reviewed-plan confirmation and the
 separate prune confirmation, keeps NAT writes behind the plan risk gate, and
 reports partial failures as uncertain operations with a fresh-read recovery
 instruction. API-key, cloud and unproven variants remain unsupported.
+
+## Operator surfaces
+
+The existing CLI and read-only MCP surface carry NAT without adding a second
+resource model or a write-capable tool:
+
+- `lanweave validate` and `profiles validate` report the number of declared
+  mappings;
+- `lanweave export` includes only user-managed, portable mappings and removes
+  controller IDs and origin metadata;
+- `lanweave plan` and `lanweave apply` use the same deterministic plan, with
+  `--acknowledge-risk` for reviewed exposure warnings and the legacy
+  `--acknowledge-firewall-risk` alias retained for compatibility;
+- CLI and MCP capability documents advertise session-only `read`, `export`,
+  `plan`, `apply` and `prune`; API-key and cloud targets do not gain NAT by
+  fallback;
+- MCP validation, export and planning remain read-only and never expose an
+  apply or delete tool.

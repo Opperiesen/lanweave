@@ -194,6 +194,7 @@ def create_server() -> Any:
                 "port_groups": len(firewall.get("port_groups", [])),
                 "rules": len(firewall.get("rules", [])),
             },
+            "nat": len(config.get("nat", [])),
         }
 
     @server.tool()

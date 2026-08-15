@@ -22,6 +22,10 @@
     },
     "firewall": {
       "$ref": "#/$defs/firewall"
+    },
+    "nat": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nat_mapping" }
     }
   },
   "$defs": {
@@ -196,6 +200,53 @@
           "type": "array",
           "items": { "$ref": "#/$defs/firewall_rule" }
         }
+      }
+    },
+    "nat_mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "public", "private"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "protocol": { "enum": ["TCP", "UDP", "TCP_UDP"] },
+        "ip_version": { "enum": ["IPV4", "IPV6"] },
+        "public": { "$ref": "#/$defs/nat_public" },
+        "source": { "$ref": "#/$defs/nat_source" },
+        "private": { "$ref": "#/$defs/nat_private" },
+        "hairpin": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nat_public": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["interface", "port"],
+      "properties": {
+        "interface": { "type": "string", "minLength": 1 },
+        "address": { "type": "string", "minLength": 1 },
+        "port": { "$ref": "#/$defs/port_item" }
+      }
+    },
+    "nat_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zone": { "type": "string", "minLength": 1 },
+        "addresses": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "nat_private": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "port"],
+      "properties": {
+        "network": { "type": "string", "minLength": 1 },
+        "address": { "type": "string", "minLength": 1 },
+        "port": { "$ref": "#/$defs/port_item" }
       }
     },
     "firewall_zone": {

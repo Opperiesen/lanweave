@@ -11,6 +11,7 @@ from .adapters import Adapter
 from .contracts import CONFIG_SCHEMA_VERSION
 from .dns import dns_export_record, dns_is_user_managed
 from .firewall import export_firewall_config
+from .nat import nat_export_mapping, nat_is_user_managed
 
 
 def _network_subnet(value: str | None) -> str | None:
@@ -126,6 +127,16 @@ def export_config(client: Adapter) -> dict[str, Any]:
             orderings=orderings,
             network_names_by_id=networks_by_id,
         )
+    supports_nat = (
+        capabilities.supports("nat", "export")
+        if capabilities is not None
+        else callable(getattr(client, "nat", None))
+    )
+    nat_config: list[dict[str, Any]] = []
+    if supports_nat:
+        nat_config = [
+            nat_export_mapping(mapping) for mapping in client.nat() if nat_is_user_managed(mapping)
+        ]
     return {
         "version": CONFIG_SCHEMA_VERSION,
         "controller": {"site": client.settings.site},
@@ -135,6 +146,7 @@ def export_config(client: Adapter) -> dict[str, Any]:
         "wlans": [wlan_from_unifi(wlan, networks_by_id) for wlan in wlans],
         "dns": dns_records,
         "firewall": firewall_config,
+        "nat": nat_config,
     }
 
 

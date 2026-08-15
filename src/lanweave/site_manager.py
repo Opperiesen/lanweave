@@ -237,6 +237,9 @@ class SiteManagerClient:
     def wlans(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "wlans", "read")
 
+    def nat(self) -> list[dict[str, Any]]:
+        raise UnsupportedCapabilityError(self.adapter_name, "nat", "read")
+
     def dns(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "dns", "read")
 

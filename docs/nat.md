@@ -67,3 +67,33 @@ never exported into YAML.
 The contract is intentionally smaller than the controller UI. An unsupported
 mapping is rejected rather than approximated with an undocumented endpoint or
 an implicit source, port translation or hairpin behavior.
+
+## v0.6.0 inventory compatibility
+
+The first inventory implementation supports the local classic session endpoint:
+
+```text
+GET /proxy/network/api/{site}/rest/portforward
+```
+
+The adapter translates the proven legacy fields `name`, `enabled`,
+`pfwd_interface`, `src`, `dst_port`, `fwd`, `fwd_port` and `proto`. Legacy
+string ports such as `443` and `5300-5302` become the portable number or range
+form. Controller counters, logging flags, site identifiers and other UI-only
+fields are discarded from the portable export. The controller object ID and a
+conservative ownership marker remain available only in live inventory.
+
+This read path deliberately requires local session authentication. The current
+Integration API capability matrix does not advertise NAT, so API-key mode does
+not fall back to the classic endpoint. Site Manager and other unsupported
+adapters likewise fail before a request is attempted.
+
+Rules without a recognized user-managed origin are protected from export and
+future prune operations. A missing origin is therefore `UNKNOWN`, not an
+implicit user-owned rule. The inventory tranche adds no mutation endpoint;
+controlled apply, prune and recovery remain separate release work.
+
+The classic response is a single inventory list rather than a paginated
+Integration API collection. The adapter accepts an empty `data` list and fails
+closed if a future response changes the envelope or mapping shape; it does not
+invent pagination semantics for an endpoint that does not expose them.

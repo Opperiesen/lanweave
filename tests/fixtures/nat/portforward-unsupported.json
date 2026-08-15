@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "_id": "nat-unsupported-1",
+      "name": "unsupported",
+      "enabled": true,
+      "pfwd_interface": "wan",
+      "src": "any",
+      "dst_port": "443",
+      "fwd": "192.0.2.10",
+      "fwd_port": "8443",
+      "proto": "icmp"
+    }
+  ]
+}

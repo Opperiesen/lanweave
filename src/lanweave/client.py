@@ -24,6 +24,7 @@ from .firewall import (
     normalize_controller_firewall_zone,
     normalize_controller_traffic_matching_list,
 )
+from .nat import normalize_controller_nat_list
 
 INTEGRATION_API_PREFIX = "/proxy/network/integration/v1"
 INTEGRATION_PAGE_SIZE = 200
@@ -413,6 +414,12 @@ class LocalClassicAdapter:
                 for item in self._integration_list(self._integration_site_path("wifi/broadcasts"))
             ]
         return self.get(self.site_url("rest/wlanconf")) or []
+
+    def nat(self) -> list[dict[str, Any]]:
+        """List supported port-forwarding mappings through local session auth."""
+        if self.settings.api_key:
+            raise RuntimeError("NAT inventory currently requires local session authentication")
+        return normalize_controller_nat_list(self.get(self.site_url("rest/portforward")) or [])
 
     def dns(self) -> list[dict[str, Any]]:
         """List supported DNS policies through the official Integration API."""

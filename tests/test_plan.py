@@ -138,6 +138,7 @@ def test_profile_plan_includes_only_the_stable_target_identity() -> None:
         "profile": "office",
         "controller": "local",
         "site": "default",
+        "adapter": "local-classic",
     }
     assert "https://" not in str(rendered)
 
@@ -316,8 +317,18 @@ def test_apply_rejects_a_mismatched_plan_target_before_controller_mutation() -> 
     error = caught.value
     assert error.to_dict() == {
         "error": "plan_target_mismatch",
-        "expected_target": {"profile": "office", "controller": "local", "site": "default"},
-        "selected_target": {"profile": "guest", "controller": "local", "site": "guest"},
+        "expected_target": {
+            "profile": "office",
+            "controller": "local",
+            "site": "default",
+            "adapter": "local-classic",
+        },
+        "selected_target": {
+            "profile": "guest",
+            "controller": "local",
+            "site": "guest",
+            "adapter": "local-classic",
+        },
     }
     assert controller.calls == []
 

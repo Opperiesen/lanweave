@@ -25,6 +25,10 @@ The profile layer must:
 
 The `v0.2.0` profile layer does not include the official UniFi cloud adapter,
 new resource families, implicit controller discovery or write-capable MCP.
+The v0.3.0 adapter layer adds an optional `controllers.<name>.adapter` field;
+omitting it preserves the `local-classic` default. Accepting a cloud adapter
+name in a profile does not enable cloud access until its separate runtime
+adapter and capability evidence are released.
 
 ## Version-2 document shape
 
@@ -40,6 +44,7 @@ profile: office
 
 controllers:
   local:
+    adapter: local-classic
     host_env: LANWEAVE_LOCAL_HOST
     verify_tls: true
     auth:
@@ -83,6 +88,8 @@ validates both the profile layer and the existing resource model.
 - `profile.site` is the controller-native site name or ID and must be a
   non-empty string; its case is preserved;
 - `host_env` names the environment variable containing the controller URL;
+- `adapter` selects the backend. It defaults to `local-classic`; cloud
+  selection is explicit and does not imply fallback from a local failure;
 - `verify_tls` defaults to `true` and must be explicit when disabled;
 - `auth` contains exactly one API-key form or one username/password form.
 
@@ -155,14 +162,15 @@ Every selected target is represented by the non-secret tuple:
 {
   "profile": "office",
   "controller": "local",
-  "site": "default"
+  "site": "default",
+  "adapter": "local-classic"
 }
 ```
 
 The human-readable form is:
 
 ```text
-profile=office controller=local site=default
+profile=office controller=local site=default adapter=local-classic
 ```
 
 Target identity never contains `host`, an environment value, a credential,

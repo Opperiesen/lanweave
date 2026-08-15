@@ -67,6 +67,8 @@ Version-2 files add:
 
 - `controllers`: named local controller connection definitions using only
   environment variable references for host and credentials;
+- optional `controllers.<name>.adapter`: `local-classic` by default, or the
+  explicitly selected `cloud-site-manager` backend;
 - `profiles`: named controller/site targets;
 - optional `profile`: an explicit document-level selector;
 - the unchanged `networks[]` and `wlans[]` resource model.
@@ -113,7 +115,8 @@ The canonical schema is
   "target": {
     "profile": "office",
     "controller": "local",
-    "site": "default"
+    "site": "default",
+    "adapter": "local-classic"
   },
   "summary": {"create": 0, "update": 0, "delete": 0, "noop": 0},
   "changes": []
@@ -121,13 +124,15 @@ The canonical schema is
 ```
 
 `target` is optional for compatibility with plans produced before `v0.2.0`.
-The `v0.2.0` CLI always includes it and the value is the non-secret tuple of
-profile, controller and site. The plan format deliberately remains version 1:
+The `v0.2.0` CLI always includes `profile`, `controller` and `site`; the
+v0.3.0 CLI adds the selected adapter to that non-secret tuple. The plan format
+deliberately remains version 1:
 adding this optional field does not change the meaning of any existing field,
 so old v1 plan JSON remains valid and readable. A target-bound plan cannot be
 applied without the same selected identity; a mismatch is rejected before any
 controller mutation. Legacy plans without `target` retain their v1 behavior and
-should be regenerated when more than one target is available.
+are restricted to `local-classic` when they are loaded into the v0.3 target
+model. Legacy target objects without `adapter` default to `local-classic`.
 
 Every change has `kind`, `action`, `name`, `id`, `changed_fields` and a
 `payload`. `changes` excludes `noop` entries, while `summary.noop` retains the

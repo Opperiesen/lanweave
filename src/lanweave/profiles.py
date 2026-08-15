@@ -10,6 +10,10 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from .adapters import (
+    ADAPTER_CLOUD_SITE_MANAGER,
+    ADAPTER_LOCAL_CLASSIC,
+)
 from .client import ControllerSettings, CredentialsError
 from .config import ConfigError, validate_config
 from .contracts import PROFILE_LAYER_VERSION
@@ -25,9 +29,10 @@ PROFILE_DOCUMENT_KEYS = {
     "networks",
     "wlans",
 }
-CONTROLLER_PROFILE_KEYS = {"host_env", "verify_tls", "auth"}
+CONTROLLER_PROFILE_KEYS = {"host_env", "verify_tls", "auth", "adapter"}
 AUTH_PROFILE_KEYS = {"api_key_env", "username_env", "password_env"}
-TARGET_IDENTITY_KEYS = ("profile", "controller", "site")
+TARGET_IDENTITY_KEYS = ("profile", "controller", "site", "adapter")
+SUPPORTED_ADAPTERS = frozenset({ADAPTER_CLOUD_SITE_MANAGER, ADAPTER_LOCAL_CLASSIC})
 
 
 @dataclass(frozen=True)
@@ -37,12 +42,33 @@ class TargetIdentity:
     profile: str
     controller: str
     site: str
+    adapter: str = ADAPTER_LOCAL_CLASSIC
 
     def to_dict(self) -> dict[str, str]:
         return {key: getattr(self, key) for key in TARGET_IDENTITY_KEYS}
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> TargetIdentity:
+        """Load a target identity, defaulting legacy documents to local-classic."""
+        document = _require_mapping(value, "target")
+        _reject_unknown(document, set(TARGET_IDENTITY_KEYS), "target")
+        profile = _validate_identifier(
+            _require_string(document, "profile", "target"), "target.profile"
+        )
+        controller = _validate_identifier(
+            _require_string(document, "controller", "target"), "target.controller"
+        )
+        site = _require_string(document, "site", "target")
+        adapter = _validate_adapter(
+            document.get("adapter", ADAPTER_LOCAL_CLASSIC), "target.adapter"
+        )
+        return cls(profile=profile, controller=controller, site=site, adapter=adapter)
+
     def label(self) -> str:
-        return f"profile={self.profile} controller={self.controller} site={self.site}"
+        return (
+            f"profile={self.profile} controller={self.controller} "
+            f"site={self.site} adapter={self.adapter}"
+        )
 
 
 @dataclass(frozen=True)
@@ -88,6 +114,13 @@ def _validate_env_name(value: Any, label: str) -> str:
     return value
 
 
+def _validate_adapter(value: Any, label: str) -> str:
+    if not isinstance(value, str) or value not in SUPPORTED_ADAPTERS:
+        allowed = ", ".join(sorted(SUPPORTED_ADAPTERS))
+        raise ConfigError(f"{label} must be one of: {allowed}")
+    return value
+
+
 def _validate_auth(auth: Mapping[str, Any], label: str) -> None:
     _reject_unknown(auth, AUTH_PROFILE_KEYS, label)
     has_api_key = "api_key_env" in auth
@@ -119,6 +152,10 @@ def validate_profile_document(config: Mapping[str, Any]) -> None:
         controller_name = _validate_identifier(name, "controller name")
         controller = _require_mapping(raw_controller, f"controllers.{controller_name}")
         _reject_unknown(controller, CONTROLLER_PROFILE_KEYS, f"controllers.{controller_name}")
+        _validate_adapter(
+            controller.get("adapter", ADAPTER_LOCAL_CLASSIC),
+            f"controllers.{controller_name}.adapter",
+        )
         _validate_env_name(
             _require_string(controller, "host_env", f"controllers.{controller_name}"),
             f"controllers.{controller_name}.host_env",
@@ -160,15 +197,30 @@ def list_profile_identities(config: Mapping[str, Any]) -> tuple[TargetIdentity, 
     if document.get("version") != PROFILE_LAYER_VERSION:
         raise ConfigError(f"unsupported profile configuration version: {document.get('version')}")
     validate_profile_document(document)
+    controllers = _require_mapping(document["controllers"], "controllers")
     profiles = _require_mapping(document["profiles"], "profiles")
-    return tuple(
-        TargetIdentity(
-            profile=name,
-            controller=str(_require_mapping(raw, f"profiles.{name}")["controller"]),
-            site=str(_require_mapping(raw, f"profiles.{name}")["site"]),
+    identities: list[TargetIdentity] = []
+    for name, raw in sorted(profiles.items()):
+        profile = _require_mapping(raw, f"profiles.{name}")
+        controller_name = _validate_identifier(
+            _require_string(profile, "controller", f"profiles.{name}"),
+            f"profiles.{name}.controller",
         )
-        for name, raw in sorted(profiles.items())
-    )
+        controller = _require_mapping(
+            controllers[controller_name], f"controllers.{controller_name}"
+        )
+        identities.append(
+            TargetIdentity(
+                profile=name,
+                controller=controller_name,
+                site=_require_string(profile, "site", f"profiles.{name}"),
+                adapter=_validate_adapter(
+                    controller.get("adapter", ADAPTER_LOCAL_CLASSIC),
+                    f"controllers.{controller_name}.adapter",
+                ),
+            )
+        )
+    return tuple(identities)
 
 
 def _runtime_environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -271,7 +323,9 @@ def resolve_target(
         settings = ControllerSettings.from_env(environ=environment)
         site = str(document["controller"]["site"])
         settings = replace(settings, site=site)
-        return ResolvedTarget(TargetIdentity("legacy", "legacy", site), settings)
+        return ResolvedTarget(
+            TargetIdentity("legacy", "legacy", site, ADAPTER_LOCAL_CLASSIC), settings
+        )
 
     if version != PROFILE_LAYER_VERSION:
         raise ConfigError(f"unsupported profile configuration version: {version}")
@@ -284,7 +338,11 @@ def resolve_target(
     controllers = _require_mapping(document["controllers"], "controllers")
     controller = _require_mapping(controllers[controller_name], f"controllers.{controller_name}")
     settings = _settings_for_v2(controller, selected_profile, environment)
-    identity = TargetIdentity(selected_name, controller_name, settings.site)
+    adapter = _validate_adapter(
+        controller.get("adapter", ADAPTER_LOCAL_CLASSIC),
+        f"controllers.{controller_name}.adapter",
+    )
+    identity = TargetIdentity(selected_name, controller_name, settings.site, adapter)
     return ResolvedTarget(identity, settings)
 
 

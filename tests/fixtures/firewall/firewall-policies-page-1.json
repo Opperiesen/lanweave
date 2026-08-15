@@ -1,0 +1,63 @@
+{
+  "count": 2,
+  "data": [
+    {
+      "id": "policy-allow",
+      "name": "allow-web",
+      "index": 5,
+      "enabled": true,
+      "action": {"type": "ALLOW", "allowReturnTraffic": true},
+      "source": {
+        "zoneId": "zone-custom",
+        "trafficFilter": {
+          "type": "IP_ADDRESS",
+          "ipAddressFilter": {
+            "type": "TRAFFIC_MATCHING_LIST",
+            "trafficMatchingListId": "group-servers",
+            "matchOpposite": false
+          }
+        }
+      },
+      "destination": {
+        "zoneId": "zone-lan",
+        "trafficFilter": {
+          "type": "PORT",
+          "portFilter": {
+            "type": "TRAFFIC_MATCHING_LIST",
+            "trafficMatchingListId": "group-web",
+            "matchOpposite": false
+          }
+        }
+      },
+      "ipProtocolScope": {
+        "ipVersion": "IPV4",
+        "protocolFilter": {
+          "type": "NAMED_PROTOCOL",
+          "matchOpposite": false,
+          "protocol": {"name": "tcp"}
+        }
+      },
+      "connectionStateFilter": ["NEW", "ESTABLISHED"],
+      "ipsecFilter": null,
+      "loggingEnabled": false,
+      "metadata": {"origin": "USER_DEFINED"}
+    },
+    {
+      "id": "policy-system",
+      "name": "system-policy",
+      "index": 5,
+      "enabled": true,
+      "action": {"type": "BLOCK"},
+      "source": {"zoneId": "zone-wan"},
+      "destination": {"zoneId": "zone-lan"},
+      "ipProtocolScope": {"ipVersion": "IPV4_AND_IPV6"},
+      "connectionStateFilter": null,
+      "ipsecFilter": null,
+      "loggingEnabled": false,
+      "metadata": {"origin": "SYSTEM_DEFINED"}
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "totalCount": 2
+}

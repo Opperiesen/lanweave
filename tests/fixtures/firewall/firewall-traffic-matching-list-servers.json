@@ -1,0 +1,10 @@
+{
+  "id": "group-servers",
+  "name": "servers",
+  "type": "IPV4_ADDRESSES",
+  "items": [
+    {"type": "IP_ADDRESS", "value": "192.0.2.10"},
+    {"type": "SUBNET", "value": "192.0.2.0/24"}
+  ],
+  "metadata": {"origin": "USER_DEFINED"}
+}

@@ -65,6 +65,8 @@ The read-only job uses these environment secrets and variables:
 
 - `UNIFI_HOST` secret;
 - either `UNIFI_API_KEY` or `UNIFI_USER` plus `UNIFI_PASS` secrets;
+- the mutation job additionally uses the separate `UNIFI_MUTATION_USER` plus
+  `UNIFI_MUTATION_PASS` secrets;
 - `UNIFI_SITE` variable, defaulting to `default`;
 - `UNIFI_VERIFY_TLS` variable, defaulting to `true`.
 
@@ -84,6 +86,10 @@ The mutation job is disabled by default. Enabling it requires all of:
    explicit confirmation value;
 3. a `LANWEAVE_MUTATION_PREFIX` variable beginning with `lanweave-ci-`;
 4. a dedicated IPv4 test subnet and VLAN in environment variables.
+
+Its session credentials are separate from the read-only credentials and belong
+to a local-only `Lanweave Mutation` role with site-level network administration
+and no Identity permissions.
 
 The suite creates, updates and deletes one VLAN-only test network and cleans it
 up in a `finally` block. It must never be enabled against an operator's normal

@@ -135,7 +135,7 @@ validation and redacted planning. It intentionally exposes no apply or delete
 tool. A desktop MCP client should launch `lanweave-mcp` from this checkout (or
 from the installed package) with the required `UNIFI_*` environment variables.
 The tool names, parameters and error codes are frozen in
-[the MCP contract](docs/contracts.md#read-only-mcp-contract-v1).
+[the MCP contract](docs/contracts.md#read-only-mcp-contract-v3).
 
 ## Configuration and credentials
 
@@ -172,7 +172,7 @@ Apache-2.0. See [LICENSE](LICENSE).
 
 - [source repository](https://github.com/Opperiesen/lanweave);
 - [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
-- [v1 contracts](docs/contracts.md);
+- [MCP contracts](docs/contracts.md);
 - [v0.2.0 profile design](docs/profiles.md);
 - [security policy](SECURITY.md);
 - [contribution guide](CONTRIBUTING.md).

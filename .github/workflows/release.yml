@@ -7,9 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to rebuild and publish"
+        description: "Annotated release tag to rebuild and publish; CI uses this exact tag"
         required: true
         type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -21,6 +25,9 @@ jobs:
   ci:
     name: required CI
     uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ inputs.tag || github.ref }}
+      head_sha: ${{ inputs.tag || github.sha }}
     permissions:
       contents: read
 
@@ -30,8 +37,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
-      attestations: write
+      id-token: write # Required for PyPI Trusted Publishing and build provenance.
+      attestations: write # Required to publish the GitHub artifact attestation.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -122,7 +129,7 @@ jobs:
       url: https://pypi.org/p/lanweave
     permissions:
       contents: read
-      id-token: write
+      id-token: write # Required for PyPI Trusted Publishing.
     steps:
       - name: Download PyPI distributions
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -152,7 +159,7 @@ jobs:
       }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Required to create the GitHub release and upload assets.
     steps:
       - name: Download release bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

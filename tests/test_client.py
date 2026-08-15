@@ -74,6 +74,79 @@ def test_api_key_reads_integration_api() -> None:
         assert client.wlans()[0]["security"] == "wpa2"
 
 
+def test_api_key_paginates_integration_lists() -> None:
+    requests: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        offset = request.url.params.get("offset", "0")
+        requests.append((request.url.path, offset))
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(
+                200,
+                json={
+                    "offset": int(offset),
+                    "limit": 200,
+                    "count": 1,
+                    "totalCount": 1,
+                    "data": [{"id": "site-1", "name": "Default"}],
+                },
+            )
+        if request.url.path.endswith("/devices"):
+            pages = {
+                "0": [{"id": "device-1", "name": "gateway"}],
+                "1": [{"id": "device-2", "name": "switch"}],
+            }
+            page = pages.get(offset, [])
+            return httpx.Response(
+                200,
+                json={
+                    "offset": int(offset),
+                    "limit": 200,
+                    "count": len(page),
+                    "totalCount": 2,
+                    "data": page,
+                },
+            )
+        raise AssertionError(f"unexpected request path: {request.url.path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with UniFiClient(settings, transport=httpx.MockTransport(handler)) as client:
+        assert [device["name"] for device in client.devices()] == ["gateway", "switch"]
+
+    assert requests == [
+        ("/proxy/network/integration/v1/sites", "0"),
+        ("/proxy/network/integration/v1/sites/site-1/devices", "0"),
+        ("/proxy/network/integration/v1/sites/site-1/devices", "1"),
+    ]
+
+
+def test_api_key_rejects_unknown_wifi_security_type() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if request.url.path.endswith("/wifi/broadcasts"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "wifi-1",
+                            "name": "Enterprise",
+                            "securityConfiguration": {"type": "WPA2_ENTERPRISE"},
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"unexpected request path: {request.url.path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with (
+        UniFiClient(settings, transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(RuntimeError, match="unsupported WiFi security type: WPA2_ENTERPRISE"),
+    ):
+        client.wlans()
+
+
 def test_api_key_mutations_are_blocked() -> None:
     settings = ControllerSettings(host="https://controller.example", api_key="test")
     client = UniFiClient(settings, transport=httpx.MockTransport(lambda _: httpx.Response(200)))

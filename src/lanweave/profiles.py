@@ -337,7 +337,11 @@ def _select_profile(
         raise ConfigError(f"conflicting profile selectors from {sources}")
     if not selectors:
         raise ConfigError("version-2 configuration requires an explicit profile selection")
-    return selectors[0][1]
+    selected_name = selectors[0][1]
+    profiles = _require_mapping(config["profiles"], "profiles")
+    if selected_name not in profiles:
+        raise ConfigError(f"unknown profile: {selected_name}")
+    return selected_name
 
 
 def _settings_for_v2(

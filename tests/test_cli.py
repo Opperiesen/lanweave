@@ -169,6 +169,18 @@ def test_plan_rejects_a_conflicting_explicit_profile_before_controller_access(
     assert "conflicting profile selectors" in capsys.readouterr().err
 
 
+def test_capabilities_rejects_an_unknown_profile_with_exit_code_two(tmp_path: Path, capsys) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-adapters.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(
+        fixture.read_text(encoding="utf-8").replace("profile: local-office\n", ""),
+        encoding="utf-8",
+    )
+
+    assert main(["capabilities", "--config", str(path), "--profile", "missing"]) == 2
+    assert "unknown profile: missing" in capsys.readouterr().err
+
+
 def test_capabilities_are_offline_and_show_explicit_cloud_scope(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

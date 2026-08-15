@@ -44,11 +44,13 @@ firewall warnings also requires the explicit risk acknowledgement described in
 
 NAT writes run after firewall rule writes and before user-managed NAT deletes.
 The local classic adapter supports only the proven IPv4 payload subset and
-requires session authentication. Public WAN boundaries, broad sources,
-privileged ports and unproven firewall dependencies remain visible risk
-warnings. Unknown or system-origin mappings are never prune targets. A NAT
-request that fails is uncertain until a fresh inventory and newly reviewed plan
-confirm the live state.
+requires session authentication. Because the classic endpoint omits ownership
+metadata, IDs created successfully in the current client session are the only
+same-session ownership evidence; a later fresh client treats them as unknown.
+Public WAN boundaries, broad sources, privileged ports and unproven firewall
+dependencies remain visible risk warnings. Unknown or system-origin mappings
+are never prune targets. A NAT request that fails is uncertain until a fresh
+inventory and newly reviewed plan confirm the live state.
 
 ## Failure report
 

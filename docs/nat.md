@@ -90,8 +90,12 @@ adapters likewise fail before a request is attempted.
 
 Rules without a recognized user-managed origin are protected from export and
 prune operations. A missing origin is therefore `UNKNOWN`, not an implicit
-user-owned rule. The v0.6 controlled apply, prune and recovery boundary is
-session-only and fail-closed for unsupported variants.
+user-owned rule. Because this classic endpoint omits ownership metadata, a
+successful create is tracked as user-managed only for its current authenticated
+client session; a later process re-reads it as `UNKNOWN` and refuses mutation or
+prune until ownership is independently established. The v0.6 controlled apply,
+prune and recovery boundary is session-only and fail-closed for unsupported
+variants.
 
 The classic response is a single inventory list rather than a paginated
 Integration API collection. The adapter accepts an empty `data` list and fails

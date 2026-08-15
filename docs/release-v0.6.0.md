@@ -15,6 +15,8 @@ seule.
 - analyse d'exposition, de conflits et de dépendances firewall;
 - plans déterministes avec create/update/no-op/delete et origines protégées;
 - apply et prune contrôlés pour le sous-ensemble IPv4 local prouvé;
+- ownership de session explicite pour les créations classic dont l'endpoint ne
+  renvoie pas de métadonnée d'origine;
 - rapport de récupération partielle avec opération incertaine et plan neuf;
 - capacités CLI et réponses MCP de validation/export/plan alignées;
 - migration, compatibilité, sécurité, récupération et preuves protégées dédiées.
@@ -25,7 +27,8 @@ Les mutations NAT API-key, cloud, VPN, endpoints UI non documentés, IPv6,
 adresses publiques explicites, zones source, descriptions, hairpin explicite,
 sources multiples, rollback automatique et outils MCP d'écriture ne font pas
 partie de cette release. Une variante non prouvée est rejetée plutôt que
-convertie silencieusement.
+convertie silencieusement. Une nouvelle exécution protège également les
+mappings classic sans origine au lieu de les considérer comme gérés.
 
 La compatibilité publiée est limitée à la matrice testée dans
 [`compatibility.md`](compatibility.md). Les preuves contrôleur et les gates de

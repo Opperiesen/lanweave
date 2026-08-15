@@ -117,7 +117,9 @@ remains a separate evidence track.
   classic `rest/portforward` endpoint. The v0.6 portable write subset is IPv4,
   interface-selected public address, at most one source CIDR and no explicit
   description, source zone or hairpin behavior; unsupported variants fail
-  closed.
+  closed. The endpoint omits ownership metadata on the tested controller, so
+  IDs created successfully in the current client session are the only extra
+  ownership evidence; a later client keeps them protected as `UNKNOWN`.
 - DNS policies require UniFi Network 10.3.58 or a controller version with the
   same official Integration API contract. The portable scope is `A`, `AAAA`
   and `CNAME`; unsupported policy types are ignored on read and are never

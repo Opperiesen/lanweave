@@ -11,6 +11,7 @@
 - separate live read-only probes from an explicitly authorized mutation suite.
 - publish the first designated-controller read-only compatibility evidence.
 - route manual controller integration jobs through a dedicated LAN runner.
+- support read-only UniFi v1 Integration API access with API keys.
 
 ## 0.1.0a1 — 2026-08-15
 

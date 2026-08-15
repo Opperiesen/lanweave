@@ -28,6 +28,7 @@ def _required_documents() -> None:
         "docs/contracts.md": "A`, `AAAA` and `CNAME",
         "docs/compatibility.md": "DNS policies",
         "docs/recovery.md": "user-managed DNS policies",
+        "docs/evidence/v0.4.0-dns.md": "Authorized lifecycle: passed",
         ".github/workflows/integration.yml": "run_dns_mutations",
         "tests/integration/test_dns_mutations.py": "DNS lifecycle",
     }

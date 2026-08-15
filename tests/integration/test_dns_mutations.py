@@ -8,7 +8,7 @@ import pytest
 
 from lanweave.config import validate_config
 from lanweave.dns import dns_is_user_managed
-from lanweave.plan import apply_plan, build_plan
+from lanweave.plan import Plan, apply_plan, build_plan
 
 pytestmark = pytest.mark.integration_mutation
 
@@ -81,7 +81,14 @@ def test_dns_create_update_and_prune_are_cleaned_up(dns_mutation_target: DnsTarg
         assert changed is not None
         assert changed.get("address") == target.updated_address
 
-        prune_plan = build_plan(target.client, empty, prune=True)
+        # v1 prune applies to every explicitly declared resource family. Keep
+        # this live test destructive scope limited to the DNS family; network
+        # and WLAN pruning has its own separately guarded suite.
+        full_prune_plan = build_plan(target.client, empty, prune=True)
+        prune_plan = Plan(
+            diffs=[diff for diff in full_prune_plan.diffs if diff.kind == "dns"],
+            target=full_prune_plan.target,
+        )
         assert [(diff.action, diff.name) for diff in prune_plan.diffs] == [
             ("delete", f"{target.name} [A]")
         ]

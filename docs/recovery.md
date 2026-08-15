@@ -1,7 +1,8 @@
 # Apply recovery
 
-Lanweave applies the classic UniFi API one request at a time. The API is not
-transactional, so `apply` never claims to provide an automatic rollback.
+Lanweave applies controller changes one request at a time across the classic
+and local Integration APIs. These APIs are not transactional, so `apply` never
+claims to provide an automatic rollback.
 Lanweave stops at the first failed operation and reports what it knows instead
 of hiding a partial change.
 

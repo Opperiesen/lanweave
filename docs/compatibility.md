@@ -67,21 +67,27 @@ treated as supported without a corresponding report.
 | Deployment | UniFi OS | UniFi Network | Authentication | TLS | Read-only probes | Mutations |
 | --- | --- | --- | --- | --- | --- | --- |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | **tested** — [create/update/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31884501527) |
-| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | not run |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | **tested** — DNS create/update/prune |
 
 The first evidence was collected on 2026-08-15 with the dedicated
 `lanweave-ci` account. The probes covered health, device and client inventory,
 networks and WLANs. No controller host, site name, credentials, topology or
 raw response is part of this matrix.
 
+The v0.4 DNS evidence used the same designated controller and a protected API
+key. It read the DNS policy family, created and updated one isolated `A`
+record, pruned it as a user-managed policy and verified an empty final state.
+The sanitized record is documented in
+[`evidence/v0.4.0-dns.md`](evidence/v0.4.0-dns.md).
+
 The authorized mutation evidence used the separate local-only `Lanweave
 Mutation` role and created, updated and deleted one VLAN-only network on the
 dedicated target; the final controller inventory contains no mutation target.
 
-This matrix currently proves read-only session and API-key authentication, plus
-session create/update/delete coverage, for one exact controller combination. A
-second controller version and API-key mutations remain separate evidence
-tracks.
+This matrix currently proves read-only session and API-key authentication,
+session network mutations and API-key DNS policy mutations for one exact
+controller combination. A second controller version remains a separate
+evidence track.
 
 ## Authentication and TLS
 

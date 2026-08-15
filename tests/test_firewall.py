@@ -20,7 +20,6 @@ from lanweave.firewall import (
     validate_firewall,
 )
 
-
 FIREWALL_FIXTURES = Path(__file__).parent / "fixtures" / "firewall"
 
 

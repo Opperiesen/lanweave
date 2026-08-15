@@ -573,6 +573,38 @@ def _firewall_unique_name_index(
     return indexed
 
 
+def _merge_firewall_order(
+    current: dict[str, list[str]],
+    requested: dict[str, list[str]],
+    *,
+    policies_by_name: dict[str, dict[str, Any]],
+    desired_names: set[str],
+    prune: bool,
+) -> dict[str, list[str]]:
+    """Merge declared order with live policies outside the desired document."""
+    keep_names = {
+        name
+        for name, policy in policies_by_name.items()
+        if not prune or not firewall_is_user_managed(policy) or name in desired_names
+    }
+    merged: dict[str, list[str]] = {}
+    for placement in ("before_system_defined", "after_system_defined"):
+        original = [name for name in current.get(placement, []) if name in keep_names]
+        requested_names = requested.get(placement, [])
+        merged_values: list[str] = []
+        requested_index = 0
+        for name in original:
+            if name in desired_names:
+                if requested_index < len(requested_names):
+                    merged_values.append(requested_names[requested_index])
+                    requested_index += 1
+                continue
+            merged_values.append(name)
+        merged_values.extend(requested_names[requested_index:])
+        merged[placement] = merged_values
+    return merged
+
+
 def _read_firewall_inventory(
     client: Adapter,
     current_networks: list[dict[str, Any]],
@@ -893,13 +925,23 @@ def _append_firewall_plan(
         for placement in current_by_pair[pair]:
             for identifier in ordering.get(placement, []):
                 policy = policy_by_id.get(identifier)
-                if policy is not None and firewall_is_user_managed(policy):
-                    current_by_pair[pair][placement].append(str(policy["name"]))
+                if policy is None:
+                    raise ResourceContractError(
+                        "firewall policy ordering refers to an unknown policy"
+                    )
+                current_by_pair[pair][placement].append(str(policy["name"]))
     for pair, desired_order in desired_by_pair.items():
         current_order = current_by_pair.get(
             pair, {"before_system_defined": [], "after_system_defined": []}
         )
-        if current_order == desired_order:
+        merged_order = _merge_firewall_order(
+            current_order,
+            desired_order,
+            policies_by_name=current_policies,
+            desired_names=desired_rule_names,
+            prune=prune,
+        )
+        if current_order == merged_order:
             continue
         plan.diffs.append(
             ResourceDiff(
@@ -909,8 +951,8 @@ def _append_firewall_plan(
                 payload={
                     "source_zone": pair[0],
                     "destination_zone": pair[1],
-                    "before_system_defined": desired_order["before_system_defined"],
-                    "after_system_defined": desired_order["after_system_defined"],
+                    "before_system_defined": merged_order["before_system_defined"],
+                    "after_system_defined": merged_order["after_system_defined"],
                 },
                 current=current_order,
                 source={"source_zone": pair[0], "destination_zone": pair[1]},

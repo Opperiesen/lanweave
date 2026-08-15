@@ -248,3 +248,34 @@ def test_firewall_apply_requires_acknowledgement_and_replays_to_noop() -> None:
         "delete": 0,
         "noop": 5,
     }
+
+
+def test_firewall_order_preserves_undeclared_user_rules_without_prune() -> None:
+    controller = FakeFirewallController()
+    controller._policies.append(
+        normalize_controller_firewall_policy(
+            {
+                "id": "policy-keep",
+                "name": "keep-existing",
+                "action": {"type": "BLOCK"},
+                "source": {"zoneId": "zone-lan"},
+                "destination": {"zoneId": "zone-lan"},
+                "ipProtocolScope": {"ipVersion": "IPV4_AND_IPV6"},
+                "metadata": {"origin": "USER_DEFINED"},
+            }
+        )
+    )
+    controller._orderings[("zone-lan", "zone-lan")] = {
+        "before_system_defined": [],
+        "after_system_defined": ["policy-keep"],
+    }
+    config = deepcopy(_config())
+    config["firewall"]["zones"] = []
+    config["firewall"]["rules"][0]["source"]["zone"] = "LAN"
+    config["firewall"]["rules"][0]["destination"]["zone"] = "LAN"
+
+    plan = build_plan(controller, config)
+
+    reorder = plan.by_action("reorder")
+    assert len(reorder) == 1
+    assert reorder[0].payload["after_system_defined"] == ["keep-existing", "allow-web"]

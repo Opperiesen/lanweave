@@ -35,9 +35,9 @@ implemented.
 | `v0.3.0` | Adapter architecture and read-only cloud inventory | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local compatibility is preserved and the opt-in Site Manager adapter exposes documented capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
-## Current release — `v0.2.0`
+## `v0.2.0` — stable local-first core
 
-The stable release currently provides:
+The `v0.2.0` release provided:
 
 - local classic UniFi Network API access;
 - API-key and session authentication;
@@ -69,6 +69,27 @@ WLANs and read-oriented operational views. The complete frozen surface is in
 
 This release does not include cloud support, new resource families or
 write-capable MCP tools.
+
+## Current release — `v0.3.0`
+
+The current stable release provides:
+
+- the complete local-first `v0.2.0` surface;
+- explicit `local-classic` and opt-in `cloud-site-manager` adapters;
+- deterministic, secret-free capability discovery through the CLI;
+- adapter-aware plans, status output and read-only MCP contract v3;
+- read-only Site Manager hosts, sites, devices and derived health views;
+- explicit unsupported-capability errors and no local/cloud fallback;
+- protected real-account Site Manager evidence for API v1.0.0;
+- migration, compatibility, redaction and release verification notes.
+
+The public cloud claim remains deliberately limited to the documented
+read-only Site Manager slice. Cloud clients, networks, WLANs, export, plan,
+apply, prune, new resource families and write-capable MCP remain excluded.
+The sanitized evidence is recorded in [workflow run
+31895015047](https://github.com/Opperiesen/lanweave/actions/runs/31895015047),
+and the complete scope is maintained in
+[roadmap-v0.3.0.md](roadmap-v0.3.0.md).
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 

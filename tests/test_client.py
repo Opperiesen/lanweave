@@ -4,34 +4,92 @@ import pytest
 from lanweave.client import ControllerSettings, CredentialsError, UniFiClient
 
 
-def test_site_url_is_controller_relative() -> None:
+def test_classic_site_url_is_controller_relative() -> None:
     settings = ControllerSettings(host="https://controller.example", api_key="test")
 
     with UniFiClient(settings) as client:
         assert client.site_url("stat/device") == ("/proxy/network/api/s/default/stat/device")
 
 
-def test_devices_unwraps_unifi_data() -> None:
+def test_api_key_reads_integration_api() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/proxy/network/api/s/default/stat/device"
-        assert request.headers["X-API-Key"] == "test"
-        return httpx.Response(200, json={"meta": {}, "data": [{"name": "gateway"}]})
+        assert request.headers["X-API-KEY"] == "test"
+        if request.url.path.endswith("/info"):
+            return httpx.Response(200, json={"applicationVersion": "10.5.67"})
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if request.url.path.endswith("/devices"):
+            return httpx.Response(
+                200,
+                json={"data": [{"id": "device-1", "name": "gateway", "ipAddress": "192.0.2.1"}]},
+            )
+        if request.url.path.endswith("/clients"):
+            return httpx.Response(
+                200,
+                json={"data": [{"id": "client-1", "name": "phone", "type": "WIRELESS"}]},
+            )
+        if request.url.path.endswith("/networks"):
+            return httpx.Response(
+                200,
+                json={"data": [{"id": "network-1", "name": "Lanweave", "vlanId": 99}]},
+            )
+        if request.url.path.endswith("/networks/network-1"):
+            return httpx.Response(
+                200,
+                json={
+                    "id": "network-1",
+                    "name": "Lanweave",
+                    "vlanId": 99,
+                    "management": "VLAN_ONLY",
+                },
+            )
+        if request.url.path.endswith("/wifi/broadcasts"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": "wifi-1",
+                            "name": "Lanweave WiFi",
+                            "broadcastingFrequenciesGHz": [2.4, 5],
+                            "network": {"type": "SPECIFIC", "networkId": "network-1"},
+                            "securityConfiguration": {"type": "WPA2_PERSONAL"},
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"unexpected request path: {request.url.path}")
 
     settings = ControllerSettings(host="https://controller.example", api_key="test")
     transport = httpx.MockTransport(handler)
 
     with UniFiClient(settings, transport=transport) as client:
-        assert client.devices() == [{"name": "gateway"}]
+        assert client.health() == [
+            {"subsystem": "application", "status": "up", "version": "10.5.67"}
+        ]
+        assert client.devices()[0]["name"] == "gateway"
+        assert client.clients()[0]["is_wired"] is False
+        assert client.networks()[0]["purpose"] == "vlan-only"
+        assert client.wlans()[0]["security"] == "wpa2"
+
+
+def test_api_key_mutations_are_blocked() -> None:
+    settings = ControllerSettings(host="https://controller.example", api_key="test")
+    client = UniFiClient(settings, transport=httpx.MockTransport(lambda _: httpx.Response(200)))
+
+    with pytest.raises(RuntimeError, match="read-only"):
+        client.post("/somewhere", json={"name": "must-not-change"})
 
 
 def test_api_error_does_not_echo_request_body() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, json={"error": "failed"})
 
-    settings = ControllerSettings(host="https://controller.example", api_key="test")
+    settings = ControllerSettings(host="https://controller.example")
     transport = httpx.MockTransport(handler)
 
-    with UniFiClient(settings, transport=transport) as client, pytest.raises(RuntimeError) as error:
+    with pytest.raises(RuntimeError) as error:
+        client = UniFiClient(settings, transport=transport)
         client.post("/somewhere", json={"password": "must-not-appear"})
 
     assert "must-not-appear" not in str(error.value)

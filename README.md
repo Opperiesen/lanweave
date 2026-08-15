@@ -116,8 +116,9 @@ from the installed package) with the required `UNIFI_*` environment variables.
 ## Configuration and credentials
 
 Copy `.env.example` to `.env`, or export the variables in the process
-environment. `.env` is ignored by Git. API keys are preferred; username and
-password session authentication are supported as a fallback.
+environment. `.env` is ignored by Git. API keys provide read-only access to the
+local Integration API; username and password session authentication are
+required for declarative mutations.
 
 Lanweave rejects literal WLAN passwords in YAML and refuses unresolved
 `op://...` secret-manager references. This keeps the public configuration

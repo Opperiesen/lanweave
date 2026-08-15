@@ -1,19 +1,20 @@
 # Compatibility
 
-Lanweave 0.1 targets the classic local UniFi Network API exposed below
-`/proxy/network/api`. The adapter uses the current site selected by
-`UNIFI_SITE` (default: `default`) and prefers an `X-API-Key` when one is
-available.
+Lanweave 0.1 supports two local UniFi Network API surfaces. Username/password
+session authentication uses the classic endpoints below `/proxy/network/api`.
+API-key authentication uses the v1 Integration API below
+`/proxy/network/integration/v1` and is currently read-only. Both modes resolve
+the current site selected by `UNIFI_SITE` (default: `default`).
 
 ## Supported in 0.1
 
 | Area | Endpoints used | Capability |
 | --- | --- | --- |
-| Health | `stat/health` | read |
-| Devices | `stat/device` | read |
-| Clients | `stat/sta` | read |
-| Networks | `rest/networkconf` | read, create, update, delete |
-| WLANs | `rest/wlanconf` | read, create, update, delete |
+| Health | `stat/health` / `v1/info` | read |
+| Devices | `stat/device` / `v1/sites/{siteId}/devices` | read |
+| Clients | `stat/sta` / `v1/sites/{siteId}/clients` | read |
+| Networks | `rest/networkconf` / `v1/sites/{siteId}/networks` | session read/create/update/delete; API key read |
+| WLANs | `rest/wlanconf` / `v1/sites/{siteId}/wifi/broadcasts` | session read/create/update/delete; API key read |
 | Backup | common `stat/*` and `rest/*` endpoints | redacted read |
 
 The exact fields returned by UniFi can vary between Network application
@@ -37,13 +38,14 @@ raw response is part of this matrix.
 
 This matrix currently proves read-only session authentication for one exact
 controller combination. API-key integration, a second controller version and
-the opt-in mutation suite remain unverified. They must be added as separate
-evidence before the support policy is broadened.
+the opt-in mutation suite remain separate evidence tracks.
 
 ## Authentication and TLS
 
-- API-key authentication is preferred.
-- Username/password session authentication is available as a fallback.
+- API-key authentication targets the v1 Integration API and is read-only for
+  now.
+- Username/password session authentication targets the classic API and is
+  required for declarative mutations.
 - TLS certificate verification is enabled by default.
 - `UNIFI_VERIFY_TLS=false` is an explicit escape hatch for local certificates.
 
@@ -64,6 +66,10 @@ The read-only job uses these environment secrets and variables:
 - either `UNIFI_API_KEY` or `UNIFI_USER` plus `UNIFI_PASS` secrets;
 - `UNIFI_SITE` variable, defaulting to `default`;
 - `UNIFI_VERIFY_TLS` variable, defaulting to `true`.
+
+The `api_mode` workflow input selects the authentication surface. API-key mode
+requires `UNIFI_API_KEY`; session mode ignores that secret. The mutation job
+rejects API-key mode and forces session authentication.
 
 The workflow input records the exact UniFi Network version, UniFi OS version
 and authentication mode used for the run. The resulting artifact contains only

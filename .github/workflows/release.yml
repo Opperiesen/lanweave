@@ -133,6 +133,7 @@ jobs:
         uses: docker://ghcr.io/pypa/gh-action-pypi-publish@sha256:5c2f7030fbef8308068eb4cc9080fd3c9e157ccf6d511924d69f8f4b23dc95c1 # pypa/gh-action-pypi-publish v1.14.2
         with:
           user: __token__
+          password: ""
           repository-url: https://upload.pypi.org/legacy/
           packages-dir: dist/
           verify-metadata: true

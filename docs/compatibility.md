@@ -39,7 +39,7 @@ API-key authentication uses the v1 Integration API below
 `/proxy/network/integration/v1`. Both modes resolve the current site selected by
 `UNIFI_SITE` (default: `default`).
 
-## Supported in 0.1
+## Supported local surfaces
 
 | Area | Endpoints used | Capability |
 | --- | --- | --- |

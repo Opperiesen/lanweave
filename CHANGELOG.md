@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.4.0 — 2026-08-15
+
+- add the portable local DNS resource family for `A`, `AAAA` and `CNAME`;
+- normalize official Integration API DNS policies with ownership-aware export;
+- add deterministic DNS validation, planning, apply, prune and recovery;
+- support API-key DNS policy mutations without opening generic API-key writes;
+- expose DNS through existing CLI, capability and read-only MCP responses;
+- publish fixture-backed and authorized controller evidence with migration and
+  compatibility documentation.
+
 ## 0.3.0 — 2026-08-15
 
 - introduce explicit local and Site Manager adapter boundaries with

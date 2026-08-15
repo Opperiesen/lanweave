@@ -6,8 +6,9 @@ records. The release is intentionally narrow. Its value is not the number of
 endpoints covered, but a reusable lifecycle that is safe enough to extend to
 firewall, NAT and VPN later.
 
-The current stable release remains v0.3.0 until the implementation and release
-gates below are complete.
+The v0.4.0 implementation and release gates are complete. The release adds
+local DNS as the first new resource family, while keeping firewall, NAT and VPN
+later.
 
 ## Product outcome
 

@@ -154,6 +154,9 @@ requires a new format version and a release note.
 
 ## Read-only MCP contract v3
 
+The superseded **Read-only MCP contract v2** remains documented by the
+v0.2.0 release gate; v3 is the additive capability-aware successor.
+
 The optional stdio adapter exposes exactly these seven tools:
 
 | Tool | Parameters | Logical return value |

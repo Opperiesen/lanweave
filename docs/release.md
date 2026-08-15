@@ -44,5 +44,5 @@ and receive PyPI's PEP 740 digital attestations. No long-lived PyPI token is
 stored in the repository.
 
 The next release scope is documented in
-[Lanweave v0.2.0 release notes](release-v0.2.0.md), with migration steps in
-[migration-v0.2.md](migration-v0.2.md).
+[Lanweave v0.3.0 roadmap](roadmap-v0.3.0.md). The v0.2.0 migration remains
+available in [migration-v0.2.md](migration-v0.2.md).

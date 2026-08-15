@@ -5,6 +5,7 @@
     uv sync --extra dev
     uv run pytest
     uv run ruff check .
+    uv run ruff format --check .
 
 Unit tests must not require a live controller. Use httpx mock transports for
 API behavior. Hardware compatibility tests belong in a separate, explicitly

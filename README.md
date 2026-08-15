@@ -126,7 +126,9 @@ portable and makes the secret boundary explicit.
 
 ```shell
 uv sync --extra dev --extra mcp
+uv lock --check
 uv run ruff check .
+uv run ruff format --check .
 uv run pytest
 uv build
 ```

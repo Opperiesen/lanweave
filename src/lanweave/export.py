@@ -94,9 +94,7 @@ def export_config(client: UniFiClient) -> dict[str, Any]:
         "version": 1,
         "controller": {"site": client.settings.site},
         "networks": [
-            network_from_unifi(network)
-            for network in networks
-            if network.get("purpose") != "wan"
+            network_from_unifi(network) for network in networks if network.get("purpose") != "wan"
         ],
         "wlans": [wlan_from_unifi(wlan, networks_by_id) for wlan in wlans],
     }

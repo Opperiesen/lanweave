@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- enforce formatting and locked dependency/security audits in CI;
+- exercise the optional MCP extra on the supported Python boundary versions;
+- pin GitHub Actions to reviewed commit SHAs and disable checkout credential
+  persistence.
+
 ## 0.1.0a1 — 2026-08-15
 
 - initial public Lanweave package and Apache-2.0 project foundation;

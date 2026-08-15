@@ -202,8 +202,7 @@ class Plan:
 
     def summary(self) -> dict[str, int]:
         return {
-            action: len(self.by_action(action))
-            for action in ("create", "update", "delete", "noop")
+            action: len(self.by_action(action)) for action in ("create", "update", "delete", "noop")
         }
 
     def to_dict(self) -> dict[str, Any]:

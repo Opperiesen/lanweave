@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 
-from .client import UniFiClient
+from .adapters import Adapter
 from .contracts import CONFIG_SCHEMA_VERSION
 
 
@@ -82,7 +82,7 @@ def wlan_from_unifi(wlan: dict[str, Any], networks_by_id: dict[str, str]) -> dic
     return {key: value for key, value in result.items() if value is not None}
 
 
-def export_config(client: UniFiClient) -> dict[str, Any]:
+def export_config(client: Adapter) -> dict[str, Any]:
     """Read networks/WLANs and return a secret-free portable configuration."""
     networks = client.networks()
     wlans = client.wlans()
@@ -101,7 +101,7 @@ def export_config(client: UniFiClient) -> dict[str, Any]:
     }
 
 
-def export_yaml(client: UniFiClient) -> str:
+def export_yaml(client: Adapter) -> str:
     return yaml.safe_dump(
         export_config(client),
         sort_keys=False,

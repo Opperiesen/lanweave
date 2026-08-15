@@ -7,13 +7,15 @@ explicit; neither adds new resource families or write-capable MCP tools.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
-schema `1`, profile layer `2`, plan format `1`, MCP contract `2` and adapter
+schema `1`, profile layer `2`, plan format `1`, MCP contract `3` and adapter
 capability format `1`.
 
 The v0.3 adapter boundary is defined by
 [`adapter-capabilities-v1.schema.json`](contracts/adapter-capabilities-v1.schema.json).
-It is additive to the v0.2 contracts: it describes adapter capabilities but
-does not yet change profile selection, plan JSON or the MCP tool set.
+It is additive to the v0.2 contracts: it describes adapter capabilities while
+keeping the configuration and plan format versions stable. The v0.3 operator
+surface consumes the selected adapter and exposes capabilities through the CLI
+and MCP contract v3.
 
 The `v0.2.0` profile design is documented separately in
 [`profiles.md`](profiles.md). It adds a version-2 local connection layer while
@@ -99,6 +101,7 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | `backup` | `--output`, `--config`, `--profile` | Write a local redacted snapshot with mode `0600` |
 | `status` | `--output table/json`, `--config`, `--profile` | Show health and device summary |
 | `clients` | `--filter`, `--wired`, `--output table/json`, `--config`, `--profile` | Show filtered client inventory |
+| `capabilities` | `--output table/json`, `--config`, `--profile` | Show selected adapter capabilities without contacting a target |
 
 `--prune` is opt-in and retains its separate confirmation boundary.
 `apply --output json` writes a structured failure report to stderr when
@@ -149,14 +152,15 @@ Adding an optional field within format v1 requires preserving all existing
 fields and meanings. Renaming, removing or changing the semantics of a field
 requires a new format version and a release note.
 
-## Read-only MCP contract v2
+## Read-only MCP contract v3
 
-The optional stdio adapter exposes exactly these six tools:
+The optional stdio adapter exposes exactly these seven tools:
 
 | Tool | Parameters | Logical return value |
 | --- | --- | --- |
-| `lanweave_get_health` | `config_path: string|null = null`, `profile: string|null = null` | `{target, health, online_clients, devices}` |
-| `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, devices}` |
+| `lanweave_get_health` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, health, devices, online_clients?}` |
+| `lanweave_get_capabilities` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities}` without a target request |
+| `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, devices}` |
 | `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
 | `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
 | `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans}` |
@@ -170,8 +174,9 @@ explicit profile from the tool argument, the document selector or
 plan tool always reads its configuration path and applies the same rule.
 
 Every controller-facing response exposes the sanitized target tuple
-`{profile, controller, site}`. The list and export tools therefore use an
-object envelope in contract v2 instead of returning a bare array or bare
+`{profile, controller, site, adapter}`. Inventory responses also expose the
+selected adapter's versioned capability document. The list and export tools
+therefore use an object envelope instead of returning a bare array or bare
 configuration document. Clients consuming contract v1 output must update their
 decoders and check the advertised MCP contract version before upgrading.
 
@@ -184,6 +189,9 @@ Tool failures are protocol errors with one of these stable prefixes:
 - `invalid_configuration`: the local file or schema is invalid;
 - `credentials_error`: controller credentials or TLS settings are incomplete;
 - `controller_error`: a read request failed;
+- `unsupported_capability`: the selected adapter does not expose the requested
+  resource or operation;
+- `rate_limit`: the selected adapter was rate-limited and may provide a retry hint;
 - `internal_error`: an unexpected adapter failure.
 
 The detail after the prefix is operational guidance only and must not contain
@@ -199,5 +207,6 @@ valid. A breaking configuration, CLI, plan or MCP change requires all of:
 3. focused tests for the old and new behavior where compatibility is promised;
 4. a release decision recorded in the roadmap and release notes.
 
-No cloud adapter, multi-controller profile, new resource family or write-capable
-MCP tool is part of this contract. Those belong to later roadmap milestones.
+No write-capable MCP tool or cloud mutation is part of this contract. The
+v0.3 cloud adapter is read-only and limited to its documented Site Manager
+capabilities; new resource families remain future work.

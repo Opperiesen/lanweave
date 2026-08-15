@@ -35,6 +35,7 @@ def test_mcp_contract_freezes_tool_names_parameters_and_read_only_scope() -> Non
     by_name = {tool.name: tool for tool in tools}
     assert set(by_name) == {
         "lanweave_get_health",
+        "lanweave_get_capabilities",
         "lanweave_list_devices",
         "lanweave_list_clients",
         "lanweave_export_config",
@@ -165,6 +166,7 @@ def test_mcp_v2_requires_selection_and_exposes_only_sanitized_target(
         "adapter": "local-classic",
     }
     assert "fixture-secret" not in str(health)
+    assert health["capabilities"]["adapter"] == "local-classic"
 
     devices_tool = server._tool_manager.get_tool("lanweave_list_devices")
     devices = devices_tool.fn(config_path=str(config_path), profile="office")
@@ -223,3 +225,78 @@ def test_mcp_v1_environment_only_health_remains_callable(monkeypatch: pytest.Mon
         "site": "default",
         "adapter": "local-classic",
     }
+    assert health["capabilities"]["adapter"] == "local-classic"
+
+
+def test_mcp_cloud_capabilities_are_offline_and_unsupported_reads_are_structured(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    from lanweave.adapters import UnsupportedCapabilityError
+    from lanweave.mcp import MCPToolError, create_server
+    from lanweave.site_manager import site_manager_capabilities
+
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-adapters.yaml"
+    config_path = tmp_path / "profiles.yaml"
+    config_path.write_text(
+        fixture.read_text(encoding="utf-8").replace("profile: local-office\n", ""),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LANWEAVE_CLOUD_HOST", "https://cloud.example")
+    monkeypatch.setenv("LANWEAVE_CLOUD_API_KEY", "cloud-key")
+
+    class FakeCloudClient:
+        instances = 0
+        capabilities = site_manager_capabilities()
+
+        def __init__(self, settings) -> None:
+            type(self).instances += 1
+            self.settings = settings
+
+        @classmethod
+        def from_controller_settings(cls, settings):
+            return cls(settings)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def health(self):
+            return [{"subsystem": "site", "status": "up"}]
+
+        def devices(self):
+            return [{"id": "device-fixture-1"}]
+
+        def clients(self):
+            raise UnsupportedCapabilityError("cloud-site-manager", "clients", "read")
+
+    monkeypatch.setattr("lanweave.mcp.SiteManagerClient", FakeCloudClient)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Field 'lifespan' has an incomplete definition.*",
+        )
+        server = create_server()
+
+    capabilities_tool = server._tool_manager.get_tool("lanweave_get_capabilities")
+    capabilities = capabilities_tool.fn(config_path=str(config_path), profile="cloud-overview")
+    assert FakeCloudClient.instances == 0
+    assert capabilities["target"]["adapter"] == "cloud-site-manager"
+    assert capabilities["capabilities"]["auth_modes"] == ["api-key"]
+
+    health = server._tool_manager.get_tool("lanweave_get_health").fn(
+        config_path=str(config_path), profile="cloud-overview"
+    )
+    assert health["target"] == capabilities["target"]
+    assert "online_clients" not in health
+
+    with pytest.raises(MCPToolError) as caught:
+        server._tool_manager.get_tool("lanweave_list_clients").fn(
+            config_path=str(config_path), profile="cloud-overview"
+        )
+    assert caught.value.code == "unsupported_capability"
+    assert "cloud-site-manager" in str(caught.value)

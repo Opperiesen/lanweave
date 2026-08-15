@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
 
-from .client import UniFiClient
+from .adapters import Adapter
 from .contracts import PLAN_FORMAT_VERSION
 from .profiles import TargetIdentity
 
@@ -403,7 +403,7 @@ def _append_resource_plan(
 
 
 def build_plan(
-    client: UniFiClient,
+    client: Adapter,
     config: dict[str, Any],
     prune: bool = False,
     *,
@@ -452,7 +452,7 @@ def _created_id(result: Any) -> str | None:
     return None
 
 
-def _target_label(client: UniFiClient, identity: TargetIdentity | None = None) -> str:
+def _target_label(client: Adapter, identity: TargetIdentity | None = None) -> str:
     """Build a target label without ever including URL userinfo or secrets."""
     if identity is not None:
         return identity.label()
@@ -487,7 +487,7 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
 
 
 def _raise_apply_error(
-    client: UniFiClient,
+    client: Adapter,
     plan: Plan,
     *,
     ordered: list[ResourceDiff],
@@ -523,7 +523,7 @@ def _verify_plan_target(
 
 
 def apply_plan(
-    client: UniFiClient,
+    client: Adapter,
     plan: Plan,
     *,
     target: TargetIdentity | None = None,

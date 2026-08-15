@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .client import UniFiClient
+from .adapters import Adapter
 
 BACKUP_ENDPOINTS = (
     ("clients", "stat/sta"),
@@ -42,7 +42,7 @@ def redact_snapshot(value: Any) -> Any:
     return value
 
 
-def capture_backup(client: UniFiClient) -> dict[str, Any]:
+def capture_backup(client: Adapter) -> dict[str, Any]:
     snapshot: dict[str, Any] = {
         "format_version": 1,
         "tool_version": __version__,

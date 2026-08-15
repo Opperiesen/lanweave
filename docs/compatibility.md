@@ -31,7 +31,7 @@ Deliberate v0.2 changes:
   first profile implicitly.
 
 Cloud adapters, new resource families and write-capable MCP remain outside the
-v0.2.0 compatibility claim.
+v0.2.0 compatibility claim. The v0.3 additions are described below.
 
 Lanweave 0.1 supports two local UniFi Network API surfaces. Username/password
 session authentication uses the classic endpoints below `/proxy/network/api`.
@@ -110,6 +110,41 @@ apply or prune. It is selected explicitly through the profile adapter field;
 there is no automatic local/cloud fallback. The cloud capability claim remains
 fixture-backed until the protected Site Manager integration evidence is
 collected for a real account.
+
+## v0.3 operator and MCP compatibility
+
+`lanweave capabilities` resolves the selected target identity and capability
+document locally. It never loads a credential value and never makes a target
+request. The JSON form is the canonical operator-facing representation:
+
+```json
+{
+  "target": {
+    "profile": "cloud-overview",
+    "controller": "cloud",
+    "site": "organization",
+    "adapter": "cloud-site-manager"
+  },
+  "capabilities": {
+    "format_version": 1,
+    "adapter": "cloud-site-manager",
+    "auth_modes": ["api-key"],
+    "resources": [
+      {"resource": "devices", "operations": ["read"]},
+      {"resource": "health", "operations": ["read"]},
+      {"resource": "hosts", "operations": ["read"]},
+      {"resource": "sites", "operations": ["read"]}
+    ]
+  }
+}
+```
+
+The read-only MCP contract is v3. It adds
+`lanweave_get_capabilities`, keeps the existing target selectors, and includes
+the selected capability document in health and device responses. Cloud health
+does not invent client data: `online_clients` is omitted when the selected
+adapter does not support client reads. Unsupported cloud reads, exports and
+plans return `unsupported_capability` before a network request.
 
 ## Controller integration workflow
 

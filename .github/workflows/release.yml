@@ -134,6 +134,7 @@ jobs:
         with:
           user: __token__
           password: ""
+          verbose: true
           repository-url: https://upload.pypi.org/legacy/
           packages-dir: dist/
           verify-metadata: true

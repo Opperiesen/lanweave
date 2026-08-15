@@ -16,6 +16,8 @@ capability limits visible before an operation starts.
 - bounded pagination, TLS verification, API-key authentication and normalized
   rate-limit/transport failures;
 - protected, manually triggered Site Manager read-only evidence workflow;
+- protected real-account evidence for API v1.0.0: [workflow run
+  31895015047](https://github.com/Opperiesen/lanweave/actions/runs/31895015047);
 - migration, compatibility, redaction and release-gate documentation.
 
 ## Deliberate exclusions
@@ -34,6 +36,13 @@ Existing v0.2 local configurations continue to work unchanged. See
 [`migration-v0.3.md`](migration-v0.3.md) for the optional cloud profile shape,
 capability checks, MCP changes and rollback instructions.
 
+## Protected evidence
+
+The protected Site Manager workflow ran against a real UI account on `main`
+with API v1.0.0. Both read-only inventory reachability and the no-mutation
+capability guard passed. The uploaded report is sanitized and excludes the API
+host, key, inventory names, topology and raw responses.
+
 ## Release verification
 
 The release must be produced from an annotated `v0.3.0` tag and pass the
@@ -50,6 +59,6 @@ gh attestation verify \
   --signer-workflow Opperiesen/lanweave/.github/workflows/release.yml
 ```
 
-PyPI publication uses Trusted Publishing and PEP 740 attestations. The final
-release gate must link the protected Site Manager report while keeping the API
-host, key, inventory and raw responses private.
+PyPI publication uses Trusted Publishing and PEP 740 attestations. The
+protected Site Manager evidence is linked above while keeping the API host,
+key, inventory and raw responses private.

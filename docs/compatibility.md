@@ -108,8 +108,12 @@ including credentials in errors.
 The cloud adapter does not expose clients, networks, WLANs, export, plan,
 apply or prune. It is selected explicitly through the profile adapter field;
 there is no automatic local/cloud fallback. The cloud capability claim remains
-fixture-backed until the protected Site Manager integration evidence is
-collected for a real account.
+limited to this documented read-only slice. It was exercised against a real UI
+account by the protected [Site Manager integration run
+31895015047](https://github.com/Opperiesen/lanweave/actions/runs/31895015047)
+using API v1.0.0. The published report contains only the endpoint scope and
+test outcome; the API host, credentials, inventory and raw responses remain
+private.
 
 ## v0.3 operator and MCP compatibility
 

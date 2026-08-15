@@ -33,7 +33,8 @@ implemented.
 | `v0.1.0` | Stable local-first core | [milestone](https://github.com/Opperiesen/lanweave/milestone/3) | PyPI publication, provenance and compatibility matrix are complete |
 | `v0.2.0` | Multi-controller and multi-site profiles | [milestone](https://github.com/Opperiesen/lanweave/milestone/4) | Explicit local target selection works across CLI, plans and read-only MCP without breaking version-1 configs |
 | `v0.3.0` | Adapter architecture and read-only cloud inventory | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local compatibility is preserved and the opt-in Site Manager adapter exposes documented capabilities |
-| `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
+| `v0.4.0` | Safe local DNS resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | DNS read/export/plan/apply/prune is fixture-backed, deterministic and recoverable |
+| `v0.5.0+` | Firewall, NAT and VPN resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/7) | Each high-impact family has its own security model, fixtures and independent release gate |
 
 ## `v0.2.0` — stable local-first core
 
@@ -178,7 +179,7 @@ The profile model must:
 - prevent cross-controller and cross-site apply mistakes.
 
 The release is limited to local controllers and sites. Cloud adapters remain in
-`v0.3.0`; new resource families remain in `v0.4.0+`; write-capable MCP and
+`v0.3.0`; new resource families begin in `v0.4.0`; write-capable MCP and
 implicit controller discovery remain out of scope.
 
 The migration and deliberate contract changes are recorded in
@@ -226,26 +227,36 @@ unsupported unless the selected official API version exposes them with stable
 semantics and dedicated fixtures. MCP remains read-only and must expose the
 selected adapter, target and capabilities.
 
-## `v0.4.0+` — resource families one at a time
+## `v0.4.0` — safe local DNS resource family
 
-Every resource family follows the same progression:
+The complete release decomposition is maintained in
+[roadmap-v0.4.0.md](roadmap-v0.4.0.md) and tracked by
+[Epic #82](https://github.com/Opperiesen/lanweave/issues/82).
 
-1. read and inventory;
-2. portable export;
-3. validation and deterministic planning;
-4. controlled apply;
-5. explicit prune and recovery behavior.
+The release is deliberately limited to local DNS records. Its first goal is to
+prove a reusable resource lifecycle — normalized inventory, portable export,
+strict validation, deterministic planning, controlled apply, explicit prune
+and manual recovery — without weakening the existing v0.3 adapter or MCP
+contracts.
 
-The backlog is intentionally split:
+The work is ordered as follows:
 
-- [#15 — firewall resources](https://github.com/Opperiesen/lanweave/issues/15);
-- [#16 — DNS resources](https://github.com/Opperiesen/lanweave/issues/16);
-- [#18 — NAT and port forwarding](https://github.com/Opperiesen/lanweave/issues/18);
-- [#19 — VPN resources](https://github.com/Opperiesen/lanweave/issues/19).
+1. [#77 — resource contract and dependency-aware lifecycle](https://github.com/Opperiesen/lanweave/issues/77);
+2. [#16 — DNS inventory, export and versioned controller fixtures](https://github.com/Opperiesen/lanweave/issues/16);
+3. [#78 — deterministic DNS validation and planning](https://github.com/Opperiesen/lanweave/issues/78);
+4. [#79 — controlled DNS apply, prune and recovery](https://github.com/Opperiesen/lanweave/issues/79);
+5. [#80 — existing CLI, capabilities and read-only MCP surfaces](https://github.com/Opperiesen/lanweave/issues/80);
+6. [#81 — evidence, documentation and release gates](https://github.com/Opperiesen/lanweave/issues/81).
 
-Firewall, NAT and VPN writes require stronger validation than the current
-network/WLAN workflow because a bad plan can expose services or disconnect the
-operator. They must not be bundled into a single large release.
+The intended gates are `v0.4.0a1` for the contract and fixture foundation,
+`v0.4.0b1` for the read/export/plan surface, `v0.4.0rc1` for authorized
+controller mutation and recovery evidence, and `v0.4.0` for the complete
+verified package and publication.
+
+Firewall, NAT and VPN remain future families in
+[`v0.5.0+`](https://github.com/Opperiesen/lanweave/milestone/7). Their
+security and ordering requirements are too different to bundle into the DNS
+release.
 
 Device adoption, restart, firmware and other high-impact mutations remain
 post-`v1.0.0` candidates unless an independent safety model is approved.

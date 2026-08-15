@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 from .adapters import (
     ADAPTER_CLOUD_SITE_MANAGER,
     ADAPTER_LOCAL_CLASSIC,
+    AUTH_MODE_API_KEY,
+    AUTH_MODE_SESSION,
 )
 from .client import ControllerSettings, CredentialsError
 from .config import ConfigError, validate_config
@@ -167,6 +169,11 @@ def validate_profile_document(config: Mapping[str, Any]) -> None:
             _require_mapping(controller.get("auth"), f"controllers.{controller_name}.auth"),
             f"controllers.{controller_name}.auth",
         )
+        if (
+            controller.get("adapter", ADAPTER_LOCAL_CLASSIC) == ADAPTER_CLOUD_SITE_MANAGER
+            and "api_key_env" not in controller["auth"]
+        ):
+            raise ConfigError("cloud-site-manager requires auth.api_key_env")
 
     profiles = _require_mapping(document.get("profiles"), "profiles")
     if not profiles:
@@ -221,6 +228,66 @@ def list_profile_identities(config: Mapping[str, Any]) -> tuple[TargetIdentity, 
             )
         )
     return tuple(identities)
+
+
+def resolve_identity(
+    config: Mapping[str, Any] | None = None,
+    *,
+    profile: str | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> TargetIdentity:
+    """Resolve a target identity without loading credentials or contacting a target."""
+    environment = _runtime_environment(environ)
+    if config is None:
+        if profile is not None:
+            raise ConfigError("profile selection requires a version-2 configuration")
+        return TargetIdentity("legacy", "legacy", environment.get("UNIFI_SITE", "default"))
+
+    document = _require_mapping(config, "config")
+    version = document.get("version")
+    if version == 1:
+        if profile is not None:
+            raise ConfigError("--profile is not supported by version-1 configuration")
+        validate_config(dict(document))
+        return TargetIdentity("legacy", "legacy", str(document["controller"]["site"]))
+    if version != PROFILE_LAYER_VERSION:
+        raise ConfigError(f"unsupported profile configuration version: {version}")
+
+    validate_profile_document(document)
+    selected_name = _select_profile(document, profile, environment)
+    profiles = _require_mapping(document["profiles"], "profiles")
+    selected_profile = _require_mapping(profiles[selected_name], f"profiles.{selected_name}")
+    controller_name = str(selected_profile["controller"])
+    controllers = _require_mapping(document["controllers"], "controllers")
+    controller = _require_mapping(controllers[controller_name], f"controllers.{controller_name}")
+    return TargetIdentity(
+        selected_name,
+        controller_name,
+        str(selected_profile["site"]),
+        _validate_adapter(
+            controller.get("adapter", ADAPTER_LOCAL_CLASSIC),
+            f"controllers.{controller_name}.adapter",
+        ),
+    )
+
+
+def auth_mode_for_identity(
+    config: Mapping[str, Any] | None,
+    identity: TargetIdentity,
+    *,
+    environ: Mapping[str, str] | None = None,
+) -> str:
+    """Return the declared auth mode without resolving its secret value."""
+    environment = _runtime_environment(environ)
+    if config is None or config.get("version") == 1:
+        return (
+            AUTH_MODE_API_KEY if environment.get("UNIFI_API_KEY", "").strip() else AUTH_MODE_SESSION
+        )
+
+    controllers = _require_mapping(config.get("controllers"), "controllers")
+    controller = _require_mapping(controllers.get(identity.controller), "controller")
+    auth = _require_mapping(controller.get("auth"), "controller.auth")
+    return AUTH_MODE_API_KEY if "api_key_env" in auth else AUTH_MODE_SESSION
 
 
 def _runtime_environment(environ: Mapping[str, str] | None) -> Mapping[str, str]:
@@ -347,10 +414,12 @@ def resolve_target(
 
 
 __all__ = [
+    "auth_mode_for_identity",
     "PROFILE_SELECTOR_ENV",
     "ResolvedTarget",
     "TargetIdentity",
     "list_profile_identities",
+    "resolve_identity",
     "resolve_target",
     "validate_profile_document",
 ]

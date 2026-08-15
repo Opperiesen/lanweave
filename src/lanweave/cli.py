@@ -12,12 +12,21 @@ from typing import Any
 import httpx
 
 from . import __version__
+from .adapters import Adapter, AdapterError
 from .backup import capture_backup, default_backup_dir, write_backup
 from .client import CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
 from .export import export_yaml
 from .plan import Plan, PlanApplyError, PlanTargetMismatchError, apply_plan, build_plan
-from .profiles import ResolvedTarget, list_profile_identities, resolve_target
+from .profiles import (
+    ResolvedTarget,
+    auth_mode_for_identity,
+    list_profile_identities,
+    resolve_identity,
+    resolve_target,
+)
+from .runtime import capabilities_for_target, create_adapter
+from .site_manager import SiteManagerClient
 from .status import filter_clients, format_bytes, status_summary
 
 
@@ -159,6 +168,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional configuration path for profile selection",
     )
     clients_parser.add_argument("--profile", help="explicit target profile")
+
+    capabilities_parser = subparsers.add_parser(
+        "capabilities",
+        help="show the selected adapter capabilities without contacting a target",
+    )
+    capabilities_parser.add_argument("--output", choices=("table", "json"), default="table")
+    capabilities_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    capabilities_parser.add_argument("--profile", help="explicit target profile")
     return parser
 
 
@@ -219,6 +241,60 @@ def _announce_target(target: ResolvedTarget) -> None:
     print(f"target: {target.identity.label()}", file=sys.stderr)
 
 
+def _create_target_adapter(target: ResolvedTarget) -> Adapter:
+    """Construct the explicitly selected adapter while keeping local test seams."""
+    return create_adapter(
+        target,
+        local_factory=UniFiClient,
+        cloud_factory=SiteManagerClient.from_controller_settings,
+    )
+
+
+def _capabilities_for_client(client: Adapter, target: ResolvedTarget) -> Any:
+    capabilities = getattr(client, "capabilities", None)
+    if capabilities is not None:
+        return capabilities
+    auth_mode = "api-key" if getattr(target.settings, "api_key", "") else "session"
+    return capabilities_for_target(target.identity.adapter, auth_mode)
+
+
+def _render_capabilities(
+    identity: Any,
+    capabilities: Any,
+    output: str,
+) -> None:
+    if output == "json":
+        print(
+            json.dumps(
+                {"target": identity.to_dict(), "capabilities": capabilities.to_dict()},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return
+    print(f"Target: {identity.label()}")
+    print(f"Auth: {', '.join(capabilities.auth_modes)}")
+    for resource in capabilities.resources:
+        print(f"{resource.resource:<12} {', '.join(resource.operations)}")
+
+
+def _capabilities(
+    output: str,
+    config_path: Path | None,
+    profile: str | None,
+) -> int:
+    try:
+        config = _load_optional_config(config_path)
+        identity = resolve_identity(config, profile=profile)
+        auth_mode = auth_mode_for_identity(config, identity)
+        capabilities = capabilities_for_target(identity.adapter, auth_mode)
+    except (ConfigError, AdapterError) as exc:
+        print(f"invalid capability request: {exc}", file=sys.stderr)
+        return 2
+    _render_capabilities(identity, capabilities, output)
+    return 0
+
+
 def _doctor(
     check: bool = False,
     config_path: Path | None = None,
@@ -238,12 +314,12 @@ def _doctor(
     auth_mode = "api-key" if settings.api_key else "session"
     tls_mode = "verified" if settings.verify_tls else "insecure"
     print(f"controller configuration looks usable: {settings.host}")
-    print(f"site={settings.site} auth={auth_mode} tls={tls_mode}")
+    print(f"site={settings.site} adapter={target.identity.adapter} auth={auth_mode} tls={tls_mode}")
     if check:
         try:
-            with UniFiClient(settings) as client:
+            with _create_target_adapter(target) as client:
                 health = client.health()
-        except (RuntimeError, httpx.HTTPError) as exc:
+        except (AdapterError, RuntimeError, httpx.HTTPError) as exc:
             print(f"controller check failed: {type(exc).__name__}", file=sys.stderr)
             return 2
         print(f"controller reachable: {len(health)} health record(s)")
@@ -251,16 +327,16 @@ def _doctor(
 
 
 def _with_client(
-    operation: Callable[[UniFiClient, ResolvedTarget], int],
+    operation: Callable[[Adapter, ResolvedTarget], int],
     config: dict[str, Any] | None = None,
     profile: str | None = None,
 ) -> int:
     try:
         target = resolve_target(config, profile=profile)
         _announce_target(target)
-        with UniFiClient(target.settings) as client:
+        with _create_target_adapter(target) as client:
             return operation(client, target)
-    except (ConfigError, CredentialsError, RuntimeError) as exc:
+    except (AdapterError, ConfigError, CredentialsError, RuntimeError) as exc:
         print(f"operation failed: {exc}", file=sys.stderr)
         return 2
     except httpx.HTTPError as exc:
@@ -269,7 +345,7 @@ def _with_client(
 
 
 def _with_target_config(
-    operation: Callable[[UniFiClient, ResolvedTarget], int],
+    operation: Callable[[Adapter, ResolvedTarget], int],
     config_path: Path | None,
     profile: str | None,
 ) -> int:
@@ -322,7 +398,7 @@ def _plan(path: Path, prune: bool, output: str, profile: str | None) -> int:
 
 
 def _plan_with_client(
-    client: UniFiClient,
+    client: Adapter,
     config: dict[str, Any],
     prune: bool,
     output: str,
@@ -364,7 +440,7 @@ def _apply(path: Path, prune: bool, output: str, yes: bool, profile: str | None)
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
 
-    def operation(client: UniFiClient, target: ResolvedTarget) -> int:
+    def operation(client: Adapter, target: ResolvedTarget) -> int:
         plan = build_plan(client, config, prune=prune, target=target.identity)
         _render_plan(plan, output)
         if not plan.has_changes():
@@ -392,7 +468,7 @@ def _export(
     config_path: Path | None,
     profile: str | None,
 ) -> int:
-    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
+    def operation(client: Adapter, _target: ResolvedTarget) -> int:
         text = export_yaml(client)
         if str(out) == "-":
             sys.stdout.write(text)
@@ -409,7 +485,8 @@ def _export(
 
 
 def _backup(output: Path, config_path: Path | None, profile: str | None) -> int:
-    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
+    def operation(client: Adapter, target: ResolvedTarget) -> int:
+        _capabilities_for_client(client, target).require("backup", "export")
         path = write_backup(capture_backup(client), output)
         print(f"backup written to {path}")
         return 0
@@ -418,10 +495,22 @@ def _backup(output: Path, config_path: Path | None, profile: str | None) -> int:
 
 
 def _status(output: str, config_path: Path | None, profile: str | None) -> int:
-    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
-        summary = status_summary(client.health(), client.clients(), client.devices())
+    def operation(client: Adapter, target: ResolvedTarget) -> int:
+        capabilities = _capabilities_for_client(client, target)
+        clients = client.clients() if capabilities.supports("clients", "read") else []
+        summary = status_summary(client.health(), clients, client.devices())
         if output == "json":
-            print(json.dumps(summary, indent=2, sort_keys=True))
+            print(
+                json.dumps(
+                    {
+                        "target": target.identity.to_dict(),
+                        "capabilities": capabilities.to_dict(),
+                        **summary,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
             return 0
         print(f"online clients: {summary['online_clients']}")
         print(f"devices: {summary['devices']}")
@@ -439,7 +528,7 @@ def _clients(
     config_path: Path | None,
     profile: str | None,
 ) -> int:
-    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
+    def operation(client: Adapter, _target: ResolvedTarget) -> int:
         clients = filter_clients(client.clients(), query=query, include_wired=wired)
         if output == "json":
             print(json.dumps(clients, indent=2, sort_keys=True, default=str))
@@ -482,6 +571,8 @@ def main(argv: list[str] | None = None) -> int:
         return _status(args.output, args.config, args.profile)
     if args.command == "clients":
         return _clients(args.query, args.wired, args.output, args.config, args.profile)
+    if args.command == "capabilities":
+        return _capabilities(args.output, args.config, args.profile)
     return 2
 
 

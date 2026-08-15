@@ -26,6 +26,20 @@ SITE_MANAGER_DEFAULT_PAGE_SIZE = 200
 SITE_MANAGER_MAX_PAGES = 1000
 
 
+def site_manager_capabilities() -> AdapterCapabilities:
+    """Return the static, read-only capability set for Site Manager v1."""
+    return AdapterCapabilities(
+        adapter=ADAPTER_CLOUD_SITE_MANAGER,
+        auth_modes=(AUTH_MODE_API_KEY,),
+        resources=(
+            AdapterCapability("devices", ("read",)),
+            AdapterCapability("health", ("read",)),
+            AdapterCapability("hosts", ("read",)),
+            AdapterCapability("sites", ("read",)),
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class SiteManagerSettings:
     """Non-secret connection settings plus an API key loaded separately."""
@@ -80,16 +94,7 @@ class SiteManagerClient:
 
     @property
     def capabilities(self) -> AdapterCapabilities:
-        return AdapterCapabilities(
-            adapter=self.adapter_name,
-            auth_modes=(AUTH_MODE_API_KEY,),
-            resources=(
-                AdapterCapability("devices", ("read",)),
-                AdapterCapability("health", ("read",)),
-                AdapterCapability("hosts", ("read",)),
-                AdapterCapability("sites", ("read",)),
-            ),
-        )
+        return site_manager_capabilities()
 
     @classmethod
     def from_controller_settings(
@@ -233,7 +238,7 @@ class SiteManagerClient:
         raise UnsupportedCapabilityError(self.adapter_name, "wlans", "read")
 
     def get(self, path: str, **kwargs: Any) -> Any:
-        return self._request("GET", path, **kwargs)
+        raise UnsupportedCapabilityError(self.adapter_name, "controller", "read")
 
     def post(self, path: str, json: Any = None, **kwargs: Any) -> Any:
         raise UnsupportedCapabilityError(self.adapter_name, "controller", "apply")
@@ -251,4 +256,5 @@ __all__ = [
     "SITE_MANAGER_DEFAULT_PAGE_SIZE",
     "SiteManagerClient",
     "SiteManagerSettings",
+    "site_manager_capabilities",
 ]

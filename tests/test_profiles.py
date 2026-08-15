@@ -5,7 +5,13 @@ import yaml
 
 from lanweave.client import CredentialsError
 from lanweave.config import ConfigError
-from lanweave.profiles import TargetIdentity, resolve_target, validate_profile_document
+from lanweave.profiles import (
+    TargetIdentity,
+    auth_mode_for_identity,
+    resolve_identity,
+    resolve_target,
+    validate_profile_document,
+)
 
 ROOT = Path(__file__).parents[1]
 V2_FIXTURE = ROOT / "tests/fixtures/profiles/config-v2-multi-target.yaml"
@@ -156,6 +162,29 @@ def test_explicit_adapters_are_validated_and_included_in_identity() -> None:
     assert cloud.identity == TargetIdentity(
         "cloud-overview", "cloud", "organization", "cloud-site-manager"
     )
+
+
+def test_capability_identity_resolution_does_not_require_cloud_credentials() -> None:
+    config = yaml.safe_load(ADAPTER_FIXTURE.read_text(encoding="utf-8"))
+    del config["profile"]
+
+    identity = resolve_identity(config, profile="cloud-overview", environ={})
+
+    assert identity == TargetIdentity(
+        "cloud-overview", "cloud", "organization", "cloud-site-manager"
+    )
+    assert auth_mode_for_identity(config, identity, environ={}) == "api-key"
+
+
+def test_cloud_adapter_rejects_session_authentication() -> None:
+    config = yaml.safe_load(ADAPTER_FIXTURE.read_text(encoding="utf-8"))
+    config["controllers"]["cloud"]["auth"] = {
+        "username_env": "LANWEAVE_CLOUD_USER",
+        "password_env": "LANWEAVE_CLOUD_PASSWORD",
+    }
+
+    with pytest.raises(ConfigError, match="requires auth.api_key_env"):
+        validate_profile_document(config)
 
 
 def test_legacy_target_identity_defaults_to_local_classic() -> None:

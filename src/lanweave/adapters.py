@@ -280,6 +280,7 @@ def local_classic_capabilities(auth_mode: str) -> AdapterCapabilities:
     """Return the v0.2 local capability set for one authentication mode."""
     if auth_mode == AUTH_MODE_SESSION:
         resource_operations = {
+            "backup": ("export",),
             "clients": ("read",),
             "devices": ("read",),
             "health": ("read",),

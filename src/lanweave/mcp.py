@@ -9,13 +9,21 @@ from typing import Any
 
 import httpx
 
+from .adapters import AdapterError
 from .backup import redact_snapshot
 from .client import CredentialsError, UniFiClient
 from .config import ConfigError, load_config, load_config_with_options
 from .contracts import CONFIG_SCHEMA_VERSION, MCP_CONTRACT_VERSION
 from .export import export_config
 from .plan import build_plan
-from .profiles import ResolvedTarget, resolve_target
+from .profiles import (
+    ResolvedTarget,
+    auth_mode_for_identity,
+    resolve_identity,
+    resolve_target,
+)
+from .runtime import capabilities_for_target, create_adapter
+from .site_manager import SiteManagerClient
 
 
 class MCPToolError(RuntimeError):
@@ -39,6 +47,8 @@ def _safe_tool(function: Callable[..., Any]) -> Callable[..., Any]:
             raise MCPToolError("invalid_configuration", str(exc)) from None
         except CredentialsError as exc:
             raise MCPToolError("credentials_error", str(exc)) from None
+        except AdapterError as exc:
+            raise MCPToolError(exc.code, str(exc)) from None
         except (RuntimeError, httpx.HTTPError):
             raise MCPToolError("controller_error", "controller operation failed") from None
         except Exception:
@@ -50,6 +60,32 @@ def _safe_tool(function: Callable[..., Any]) -> Callable[..., Any]:
 def _resolve_mcp_target(config_path: str | None, profile: str | None) -> ResolvedTarget:
     config = load_config(Path(config_path)) if config_path is not None else None
     return resolve_target(config, profile=profile)
+
+
+def _resolve_mcp_capabilities(
+    config_path: str | None,
+    profile: str | None,
+) -> tuple[Any, Any]:
+    config = load_config(Path(config_path)) if config_path is not None else None
+    identity = resolve_identity(config, profile=profile)
+    auth_mode = auth_mode_for_identity(config, identity)
+    return identity, capabilities_for_target(identity.adapter, auth_mode)
+
+
+def _create_mcp_adapter(target: ResolvedTarget) -> Any:
+    return create_adapter(
+        target,
+        local_factory=UniFiClient,
+        cloud_factory=SiteManagerClient.from_controller_settings,
+    )
+
+
+def _capabilities_for_adapter(client: Any, target: ResolvedTarget) -> Any:
+    capabilities = getattr(client, "capabilities", None)
+    if capabilities is not None:
+        return capabilities
+    auth_mode = "api-key" if getattr(target.settings, "api_key", "") else "session"
+    return capabilities_for_target(target.identity.adapter, auth_mode)
 
 
 def create_server() -> Any:
@@ -71,17 +107,29 @@ def create_server() -> Any:
         config_path: str | None = None,
         profile: str | None = None,
     ) -> dict[str, Any]:
-        """Return target identity, controller health, clients and devices."""
+        """Return target identity, adapter capabilities, health and devices."""
         target = _resolve_mcp_target(config_path, profile)
-        with UniFiClient(target.settings) as client:
-            return redact_snapshot(
-                {
-                    "target": target.target_dict(),
-                    "health": client.health(),
-                    "online_clients": len(client.clients()),
-                    "devices": len(client.devices()),
-                }
-            )
+        with _create_mcp_adapter(target) as client:
+            capabilities = _capabilities_for_adapter(client, target)
+            result: dict[str, Any] = {
+                "target": target.target_dict(),
+                "capabilities": capabilities.to_dict(),
+                "health": client.health(),
+                "devices": len(client.devices()),
+            }
+            if capabilities.supports("clients", "read"):
+                result["online_clients"] = len(client.clients())
+            return redact_snapshot(result)
+
+    @server.tool()
+    @_safe_tool
+    def lanweave_get_capabilities(
+        config_path: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Return target and adapter capabilities without contacting a target."""
+        identity, capabilities = _resolve_mcp_capabilities(config_path, profile)
+        return {"target": identity.to_dict(), "capabilities": capabilities.to_dict()}
 
     @server.tool()
     @_safe_tool
@@ -91,9 +139,13 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity and adopted UniFi devices."""
         target = _resolve_mcp_target(config_path, profile)
-        with UniFiClient(target.settings) as client:
+        with _create_mcp_adapter(target) as client:
             devices = client.devices()
-        return {"target": target.target_dict(), "devices": redact_snapshot(devices)}
+        return {
+            "target": target.target_dict(),
+            "capabilities": _capabilities_for_adapter(client, target).to_dict(),
+            "devices": redact_snapshot(devices),
+        }
 
     @server.tool()
     @_safe_tool
@@ -104,7 +156,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity and connected clients."""
         target = _resolve_mcp_target(config_path, profile)
-        with UniFiClient(target.settings) as client:
+        with _create_mcp_adapter(target) as client:
             clients = client.clients()
         if include_wired:
             filtered = clients
@@ -120,7 +172,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity and a secret-free portable configuration."""
         target = _resolve_mcp_target(config_path, profile)
-        with UniFiClient(target.settings) as client:
+        with _create_mcp_adapter(target) as client:
             exported = export_config(client)
         return {"target": target.target_dict(), "config": exported}
 
@@ -148,7 +200,7 @@ def create_server() -> Any:
         target_config = load_config(path)
         config = load_config_with_options(path, resolve_secrets=True)
         target = resolve_target(target_config, profile=profile)
-        with UniFiClient(target.settings) as client:
+        with _create_mcp_adapter(target) as client:
             return build_plan(
                 client,
                 config,

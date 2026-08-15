@@ -50,6 +50,12 @@ def test_cli_contract_exposes_stable_options() -> None:
     plan = build_parser().parse_args(["plan", "--config", "profiles.yaml", "--profile", "guest"])
     assert plan.profile == "guest"
 
+    capabilities = build_parser().parse_args(
+        ["capabilities", "--config", "profiles.yaml", "--profile", "cloud", "--output", "json"]
+    )
+    assert capabilities.command == "capabilities"
+    assert capabilities.output == "json"
+
 
 def test_profiles_commands_are_offline_and_secret_free(tmp_path: Path, capsys) -> None:
     fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
@@ -161,6 +167,55 @@ def test_plan_rejects_a_conflicting_explicit_profile_before_controller_access(
     assert main(["plan", "--config", str(path), "--profile", "guest"]) == 2
 
     assert "conflicting profile selectors" in capsys.readouterr().err
+
+
+def test_capabilities_are_offline_and_show_explicit_cloud_scope(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-adapters.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(
+        fixture.read_text(encoding="utf-8").replace("profile: local-office\n", ""),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("LANWEAVE_CLOUD_HOST", raising=False)
+    monkeypatch.delenv("LANWEAVE_CLOUD_API_KEY", raising=False)
+
+    assert (
+        main(
+            [
+                "capabilities",
+                "--config",
+                str(path),
+                "--profile",
+                "cloud-overview",
+                "--output",
+                "json",
+            ]
+        )
+        == 0
+    )
+
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["target"] == {
+        "profile": "cloud-overview",
+        "controller": "cloud",
+        "site": "organization",
+        "adapter": "cloud-site-manager",
+    }
+    assert rendered["capabilities"] == {
+        "format_version": 1,
+        "adapter": "cloud-site-manager",
+        "auth_modes": ["api-key"],
+        "resources": [
+            {"resource": "devices", "operations": ["read"]},
+            {"resource": "health", "operations": ["read"]},
+            {"resource": "hosts", "operations": ["read"]},
+            {"resource": "sites", "operations": ["read"]},
+        ],
+    }
 
 
 def test_cli_rejected_overwrite_and_missing_config_use_exit_code_two(

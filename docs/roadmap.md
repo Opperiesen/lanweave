@@ -49,7 +49,7 @@ The stable release currently provides:
 - opt-in pruning with a separate confirmation;
 - redacted local backups;
 - health, device and client views;
-- six read-only MCP tools with explicit v2 target selection;
+- seven read-only MCP tools with explicit v3 target and capability selection;
 - public CI, security policy and contribution workflow;
 - exact controller compatibility evidence with separate read-only and
   authorized mutation paths;

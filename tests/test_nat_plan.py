@@ -200,6 +200,7 @@ def test_nat_apply_converts_and_executes_supported_mutations() -> None:
             {
                 "name": "web",
                 "enabled": True,
+                "setting_preference": "manual",
                 "pfwd_interface": "WAN",
                 "src": "any",
                 "dst_port": "443",

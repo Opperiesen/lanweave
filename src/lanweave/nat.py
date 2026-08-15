@@ -491,6 +491,9 @@ def nat_to_unifi(value: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "name": mapping["name"],
         "enabled": mapping["enabled"],
+        # The classic controller uses this marker to distinguish manually
+        # managed rules from generated/system rules during a later inventory.
+        "setting_preference": "manual",
         "pfwd_interface": mapping["public"]["interface"],
         "src": addresses[0] if addresses else "any",
         "dst_port": _nat_controller_port(mapping["public"]["port"]),

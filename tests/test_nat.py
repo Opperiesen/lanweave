@@ -249,6 +249,7 @@ def test_nat_mutation_payload_is_legacy_and_portable_metadata_free() -> None:
     assert payload == {
         "name": "web",
         "enabled": True,
+        "setting_preference": "manual",
         "pfwd_interface": "wan",
         "src": "198.51.100.0/24",
         "dst_port": "443-445",

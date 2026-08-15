@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 — 2026-08-15
+
 - introduce explicit local and Site Manager adapter boundaries with
   deterministic capability documents;
 - add offline CLI capability discovery and MCP contract v3;

@@ -1,0 +1,71 @@
+name: Site Manager integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_version:
+        description: "Exact Site Manager API version exercised"
+        required: true
+        type: string
+        default: "v1.0.0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lanweave-site-manager-integration
+  cancel-in-progress: false
+
+env:
+  LANWEAVE_SITE_MANAGER_API_KEY: ${{ secrets.UNIFI_SITE_MANAGER_API_KEY }}
+  LANWEAVE_SITE_MANAGER_HOST: ${{ vars.UNIFI_SITE_MANAGER_HOST }}
+  LANWEAVE_SITE_MANAGER_API_VERSION: ${{ inputs.api_version }}
+
+jobs:
+  read-only:
+    name: read-only Site Manager probes
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: unifi-site-manager-integration
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+      - name: Verify protected API key is configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${LANWEAVE_SITE_MANAGER_API_KEY}" || "${LANWEAVE_SITE_MANAGER_API_KEY}" == op://* ]]; then
+            echo "::error::A resolved Site Manager API key is required in the protected environment."
+            exit 1
+          fi
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --locked
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run protected read-only probes
+        id: probes
+        run: >-
+          uv run pytest tests/integration/test_site_manager_live.py -m integration -q
+          --junitxml=reports/site-manager.xml
+      - name: Render sanitized report
+        if: always()
+        env:
+          LANWEAVE_SITE_MANAGER_STATUS: ${{ steps.probes.outcome }}
+          LANWEAVE_SITE_MANAGER_REPORT_PATH: reports/site-manager.md
+        run: uv run python scripts/render_site_manager_report.py
+      - name: Upload sanitized report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lanweave-site-manager-compatibility
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14

@@ -18,6 +18,14 @@ The MCP adapter remains optional:
 uv tool install 'lanweave[mcp]==0.2.0'
 ```
 
+For the v0.3.0 release, replace the version in both commands with `0.3.0`.
+After upgrading a profile-backed installation, inspect the selected adapter
+before any target request:
+
+```shell
+lanweave capabilities --config config/network.yaml --profile office --output json
+```
+
 ## Verify a GitHub Release
 
 Download the release assets into one directory. The checksum file contains
@@ -45,4 +53,6 @@ stored in the repository.
 
 The next release scope is documented in
 [Lanweave v0.3.0 roadmap](roadmap-v0.3.0.md). The v0.2.0 migration remains
-available in [migration-v0.2.md](migration-v0.2.md).
+available in [migration-v0.2.md](migration-v0.2.md), and the v0.3 migration and
+release notes are in [migration-v0.3.md](migration-v0.3.md) and
+[release-v0.3.0.md](release-v0.3.0.md).

@@ -9,6 +9,21 @@ description = "Safe, declarative configuration and diagnostics for local UniFi N
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
+keywords = ["unifi", "network-automation", "gitops", "mcp", "infrastructure-as-code"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Networking",
+]
 dependencies = [
     "httpx>=0.28,<1",
     "PyYAML>=6,<7",
@@ -27,6 +42,12 @@ mcp = [
 [project.scripts]
 lanweave = "lanweave.cli:main"
 lanweave-mcp = "lanweave.mcp:main"
+
+[project.urls]
+Homepage = "https://github.com/Opperiesen/lanweave"
+Repository = "https://github.com/Opperiesen/lanweave"
+Issues = "https://github.com/Opperiesen/lanweave/issues"
+Changelog = "https://github.com/Opperiesen/lanweave/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lanweave"]

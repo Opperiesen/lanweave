@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0a1 — unreleased
+## 0.1.0a1 — 2026-08-15
 
 - initial public Lanweave package and Apache-2.0 project foundation;
 - declarative networks and WLANs with validation and environment-backed

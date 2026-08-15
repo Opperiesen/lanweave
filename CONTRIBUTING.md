@@ -18,6 +18,11 @@ opt-in workflow.
 - do not include real exports, backups, MAC addresses, hostnames or secrets;
 - update the compatibility notes when an endpoint is controller-version-specific.
 
+Open a focused branch from `main`, run the local checks, and open a pull
+request with the provided template. Maintainers prefer small, reviewable
+changes. A pull request should not require access to a live controller to run
+its unit tests.
+
 ## Scope
 
 Small, composable changes are preferred. New resource families need a schema,

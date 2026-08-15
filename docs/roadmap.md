@@ -290,15 +290,27 @@ train.
 
 ## Subsequent independent releases
 
-The previous umbrella milestone was split because each family has a different
-blast radius, controller contract and release gate:
+Each resource family has a different blast radius, controller contract and
+release gate. The next release is now decomposed and active:
 
-- `v0.6.0` — [NAT and port forwarding](https://github.com/Opperiesen/lanweave/issues/18),
-  with exposure and conflict analysis before writes;
-- `v0.7.0` — [VPN resources](https://github.com/Opperiesen/lanweave/issues/19),
-  with a read-only-first rollout and strict secret/route handling.
+### `v0.6.0` — safe local NAT and port forwarding
 
-These families remain outside the v0.5.0 implementation and release gate.
+The complete decomposition is maintained in
+[roadmap-v0.6.0.md](roadmap-v0.6.0.md) and tracked by
+[epic #18](https://github.com/Opperiesen/lanweave/issues/18). Its six child
+issues are #97–#102, all assigned to the open
+[v0.6.0 milestone](https://github.com/Opperiesen/lanweave/milestone/8).
+The release starts with the mapping contract and requires exposure/conflict
+analysis before any write.
+
+### `v0.7.0` — safe local VPN resources
+
+The [VPN epic #19](https://github.com/Opperiesen/lanweave/issues/19) remains in
+the open [v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9)
+with a read-only-first rollout and strict secret/route handling. It remains
+outside the v0.6.0 release gate.
+
+Both families remain outside the v0.5.0 implementation and release gate.
 
 ## MCP roadmap
 

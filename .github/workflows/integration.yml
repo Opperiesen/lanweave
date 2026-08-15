@@ -1,0 +1,148 @@
+name: Controller integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      controller_version:
+        description: "Exact UniFi Network version exercised"
+        required: true
+        type: string
+        default: "not-declared"
+      unifi_os_version:
+        description: "Exact UniFi OS version, or not-applicable"
+        required: true
+        type: string
+        default: "not-applicable"
+      api_mode:
+        description: "Authentication mode used for this run"
+        required: true
+        type: choice
+        options:
+          - local-classic-api-key
+          - local-classic-session
+        default: local-classic-api-key
+      run_mutations:
+        description: "Run the separately guarded create/update/delete suite"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lanweave-controller-integration
+  cancel-in-progress: false
+
+env:
+  LANWEAVE_INTEGRATION_HOST: ${{ secrets.UNIFI_HOST }}
+  LANWEAVE_INTEGRATION_SITE: ${{ vars.UNIFI_SITE }}
+  LANWEAVE_INTEGRATION_API_KEY: ${{ secrets.UNIFI_API_KEY }}
+  LANWEAVE_INTEGRATION_USER: ${{ secrets.UNIFI_USER }}
+  LANWEAVE_INTEGRATION_PASS: ${{ secrets.UNIFI_PASS }}
+  LANWEAVE_INTEGRATION_VERIFY_TLS: ${{ vars.UNIFI_VERIFY_TLS }}
+  LANWEAVE_INTEGRATION_CONTROLLER_VERSION: ${{ inputs.controller_version }}
+  LANWEAVE_INTEGRATION_OS_VERSION: ${{ inputs.unifi_os_version }}
+  LANWEAVE_INTEGRATION_API_MODE: ${{ inputs.api_mode }}
+
+jobs:
+  read-only:
+    name: read-only probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: unifi-integration
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --locked
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run read-only controller probes
+        id: probes
+        run: uv run pytest tests/integration/test_controller.py -m integration -q --junitxml=reports/read-only.xml
+      - name: Render compatibility report
+        if: always()
+        env:
+          LANWEAVE_INTEGRATION_STATUS: ${{ steps.probes.outcome }}
+          LANWEAVE_INTEGRATION_REPORT_PATH: reports/read-only.md
+          LANWEAVE_INTEGRATION_MUTATIONS: "false"
+        run: uv run python scripts/render_compatibility_report.py
+      - name: Upload compatibility report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lanweave-compatibility-read-only
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+
+  mutations:
+    name: authorized mutations
+    if: ${{ inputs.run_mutations }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: unifi-integration
+    env:
+      LANWEAVE_INTEGRATION_MUTATIONS: "true"
+      LANWEAVE_INTEGRATION_MUTATION_CONFIRM: ${{ secrets.LANWEAVE_INTEGRATION_MUTATION_CONFIRM }}
+      LANWEAVE_INTEGRATION_MUTATION_PREFIX: ${{ vars.LANWEAVE_MUTATION_PREFIX }}
+      LANWEAVE_INTEGRATION_MUTATION_SUBNET: ${{ vars.LANWEAVE_MUTATION_SUBNET }}
+      LANWEAVE_INTEGRATION_MUTATION_VLAN: ${{ vars.LANWEAVE_MUTATION_VLAN }}
+      LANWEAVE_INTEGRATION_RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --locked
+      - name: Verify mutation authorization guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${LANWEAVE_INTEGRATION_MUTATION_CONFIRM}" != "I_UNDERSTAND" ]]; then
+            echo "::error::The mutation confirmation secret is not set to the required value."
+            exit 1
+          fi
+          if [[ -z "${LANWEAVE_INTEGRATION_HOST}" || ( -z "${LANWEAVE_INTEGRATION_API_KEY}" && ( -z "${LANWEAVE_INTEGRATION_USER}" || -z "${LANWEAVE_INTEGRATION_PASS}" ) ) ]]; then
+            echo "::error::Controller credentials are required when mutations are enabled."
+            exit 1
+          fi
+          case "${LANWEAVE_INTEGRATION_MUTATION_PREFIX}" in
+            lanweave-ci-*) ;;
+            *) echo "::error::The mutation prefix must start with lanweave-ci-."; exit 1 ;;
+          esac
+          if [[ -z "${LANWEAVE_INTEGRATION_MUTATION_SUBNET}" || -z "${LANWEAVE_INTEGRATION_MUTATION_VLAN}" ]]; then
+            echo "::error::Mutation subnet and VLAN environment variables are required."
+            exit 1
+          fi
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run authorized controller mutations
+        id: mutations
+        run: uv run pytest tests/integration/test_mutations.py -m integration_mutation -q --junitxml=reports/mutations.xml
+      - name: Render mutation report
+        if: always()
+        env:
+          LANWEAVE_INTEGRATION_STATUS: ${{ steps.mutations.outcome }}
+          LANWEAVE_INTEGRATION_REPORT_PATH: reports/mutations.md
+        run: uv run python scripts/render_compatibility_report.py
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lanweave-compatibility-mutations
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14

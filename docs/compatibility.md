@@ -31,6 +31,55 @@ The official cloud API is not claimed as compatible by this release. A future
 adapter may support it once the authentication and resource semantics are
 covered by fixtures and integration tests.
 
+## Controller integration workflow
+
+The repository contains an opt-in, manually triggered workflow at
+`.github/workflows/integration.yml`. It runs against a disposable or explicitly
+designated controller through the protected GitHub environment
+`unifi-integration`.
+
+The read-only job uses these environment secrets and variables:
+
+- `UNIFI_HOST` secret;
+- either `UNIFI_API_KEY` or `UNIFI_USER` plus `UNIFI_PASS` secrets;
+- `UNIFI_SITE` variable, defaulting to `default`;
+- `UNIFI_VERIFY_TLS` variable, defaulting to `true`.
+
+The workflow input records the exact UniFi Network version, UniFi OS version
+and authentication mode used for the run. The resulting artifact contains only
+those public compatibility fields and test outcomes; it never contains the
+controller host, credentials, topology or raw API responses.
+
+The mutation job is disabled by default. Enabling it requires all of:
+
+1. the `run_mutations` workflow input;
+2. the `LANWEAVE_INTEGRATION_MUTATION_CONFIRM` environment secret set to the
+   explicit confirmation value;
+3. a `LANWEAVE_MUTATION_PREFIX` variable beginning with `lanweave-ci-`;
+4. a dedicated IPv4 test subnet and VLAN in environment variables.
+
+The suite creates, updates and deletes one VLAN-only test network and cleans it
+up in a `finally` block. It must never be enabled against an operator's normal
+production target without a dedicated network and recovery plan.
+
+For local execution, export the same `LANWEAVE_INTEGRATION_*` variables and
+run the read-only suite explicitly:
+
+```shell
+uv run pytest tests/integration/test_controller.py -m integration -q
+```
+
+Mutations must be run separately and only with a dedicated target:
+
+```shell
+LANWEAVE_INTEGRATION_MUTATIONS=true \
+LANWEAVE_INTEGRATION_MUTATION_CONFIRM=I_UNDERSTAND \
+uv run pytest tests/integration/test_mutations.py -m integration_mutation -q
+```
+
+An absent protected configuration causes the read-only tests to skip safely;
+it does not turn simulated fixtures into a compatibility claim.
+
 ## Reporting a controller difference
 
 Please include the UniFi Network application/controller version, the command

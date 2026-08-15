@@ -30,15 +30,16 @@ treated as supported without a corresponding report.
 | Deployment | UniFi OS | UniFi Network | Authentication | TLS | Read-only probes | Mutations |
 | --- | --- | --- | --- | --- | --- | --- |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | not run |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | not run |
 
 The first evidence was collected on 2026-08-15 with the dedicated
 `lanweave-ci` account. The probes covered health, device and client inventory,
 networks and WLANs. No controller host, site name, credentials, topology or
 raw response is part of this matrix.
 
-This matrix currently proves read-only session authentication for one exact
-controller combination. API-key integration, a second controller version and
-the opt-in mutation suite remain separate evidence tracks.
+This matrix currently proves read-only session and API-key authentication for
+one exact controller combination. A second controller version and the opt-in
+mutation suite remain separate evidence tracks.
 
 ## Authentication and TLS
 

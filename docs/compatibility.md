@@ -97,9 +97,19 @@ tracks.
 - TLS certificate verification is enabled by default.
 - `UNIFI_VERIFY_TLS=false` is an explicit escape hatch for local certificates.
 
-The official cloud API is not claimed as compatible by this release. A future
-adapter may support it once the authentication and resource semantics are
-covered by fixtures and integration tests.
+The v0.3 adapter name for the official cloud surface is
+`cloud-site-manager`. It targets the versioned Site Manager API at
+`https://api.ui.com/v1` with the `X-API-KEY` header and is deliberately
+read-only. The first supported slice inventories visible hosts, sites and
+devices, and exposes a reachability-oriented health view derived from sites.
+Pagination is bounded and rate-limit responses are normalized without
+including credentials in errors.
+
+The cloud adapter does not expose clients, networks, WLANs, export, plan,
+apply or prune. It is selected explicitly through the profile adapter field;
+there is no automatic local/cloud fallback. The cloud capability claim remains
+fixture-backed until the protected Site Manager integration evidence is
+collected for a real account.
 
 ## Controller integration workflow
 

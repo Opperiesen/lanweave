@@ -1,0 +1,13 @@
+{
+  "data": [
+    {
+      "id": "host-fixture-1",
+      "name": "Lanweave Gateway",
+      "ipAddress": "192.0.2.10",
+      "status": "online"
+    }
+  ],
+  "nextToken": "fixture-page-2",
+  "httpStatusCode": 200,
+  "traceId": "trace-fixture-hosts-1"
+}

@@ -26,6 +26,7 @@ from .contracts import (
     MCP_CONTRACT_VERSION,
     PLAN_FORMAT_VERSION,
 )
+from .site_manager import SiteManagerClient, SiteManagerSettings
 
 __all__ = [
     "ADAPTER_CLOUD_SITE_MANAGER",
@@ -49,6 +50,8 @@ __all__ = [
     "LocalClassicAdapter",
     "MCP_CONTRACT_VERSION",
     "PLAN_FORMAT_VERSION",
+    "SiteManagerClient",
+    "SiteManagerSettings",
     "UnsupportedCapabilityError",
     "UniFiClient",
     "local_classic_capabilities",

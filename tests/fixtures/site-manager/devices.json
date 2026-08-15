@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "id": "device-fixture-1",
+      "hostId": "host-fixture-1",
+      "siteId": "site-fixture-1",
+      "name": "Lanweave Gateway",
+      "model": "UXG-Fixture",
+      "ipAddress": "192.0.2.20",
+      "macAddress": "02:00:00:00:00:20",
+      "state": "ONLINE"
+    }
+  ],
+  "httpStatusCode": 200,
+  "traceId": "trace-fixture-devices"
+}

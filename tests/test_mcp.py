@@ -168,6 +168,20 @@ def test_mcp_v2_requires_selection_and_exposes_only_sanitized_target(
     assert "fixture-secret" not in str(health)
     assert health["capabilities"]["adapter"] == "local-classic"
 
+    session_config_path = tmp_path / "session-profiles.yaml"
+    session_config_path.write_text(
+        fixture_text.replace("profile: office\n", "profile: backup-default\n"),
+        encoding="utf-8",
+    )
+    session_capabilities = server._tool_manager.get_tool("lanweave_get_capabilities").fn(
+        config_path=str(session_config_path), profile="backup-default"
+    )
+    session_resources = {
+        item["resource"]: item["operations"]
+        for item in session_capabilities["capabilities"]["resources"]
+    }
+    assert session_resources["nat"] == ["read", "export", "plan", "apply", "prune"]
+
     devices_tool = server._tool_manager.get_tool("lanweave_list_devices")
     devices = devices_tool.fn(config_path=str(config_path), profile="office")
     assert devices["target"] == health["target"]
@@ -181,12 +195,32 @@ def test_mcp_v2_requires_selection_and_exposes_only_sanitized_target(
     validate_tool = server._tool_manager.get_tool("lanweave_validate_config")
     validated = validate_tool.fn(str(config_path))
     assert validated["version"] == 2
+    assert validated["nat"] == 0
     assert validated["firewall"] == {
         "zones": 0,
         "address_groups": 0,
         "port_groups": 0,
         "rules": 0,
     }
+
+    nat_config_path = tmp_path / "profiles-with-nat.yaml"
+    nat_config_path.write_text(
+        fixture_text
+        + """
+nat:
+  - name: web
+    protocol: TCP
+    public:
+      interface: WAN
+      port: 443
+    private:
+      address: 192.0.2.10
+      port: 8443
+""",
+        encoding="utf-8",
+    )
+    validated_nat = validate_tool.fn(str(nat_config_path))
+    assert validated_nat["nat"] == 1
 
 
 def test_mcp_v1_environment_only_health_remains_callable(monkeypatch: pytest.MonkeyPatch) -> None:

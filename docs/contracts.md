@@ -184,7 +184,7 @@ The optional stdio adapter exposes exactly these seven tools:
 | `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, devices}` |
 | `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
 | `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
-| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns, firewall}` |
+| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns, firewall, nat}` |
 | `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false`, `profile: string|null = null` | target-bound redacted plan JSON format v1 |
 
 The four controller-facing inventory/export tools preserve their version-1
@@ -230,5 +230,6 @@ valid. A breaking configuration, CLI, plan or MCP change requires all of:
 
 No write-capable MCP tool or cloud mutation is part of this contract. The
 v0.3/v0.4 cloud adapter remains read-only and limited to its documented Site
-Manager capabilities. The v0.5 firewall family is local API-key-only; NAT and
-VPN remain future resource families.
+Manager capabilities. The v0.5 firewall family remains local API-key-only;
+the v0.6 NAT family is local-session-only, and VPN remains a future resource
+family.

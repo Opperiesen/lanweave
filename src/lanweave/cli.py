@@ -139,9 +139,14 @@ def build_parser() -> argparse.ArgumentParser:
                 help="confirm the complete plan without an interactive prompt",
             )
             command_parser.add_argument(
+                "--acknowledge-risk",
                 "--acknowledge-firewall-risk",
+                dest="acknowledge_risk",
                 action="store_true",
-                help="allow reviewed firewall plans that contain risk warnings",
+                help=(
+                    "allow reviewed firewall/NAT plans that contain risk warnings "
+                    "(legacy firewall alias retained)"
+                ),
             )
 
     backup_parser = subparsers.add_parser("backup", help="write a redacted local snapshot")
@@ -219,7 +224,8 @@ def _validate(path: Path) -> int:
         f"{len(firewall.get('zones', []))} firewall zone(s), "
         f"{len(firewall.get('address_groups', []))} address group(s), "
         f"{len(firewall.get('port_groups', []))} port group(s), "
-        f"{len(firewall.get('rules', []))} firewall rule(s)"
+        f"{len(firewall.get('rules', []))} firewall rule(s), "
+        f"{len(config.get('nat', []))} NAT mapping(s)"
     )
     return 0
 
@@ -252,7 +258,8 @@ def _profiles_validate(path: Path) -> int:
         f"firewall_zones={len(firewall.get('zones', []))} "
         f"firewall_address_groups={len(firewall.get('address_groups', []))} "
         f"firewall_port_groups={len(firewall.get('port_groups', []))} "
-        f"firewall_rules={len(firewall.get('rules', []))}"
+        f"firewall_rules={len(firewall.get('rules', []))} "
+        f"nat={len(config.get('nat', []))}"
     )
     return 0
 
@@ -441,22 +448,23 @@ def _confirm_apply(
     plan: Plan,
     prune: bool,
     yes: bool,
-    acknowledge_firewall_risk: bool,
+    acknowledge_risk: bool,
 ) -> bool:
     if not plan.has_changes():
         return True
     warnings = plan.risk_warnings()
-    if warnings and not acknowledge_firewall_risk:
+    if warnings and not acknowledge_risk:
         if yes or not sys.stdin.isatty():
             print(
-                "refusing risky firewall apply; pass --acknowledge-firewall-risk "
+                "refusing risky apply; pass --acknowledge-risk "
+                "(or --acknowledge-firewall-risk) "
                 "after reviewing the plan warnings",
                 file=sys.stderr,
             )
             return False
-        answer = input("Type ACKNOWLEDGE_FIREWALL_RISK to allow risky firewall operations: ")
-        if answer != "ACKNOWLEDGE_FIREWALL_RISK":
-            print("firewall risk acknowledgement cancelled")
+        answer = input("Type ACKNOWLEDGE_RISK to allow risky operations: ")
+        if answer not in {"ACKNOWLEDGE_RISK", "ACKNOWLEDGE_FIREWALL_RISK"}:
+            print("risk acknowledgement cancelled")
             return False
     if yes:
         return True
@@ -483,7 +491,7 @@ def _apply(
     prune: bool,
     output: str,
     yes: bool,
-    acknowledge_firewall_risk: bool,
+    acknowledge_risk: bool,
     profile: str | None,
 ) -> int:
     try:
@@ -499,14 +507,14 @@ def _apply(
         if not plan.has_changes():
             print("nothing to apply")
             return 0
-        if not _confirm_apply(plan, prune, yes, acknowledge_firewall_risk):
+        if not _confirm_apply(plan, prune, yes, acknowledge_risk):
             return 2
         try:
             apply_plan(
                 client,
                 plan,
                 target=target.identity,
-                acknowledge_firewall_risk=acknowledge_firewall_risk or bool(plan.risk_warnings()),
+                acknowledge_firewall_risk=acknowledge_risk or bool(plan.risk_warnings()),
             )
         except (PlanApplyError, PlanRiskError, PlanTargetMismatchError) as exc:
             if output == "json":
@@ -627,7 +635,7 @@ def main(argv: list[str] | None = None) -> int:
             args.prune,
             args.output,
             args.yes,
-            args.acknowledge_firewall_risk,
+            args.acknowledge_risk,
             args.profile,
         )
     if args.command == "backup":

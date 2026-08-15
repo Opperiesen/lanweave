@@ -119,7 +119,8 @@ def test_nat_read_and_export_are_session_only_until_mutation_support_exists() ->
     assert session.supports("nat", "read")
     assert session.supports("nat", "export")
     assert session.supports("nat", "plan")
-    assert not session.supports("nat", "apply")
+    assert session.supports("nat", "apply")
+    assert session.supports("nat", "prune")
     assert not api_key.supports("nat", "read")
 
 
@@ -179,6 +180,15 @@ class FakeAdapter:
 
     def nat(self) -> list[dict[str, Any]]:
         return []
+
+    def create_nat(self, payload: dict[str, Any]) -> Any:
+        return payload
+
+    def update_nat(self, object_id: str, payload: dict[str, Any]) -> Any:
+        return payload
+
+    def delete_nat(self, object_id: str) -> Any:
+        return None
 
     def dns(self) -> list[dict[str, Any]]:
         return []

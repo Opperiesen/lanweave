@@ -5,11 +5,10 @@ import pytest
 
 from lanweave.adapters import (
     AUTH_MODE_SESSION,
-    UnsupportedCapabilityError,
     local_classic_capabilities,
 )
 from lanweave.nat import NatError, analyze_nat_exposure, nat_mapping_conflict
-from lanweave.plan import Plan, ResourceDiff, apply_plan, build_plan
+from lanweave.plan import Plan, PlanApplyError, ResourceDiff, apply_plan, build_plan
 from lanweave.resources import ResourceContractError
 
 
@@ -43,6 +42,11 @@ class FakeNatController:
     def __init__(self, mappings: list[dict[str, Any]] | None = None) -> None:
         self.settings = SimpleNamespace(host="https://controller.test", site="default")
         self._mappings = list(mappings or [])
+        self.calls: list[tuple[str, str, Any]] = []
+        self.fail_on_call: int | None = None
+
+    def site_url(self, path: str) -> str:
+        return f"/{path}"
 
     def networks(self) -> list[dict[str, Any]]:
         return []
@@ -52,6 +56,20 @@ class FakeNatController:
 
     def nat(self) -> list[dict[str, Any]]:
         return list(self._mappings)
+
+    def _record(self, operation: str, object_id: str, payload: Any = None) -> None:
+        self.calls.append((operation, object_id, payload))
+        if self.fail_on_call is not None and len(self.calls) == self.fail_on_call:
+            raise RuntimeError("controller rejected NAT payload")
+
+    def create_nat(self, payload: dict[str, Any]) -> None:
+        self._record("create", "", payload)
+
+    def update_nat(self, object_id: str, payload: dict[str, Any]) -> None:
+        self._record("update", object_id, payload)
+
+    def delete_nat(self, object_id: str) -> None:
+        self._record("delete", object_id)
 
 
 def test_nat_exposure_analysis_is_deterministic_and_explains_risk() -> None:
@@ -160,7 +178,7 @@ def test_nat_plan_detects_updates_and_rejects_invalid_ports() -> None:
         )
 
 
-def test_nat_apply_is_blocked_before_the_mutation_tranche() -> None:
+def test_nat_apply_converts_and_executes_supported_mutations() -> None:
     controller = FakeNatController()
     plan = Plan(
         diffs=[
@@ -173,5 +191,62 @@ def test_nat_apply_is_blocked_before_the_mutation_tranche() -> None:
         ]
     )
 
-    with pytest.raises(UnsupportedCapabilityError, match="does not support apply on nat"):
+    apply_plan(controller, plan)
+
+    assert controller.calls == [
+        (
+            "create",
+            "",
+            {
+                "name": "web",
+                "enabled": True,
+                "pfwd_interface": "WAN",
+                "src": "any",
+                "dst_port": "443",
+                "fwd": "192.0.2.10",
+                "fwd_port": "8443",
+                "proto": "tcp",
+            },
+        )
+    ]
+
+
+def test_nat_apply_reports_partial_failure_for_recovery() -> None:
+    controller = FakeNatController()
+    controller.fail_on_call = 1
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="nat",
+                action="create",
+                name="web",
+                payload=_mapping("web"),
+            ),
+            ResourceDiff(
+                kind="nat",
+                action="delete",
+                name="old",
+                object_id="old-id",
+                current=_mapping("old"),
+            ),
+        ]
+    )
+
+    with pytest.raises(PlanApplyError) as caught:
         apply_plan(controller, plan)
+
+    assert caught.value.to_dict() == {
+        "error": "plan_apply_failed",
+        "target": "controller=controller.test site=default",
+        "failed": {"resource": "nat/web", "operation": "create", "phase": "nat"},
+        "state": "partial",
+        "confirmed_completed": [],
+        "uncertain_failed": "nat/web:create",
+        "not_started": ["nat/old:delete"],
+        "automatic_rollback": False,
+        "recovery": [
+            "Read the current controller state again before retrying.",
+            "Review the newly generated plan; do not assume the failed request was reverted.",
+            "Retry only the reviewed plan. Prune remains opt-in and requires normal confirmation.",
+        ],
+    }

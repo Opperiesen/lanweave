@@ -10,6 +10,7 @@ from lanweave.nat import (
     nat_is_broad,
     nat_is_user_managed,
     nat_mapping_identity,
+    nat_to_unifi,
     normalize_controller_nat_list,
     normalize_nat_mapping,
     normalize_nat_port,
@@ -230,3 +231,53 @@ def test_nat_export_drops_controller_metadata() -> None:
     assert exported["name"] == "web"
     assert "_id" not in exported
     assert "_origin" not in exported
+
+
+def test_nat_mutation_payload_is_legacy_and_portable_metadata_free() -> None:
+    payload = nat_to_unifi(
+        {
+            "name": "web",
+            "enabled": True,
+            "protocol": "TCP_UDP",
+            "public": {"interface": "wan", "port": {"start": 443, "stop": 445}},
+            "source": {"addresses": ["198.51.100.0/24"]},
+            "private": {"address": "192.0.2.10", "port": {"start": 8443, "stop": 8445}},
+            "hairpin": False,
+        }
+    )
+
+    assert payload == {
+        "name": "web",
+        "enabled": True,
+        "pfwd_interface": "wan",
+        "src": "198.51.100.0/24",
+        "dst_port": "443-445",
+        "fwd": "192.0.2.10",
+        "fwd_port": "8443-8445",
+        "proto": "tcp_udp",
+    }
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda mapping: mapping.update(ip_version="IPV6"),
+        lambda mapping: mapping.update(hairpin=True),
+        lambda mapping: mapping.update(description="not supported by classic writes"),
+        lambda mapping: mapping["source"].update(zone="External"),
+        lambda mapping: mapping["source"].update(addresses=["198.51.100.0/24", "203.0.113.0/24"]),
+        lambda mapping: mapping["public"].update(address="203.0.113.2"),
+    ],
+)
+def test_nat_mutation_rejects_unproven_controller_variants(change) -> None:
+    mapping = {
+        "name": "web",
+        "protocol": "TCP",
+        "public": {"interface": "wan", "port": 443},
+        "source": {"addresses": []},
+        "private": {"address": "192.0.2.10", "port": 8443},
+    }
+    change(mapping)
+
+    with pytest.raises(UnsupportedNatVariantError):
+        nat_to_unifi(mapping)

@@ -116,6 +116,93 @@ def test_api_key_does_not_fallback_to_undocumented_nat_endpoint() -> None:
         client.nat()
 
 
+def test_session_mutates_classic_nat_endpoint_with_csrf_and_object_id() -> None:
+    calls: list[tuple[str, str, object, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/auth/login":
+            return httpx.Response(200, headers={"X-CSRF-Token": "fixture-csrf"}, json={"data": {}})
+        if request.url.path.endswith("/rest/portforward") and request.method == "POST":
+            calls.append(
+                (
+                    request.method,
+                    request.url.path,
+                    json.loads(request.content),
+                    request.headers.get("X-CSRF-Token"),
+                )
+            )
+            return httpx.Response(201, json={"data": {"_id": "nat-created"}})
+        if request.url.path.endswith("/rest/portforward/nat-1") and request.method == "PUT":
+            calls.append(
+                (
+                    request.method,
+                    request.url.path,
+                    json.loads(request.content),
+                    request.headers.get("X-CSRF-Token"),
+                )
+            )
+            return httpx.Response(200, json={"data": {"_id": "nat-1"}})
+        if request.url.path.endswith("/rest/portforward/nat-1") and request.method == "DELETE":
+            calls.append(
+                (request.method, request.url.path, None, request.headers.get("X-CSRF-Token"))
+            )
+            return httpx.Response(204)
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    settings = ControllerSettings(
+        host="https://controller.example",
+        username="admin",
+        password="fixture-password",
+    )
+    payload = {
+        "name": "web",
+        "enabled": True,
+        "pfwd_interface": "wan",
+        "src": "any",
+        "dst_port": "443",
+        "fwd": "192.0.2.10",
+        "fwd_port": "8443",
+        "proto": "tcp",
+    }
+    with UniFiClient(settings, transport=httpx.MockTransport(handler)) as client:
+        client.create_nat(payload)
+        client.update_nat("nat-1", payload)
+        client.delete_nat("nat-1")
+
+    assert calls == [
+        (
+            "POST",
+            "/proxy/network/api/s/default/rest/portforward",
+            payload,
+            "fixture-csrf",
+        ),
+        (
+            "PUT",
+            "/proxy/network/api/s/default/rest/portforward/nat-1",
+            {**payload, "_id": "nat-1"},
+            "fixture-csrf",
+        ),
+        (
+            "DELETE",
+            "/proxy/network/api/s/default/rest/portforward/nat-1",
+            None,
+            "fixture-csrf",
+        ),
+    ]
+
+
+def test_api_key_rejects_nat_mutations_before_network_access() -> None:
+    settings = ControllerSettings(host="https://controller.example", api_key="test")
+    transport = httpx.MockTransport(lambda _request: httpx.Response(500))
+    with UniFiClient(settings, transport=transport) as client:
+        with pytest.raises(RuntimeError, match="local session authentication"):
+            client.create_nat({})
+        with pytest.raises(RuntimeError, match="local session authentication"):
+            client.update_nat("nat-1", {})
+        with pytest.raises(RuntimeError, match="local session authentication"):
+            client.delete_nat("nat-1")
+
+
 def test_api_key_paginates_integration_lists() -> None:
     requests: list[tuple[str, str]] = []
 

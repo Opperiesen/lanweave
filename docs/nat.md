@@ -107,6 +107,9 @@ active-flow conflict. A plan warning names the public boundary and private
 service, and can call out unrestricted sources, interface-selected addresses,
 privileged ports, hairpin uncertainty and an unproven firewall dependency.
 
-The current tranche only plans these changes. It does not send NAT writes;
-session capabilities stop at `plan`, and apply/prune remain blocked until the
-controlled mutation and recovery tranche.
+The local-classic adapter now converts the supported IPv4 subset back to the
+legacy write payload and exposes session-only create/update/delete operations.
+The apply path requires the existing reviewed-plan confirmation and the
+separate prune confirmation, keeps NAT writes behind the plan risk gate, and
+reports partial failures as uncertain operations with a fresh-read recovery
+instruction. API-key, cloud and unproven variants remain unsupported.

@@ -232,6 +232,12 @@ class Adapter(Protocol):
 
     def nat(self) -> list[dict[str, Any]]: ...
 
+    def create_nat(self, payload: dict[str, Any]) -> Any: ...
+
+    def update_nat(self, object_id: str, payload: dict[str, Any]) -> Any: ...
+
+    def delete_nat(self, object_id: str) -> Any: ...
+
     def dns(self) -> list[dict[str, Any]]: ...
 
     def create_dns(self, payload: dict[str, Any]) -> Any: ...
@@ -295,7 +301,7 @@ def local_classic_capabilities(auth_mode: str) -> AdapterCapabilities:
             "devices": ("read",),
             "health": ("read",),
             "networks": ("read", "export", "plan", "apply", "prune"),
-            "nat": ("read", "export", "plan"),
+            "nat": ("read", "export", "plan", "apply", "prune"),
             "wlans": ("read", "export", "plan", "apply", "prune"),
         }
     elif auth_mode == AUTH_MODE_API_KEY:

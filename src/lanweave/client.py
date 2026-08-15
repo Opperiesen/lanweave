@@ -421,6 +421,29 @@ class LocalClassicAdapter:
             raise RuntimeError("NAT inventory currently requires local session authentication")
         return normalize_controller_nat_list(self.get(self.site_url("rest/portforward")) or [])
 
+    def create_nat(self, payload: dict[str, Any]) -> Any:
+        """Create one supported port-forwarding mapping through local session auth."""
+        if self.settings.api_key:
+            raise RuntimeError("NAT mutations require local session authentication")
+        return self.post(self.site_url("rest/portforward"), json=payload)
+
+    def update_nat(self, object_id: str, payload: dict[str, Any]) -> Any:
+        """Update one supported port-forwarding mapping through local session auth."""
+        if self.settings.api_key:
+            raise RuntimeError("NAT mutations require local session authentication")
+        if not isinstance(object_id, str) or not object_id.strip():
+            raise ValueError("NAT update requires a controller object id")
+        body = {**payload, "_id": object_id}
+        return self.put(self.site_url(f"rest/portforward/{object_id}"), json=body)
+
+    def delete_nat(self, object_id: str) -> Any:
+        """Delete one supported port-forwarding mapping through local session auth."""
+        if self.settings.api_key:
+            raise RuntimeError("NAT mutations require local session authentication")
+        if not isinstance(object_id, str) or not object_id.strip():
+            raise ValueError("NAT delete requires a controller object id")
+        return self.delete(self.site_url(f"rest/portforward/{object_id}"))
+
     def dns(self) -> list[dict[str, Any]]:
         """List supported DNS policies through the official Integration API."""
         if not self.settings.api_key:

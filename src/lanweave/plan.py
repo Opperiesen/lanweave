@@ -32,6 +32,7 @@ from .nat import (
     analyze_nat_exposure,
     nat_export_mapping,
     nat_is_user_managed,
+    nat_to_unifi,
     validate_nat_conflicts,
 )
 from .profiles import TargetIdentity
@@ -1235,6 +1236,11 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
             for placement in ("before_system_defined", "after_system_defined"):
                 for name in diff.payload.get(placement, []):
                     graph.add_dependency(key, ResourceKey("firewall_rule", str(name)))
+        if diff.kind == "nat":
+            nat_state = diff.source or diff.current
+            network_name = (nat_state.get("private") or {}).get("network")
+            if network_name:
+                graph.add_dependency(key, ResourceKey("network", str(network_name)))
     dependency_order = graph.topological_order()
 
     def select(predicate: Any, *, reverse: bool = False) -> list[ResourceDiff]:
@@ -1258,6 +1264,7 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
     firewall_rule_writes = select(
         lambda item: item.kind == "firewall_rule" and item.action in {"create", "update"}
     )
+    nat_writes = select(lambda item: item.kind == "nat" and item.action in {"create", "update"})
     wlan_deletes = select(
         lambda item: item.kind == "wlan" and item.action == "delete", reverse=True
     )
@@ -1265,6 +1272,7 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
     firewall_rule_deletes = select(
         lambda item: item.kind == "firewall_rule" and item.action == "delete", reverse=True
     )
+    nat_deletes = select(lambda item: item.kind == "nat" and item.action == "delete", reverse=True)
     firewall_reorders = select(
         lambda item: item.kind == "firewall_rule" and item.action == "reorder"
     )
@@ -1284,8 +1292,10 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
         + firewall_zone_writes
         + firewall_group_writes
         + firewall_rule_writes
+        + nat_writes
         + wlan_deletes
         + dns_deletes
+        + nat_deletes
         + firewall_rule_deletes
         + firewall_reorders
         + wlan_writes
@@ -1340,14 +1350,6 @@ def apply_plan(
 ) -> None:
     """Apply a plan with dependency ordering and safe partial-failure reports."""
     _verify_plan_target(plan, target)
-    nat_changes = [diff for diff in plan.diffs if diff.kind == "nat" and diff.action != "noop"]
-    if nat_changes:
-        capabilities = getattr(client, "capabilities", None)
-        if capabilities is not None:
-            capabilities.require("nat", "apply")
-        raise ResourceContractError(
-            "NAT mutation is deferred until the v0.6.0 apply and recovery tranche"
-        )
     if plan.risk_warnings() and not acknowledge_firewall_risk:
         raise PlanRiskError(plan.risk_warnings())
     network_base = client.site_url("rest/networkconf")
@@ -1449,6 +1451,10 @@ def apply_plan(
     firewall_zone_deletes = [
         diff for diff in ordered if diff.kind == "firewall_zone" and diff.action == "delete"
     ]
+    nat_writes = [
+        diff for diff in ordered if diff.kind == "nat" and diff.action in {"create", "update"}
+    ]
+    nat_deletes = [diff for diff in ordered if diff.kind == "nat" and diff.action == "delete"]
     network_ids: dict[str, str | None] = {}
     firewall_zone_ids: dict[str, str] = {}
     firewall_group_ids: dict[str, str] = {}
@@ -1736,6 +1742,39 @@ def apply_plan(
                     cause_type=type(exc).__name__,
                 )
             completed.append(diff)
+
+    def apply_nat_diff(diff: ResourceDiff) -> None:
+        partial_request = True
+        try:
+            if diff.action == "create":
+                client.create_nat(nat_to_unifi(diff.payload))
+            elif diff.action == "update":
+                if not diff.object_id:
+                    raise RuntimeError("NAT update requires a controller object id")
+                client.update_nat(diff.object_id, nat_to_unifi(diff.payload))
+            else:
+                if not diff.object_id:
+                    raise RuntimeError("NAT delete requires a controller object id")
+                client.delete_nat(diff.object_id)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"nat/{diff.name}",
+                operation=diff.action,
+                phase="nat",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
+
+    for diff in nat_writes:
+        apply_nat_diff(diff)
+    for diff in nat_deletes:
+        apply_nat_diff(diff)
 
     wlan_writes = [
         diff for diff in ordered if diff.kind == "wlan" and diff.action in {"create", "update"}

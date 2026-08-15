@@ -240,6 +240,15 @@ class SiteManagerClient:
     def nat(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "nat", "read")
 
+    def create_nat(self, payload: dict[str, Any]) -> Any:
+        raise UnsupportedCapabilityError(self.adapter_name, "nat", "apply")
+
+    def update_nat(self, object_id: str, payload: dict[str, Any]) -> Any:
+        raise UnsupportedCapabilityError(self.adapter_name, "nat", "apply")
+
+    def delete_nat(self, object_id: str) -> Any:
+        raise UnsupportedCapabilityError(self.adapter_name, "nat", "prune")
+
     def dns(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "dns", "read")
 

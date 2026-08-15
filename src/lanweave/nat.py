@@ -458,6 +458,48 @@ def nat_export_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
     return normalize_nat_mapping(portable, "nat export")
 
 
+def _nat_controller_port(value: int | Mapping[str, Any]) -> str:
+    start, stop = _port_bounds(value)
+    return str(start) if start == stop else f"{start}-{stop}"
+
+
+def nat_to_unifi(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Convert one supported portable mapping to the classic write payload."""
+    try:
+        mapping = normalize_nat_mapping(value, "nat mutation")
+    except NatError as exc:
+        raise UnsupportedNatVariantError(str(exc)) from exc
+    if mapping["ip_version"] != "IPV4":
+        raise UnsupportedNatVariantError("classic NAT mutation currently supports IPv4 only")
+    if mapping["public"].get("address") is not None:
+        raise UnsupportedNatVariantError(
+            "classic NAT mutation does not support an explicit public address"
+        )
+    if mapping.get("hairpin"):
+        raise UnsupportedNatVariantError(
+            "classic NAT mutation does not support explicit hairpin behavior"
+        )
+    if mapping.get("description") is not None:
+        raise UnsupportedNatVariantError("classic NAT mutation does not support descriptions")
+
+    source = mapping["source"]
+    if source.get("zone") is not None:
+        raise UnsupportedNatVariantError("classic NAT mutation does not support source zones")
+    addresses = source.get("addresses", [])
+    if len(addresses) > 1:
+        raise UnsupportedNatVariantError("classic NAT mutation supports at most one source address")
+    return {
+        "name": mapping["name"],
+        "enabled": mapping["enabled"],
+        "pfwd_interface": mapping["public"]["interface"],
+        "src": addresses[0] if addresses else "any",
+        "dst_port": _nat_controller_port(mapping["public"]["port"]),
+        "fwd": mapping["private"]["address"],
+        "fwd_port": _nat_controller_port(mapping["private"]["port"]),
+        "proto": mapping["protocol"].lower(),
+    }
+
+
 def _nat_port_bounds(value: int | Mapping[str, Any]) -> tuple[int, int]:
     if isinstance(value, int):
         return value, value
@@ -606,6 +648,7 @@ __all__ = [
     "nat_mapping_identity",
     "nat_export_mapping",
     "nat_mapping_conflict",
+    "nat_to_unifi",
     "normalize_controller_nat",
     "normalize_controller_nat_list",
     "normalize_nat_mapping",

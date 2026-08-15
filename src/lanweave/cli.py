@@ -16,7 +16,7 @@ from .backup import capture_backup, default_backup_dir, write_backup
 from .client import CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
 from .export import export_yaml
-from .plan import Plan, PlanApplyError, apply_plan, build_plan
+from .plan import Plan, PlanApplyError, PlanTargetMismatchError, apply_plan, build_plan
 from .profiles import ResolvedTarget, list_profile_identities, resolve_target
 from .status import filter_clients, format_bytes, status_summary
 
@@ -285,6 +285,8 @@ def _render_plan(plan: Plan, output: str) -> None:
     if output == "json":
         print(json.dumps(plan.to_dict(), indent=2, sort_keys=True))
         return
+    if plan.target is not None:
+        print(f"Target: {plan.target.label()}")
     summary = plan.summary()
     print(
         "Plan: "
@@ -313,14 +315,20 @@ def _plan(path: Path, prune: bool, output: str, profile: str | None) -> int:
         return 2
 
     return _with_client(
-        lambda client, _target: _plan_with_client(client, config, prune, output),
+        lambda client, target: _plan_with_client(client, config, prune, output, target),
         target_config,
         profile,
     )
 
 
-def _plan_with_client(client: UniFiClient, config: dict[str, Any], prune: bool, output: str) -> int:
-    plan = build_plan(client, config, prune=prune)
+def _plan_with_client(
+    client: UniFiClient,
+    config: dict[str, Any],
+    prune: bool,
+    output: str,
+    target: ResolvedTarget,
+) -> int:
+    plan = build_plan(client, config, prune=prune, target=target.identity)
     _render_plan(plan, output)
     return 0
 
@@ -356,8 +364,8 @@ def _apply(path: Path, prune: bool, output: str, yes: bool, profile: str | None)
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
 
-    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
-        plan = build_plan(client, config, prune=prune)
+    def operation(client: UniFiClient, target: ResolvedTarget) -> int:
+        plan = build_plan(client, config, prune=prune, target=target.identity)
         _render_plan(plan, output)
         if not plan.has_changes():
             print("nothing to apply")
@@ -365,8 +373,8 @@ def _apply(path: Path, prune: bool, output: str, yes: bool, profile: str | None)
         if not _confirm_apply(plan, prune, yes):
             return 2
         try:
-            apply_plan(client, plan)
-        except PlanApplyError as exc:
+            apply_plan(client, plan, target=target.identity)
+        except (PlanApplyError, PlanTargetMismatchError) as exc:
             if output == "json":
                 print(json.dumps(exc.to_dict(), indent=2, sort_keys=True), file=sys.stderr)
             else:

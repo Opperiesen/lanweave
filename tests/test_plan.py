@@ -8,11 +8,13 @@ from lanweave.config import EXAMPLE_CONFIG
 from lanweave.plan import (
     Plan,
     PlanApplyError,
+    PlanTargetMismatchError,
     ResourceDiff,
     apply_plan,
     build_plan,
     network_to_unifi,
 )
+from lanweave.profiles import TargetIdentity
 
 
 class FakeController:
@@ -113,7 +115,31 @@ def test_plan_json_has_version_and_redacts_sensitive_payloads() -> None:
     assert rendered["format_version"] == 1
     assert rendered["summary"] == {"create": 1, "update": 0, "delete": 0, "noop": 0}
     assert rendered["changes"][0]["payload"]["x_passphrase"] == "***"
+    assert "target" not in rendered
     assert "fixture-secret" not in str(rendered)
+
+
+def test_profile_plan_includes_only_the_stable_target_identity() -> None:
+    plan = Plan(
+        target=TargetIdentity("office", "local", "default"),
+        diffs=[
+            ResourceDiff(
+                kind="network",
+                action="create",
+                name="Home",
+                payload={"name": "Home", "purpose": "corporate"},
+            )
+        ],
+    )
+
+    rendered = plan.to_dict()
+
+    assert rendered["target"] == {
+        "profile": "office",
+        "controller": "local",
+        "site": "default",
+    }
+    assert "https://" not in str(rendered)
 
 
 def test_password_change_is_planned_when_controller_returns_the_old_value() -> None:
@@ -264,6 +290,47 @@ def test_apply_failure_reports_completed_failed_and_pending_without_secrets() ->
     assert report["not_started"] == ["wlan/Home:create"]
     assert "fixture-secret" not in str(error)
     assert "fixture-secret" not in str(report)
+
+
+def test_apply_rejects_a_mismatched_plan_target_before_controller_mutation() -> None:
+    controller = FakeController()
+    plan = Plan(
+        target=TargetIdentity("office", "local", "default"),
+        diffs=[
+            ResourceDiff(
+                kind="network",
+                action="create",
+                name="Home",
+                payload={"name": "Home", "purpose": "corporate"},
+            )
+        ],
+    )
+
+    with pytest.raises(PlanTargetMismatchError) as caught:
+        apply_plan(
+            controller,
+            plan,
+            target=TargetIdentity("guest", "local", "guest"),
+        )
+
+    error = caught.value
+    assert error.to_dict() == {
+        "error": "plan_target_mismatch",
+        "expected_target": {"profile": "office", "controller": "local", "site": "default"},
+        "selected_target": {"profile": "guest", "controller": "local", "site": "guest"},
+    }
+    assert controller.calls == []
+
+
+def test_apply_requires_an_identity_for_a_target_bound_plan() -> None:
+    controller = FakeController()
+    plan = Plan(target=TargetIdentity("office", "local", "default"))
+
+    with pytest.raises(PlanTargetMismatchError) as caught:
+        apply_plan(controller, plan)
+
+    assert caught.value.actual is None
+    assert controller.calls == []
 
 
 def test_wlan_create_finalize_failure_marks_partial_resource_state() -> None:

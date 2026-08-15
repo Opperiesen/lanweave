@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -99,6 +100,47 @@ def test_controller_command_announces_the_selected_target(
     assert main(["status", "--config", str(path)]) == 0
 
     assert "target: profile=office controller=local site=default" in capsys.readouterr().err
+
+
+def test_plan_outputs_the_selected_target_in_table_and_json(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setenv("LANWEAVE_LOCAL_HOST", "https://local.example")
+    monkeypatch.setenv("LANWEAVE_LOCAL_API_KEY", "local-key")
+
+    class FakeClient:
+        def __init__(self, settings) -> None:
+            self.settings = settings
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def networks(self):
+            return []
+
+        def wlans(self):
+            return []
+
+    monkeypatch.setattr("lanweave.cli.UniFiClient", FakeClient)
+
+    assert main(["plan", "--config", str(path), "--output", "json"]) == 0
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["target"] == {
+        "profile": "office",
+        "controller": "local",
+        "site": "default",
+    }
+
+    assert main(["plan", "--config", str(path)]) == 0
+    assert "Target: profile=office controller=local site=default" in capsys.readouterr().out
 
 
 def test_plan_rejects_a_conflicting_explicit_profile_before_controller_access(

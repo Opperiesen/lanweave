@@ -28,7 +28,7 @@ text. With `--output json`, the report has this shape:
 ```json
 {
   "error": "plan_apply_failed",
-  "target": "controller=controller.example site=default",
+  "target": "profile=office controller=local site=default",
   "failed": {
     "resource": "wlan/Home",
     "operation": "create",
@@ -41,6 +41,13 @@ text. With `--output json`, the report has this shape:
   "automatic_rollback": false
 }
 ```
+
+For plans produced from a version-2 profile, the target label comes from the
+plan identity and contains only `profile`, `controller` and `site`. A target
+mismatch is rejected before mutation with the deterministic error code
+`plan_target_mismatch`; its report contains the expected and selected
+non-secret identities. Plans from the version-1 line may omit that identity and
+retain the legacy `controller=<host> site=<site>` failure label.
 
 The state model is deliberately conservative:
 

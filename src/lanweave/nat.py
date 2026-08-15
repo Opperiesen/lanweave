@@ -2,7 +2,7 @@
 
 The public model describes reachability without controller identifiers or
 vendor payload fields. Controller-specific endpoint mapping belongs to the
-adapter/planner boundary introduced by later v0.6 issues.
+adapter/planner boundary documented by the v0.6 compatibility contract.
 """
 
 from __future__ import annotations

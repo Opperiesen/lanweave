@@ -4,6 +4,16 @@
 
 No unreleased changes.
 
+## 0.6.0 — 2026-08-15
+
+- add the portable local NAT and port-forwarding contract with exposure and
+  conflict analysis;
+- add session-only local-classic inventory, secret-free export, deterministic
+  planning, controlled apply, protected prune and sanitized recovery reports;
+- expose NAT through CLI validation, capabilities and read-only MCP responses;
+- publish the NAT compatibility, migration, recovery and protected evidence
+  boundary independently from the v0.7 VPN roadmap.
+
 ## 0.5.0 — 2026-08-15
 
 - add the portable local firewall contract with zones, address groups, port

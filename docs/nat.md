@@ -61,7 +61,7 @@ never exported into YAML.
 - only live mappings with a user-managed origin may later be pruned;
 - system-managed and unknown-origin mappings remain protected;
 - controller-specific payload conversion, exposure conflict analysis and
-  mutation semantics are not part of the portable contract; the supported
+  mutation semantics remain outside the portable fields; the supported
   local-session boundary is documented below.
 
 The contract is intentionally smaller than the controller UI. An unsupported
@@ -89,10 +89,9 @@ not fall back to the classic endpoint. Site Manager and other unsupported
 adapters likewise fail before a request is attempted.
 
 Rules without a recognized user-managed origin are protected from export and
-future prune operations. A missing origin is therefore `UNKNOWN`, not an
-implicit user-owned rule. The inventory tranche added no mutation endpoint;
-the later controlled apply, prune and recovery boundary is session-only and
-fail-closed for unsupported variants.
+prune operations. A missing origin is therefore `UNKNOWN`, not an implicit
+user-owned rule. The v0.6 controlled apply, prune and recovery boundary is
+session-only and fail-closed for unsupported variants.
 
 The classic response is a single inventory list rather than a paginated
 Integration API collection. The adapter accepts an empty `data` list and fails

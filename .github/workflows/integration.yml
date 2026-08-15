@@ -36,6 +36,11 @@ on:
         required: true
         type: boolean
         default: false
+      run_nat_mutations:
+        description: "Run the separately guarded session NAT lifecycle suite"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -286,6 +291,71 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: lanweave-compatibility-firewall-mutations
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+
+  nat-mutations:
+    name: authorized NAT mutations
+    if: ${{ inputs.run_nat_mutations }}
+    runs-on: [self-hosted, linux, lanweave-unifi]
+    timeout-minutes: 15
+    environment: unifi-integration
+    env:
+      LANWEAVE_INTEGRATION_NAT_MUTATIONS: "true"
+      LANWEAVE_INTEGRATION_API_KEY: ""
+      LANWEAVE_INTEGRATION_USER: ${{ secrets.UNIFI_MUTATION_USER }}
+      LANWEAVE_INTEGRATION_PASS: ${{ secrets.UNIFI_MUTATION_PASS }}
+      LANWEAVE_INTEGRATION_NAT_MUTATION_CONFIRM: ${{ secrets.LANWEAVE_INTEGRATION_MUTATION_CONFIRM }}
+      LANWEAVE_INTEGRATION_NAT_MUTATION_PREFIX: ${{ vars.LANWEAVE_MUTATION_PREFIX }}
+      LANWEAVE_INTEGRATION_RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify runner toolchain
+        run: |
+          python3 --version
+          uv --version
+      - run: uv sync --extra dev --locked
+      - name: Verify NAT mutation authorization guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${LANWEAVE_INTEGRATION_API_MODE}" != "local-classic-session" ]]; then
+            echo "::error::NAT mutations require api_mode=local-classic-session."
+            exit 1
+          fi
+          if [[ "${LANWEAVE_INTEGRATION_NAT_MUTATION_CONFIRM}" != "I_UNDERSTAND" ]]; then
+            echo "::error::The NAT mutation confirmation secret is not set to the required value."
+            exit 1
+          fi
+          if [[ -z "${LANWEAVE_INTEGRATION_HOST}" || -z "${LANWEAVE_INTEGRATION_USER}" || -z "${LANWEAVE_INTEGRATION_PASS}" ]]; then
+            echo "::error::A controller host and session credentials are required for NAT mutations."
+            exit 1
+          fi
+          case "${LANWEAVE_INTEGRATION_NAT_MUTATION_PREFIX}" in
+            lanweave-ci-*) ;;
+            *) echo "::error::The NAT mutation prefix must start with lanweave-ci-."; exit 1 ;;
+          esac
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run authorized NAT lifecycle
+        id: nat_mutations
+        run: >-
+          uv run pytest tests/integration/test_nat_mutations.py
+          -m integration_mutation -q --junitxml=reports/nat-mutations.xml
+      - name: Render NAT mutation report
+        if: always()
+        env:
+          LANWEAVE_INTEGRATION_STATUS: ${{ steps.nat_mutations.outcome }}
+          LANWEAVE_INTEGRATION_REPORT_PATH: reports/nat-mutations.md
+        run: uv run python scripts/render_compatibility_report.py
+      - name: Upload NAT mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lanweave-compatibility-nat-mutations
           path: reports/
           if-no-files-found: error
           retention-days: 14

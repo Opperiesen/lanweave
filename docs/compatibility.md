@@ -33,7 +33,7 @@ Deliberate v0.2 changes:
 Cloud adapters, new resource families and write-capable MCP remain outside the
 v0.2.0 compatibility claim. The v0.3 additions are described below.
 
-Lanweave 0.5 supports two local UniFi Network API surfaces. Username/password
+Lanweave 0.6 supports two local UniFi Network API surfaces. Username/password
 session authentication uses the classic endpoints below `/proxy/network/api`.
 API-key authentication uses the v1 Integration API below
 `/proxy/network/integration/v1`. Both modes resolve the current site selected by
@@ -42,6 +42,11 @@ API-key authentication uses the v1 Integration API below
 The v0.5 firewall extension uses only the local API-key Integration API and does
 not broaden session or Site Manager capabilities. Its protected evidence is
 recorded in [`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md).
+
+The v0.6 NAT and port-forwarding extension uses only the local classic session
+endpoint `rest/portforward`. It does not infer support from the Integration API,
+API-key mode, Site Manager or VPN endpoints. Its protected evidence is tracked
+separately in [`evidence/v0.6.0-nat.md`](evidence/v0.6.0-nat.md).
 
 ## Supported local surfaces
 
@@ -56,6 +61,7 @@ recorded in [`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md).
 | Firewall zones | n/a / `v1/sites/{siteId}/firewall/zones` | API key read/export/plan/apply/prune; session and cloud unsupported |
 | Firewall groups | n/a / `v1/sites/{siteId}/traffic-matching-lists` | API key read/export/plan/apply/prune for `PORTS`, `IPV4_ADDRESSES` and `IPV6_ADDRESSES` |
 | Firewall policies/order | n/a / `v1/sites/{siteId}/firewall/policies` and `/ordering` | API key read/export/plan/apply/prune; index-based order is excluded |
+| NAT / port forwarding | `rest/portforward` / n/a | local session read/export/plan/apply/prune for the supported IPv4 subset; API key, cloud and VPN unsupported |
 | Backup | common `stat/*` and `rest/*` endpoints | redacted read |
 
 The exact fields returned by UniFi can vary between Network application
@@ -94,7 +100,9 @@ dedicated target; the final controller inventory contains no mutation target.
 
 This matrix currently proves read-only session and API-key authentication,
 session network mutations, API-key DNS policy mutations and API-key firewall
-mutations for one exact controller combination. A second controller version
+mutations for one exact controller combination. NAT remains pending its
+protected v0.6.0 read-only and lifecycle run; it is not a published controller
+compatibility claim until that gate is complete. A second controller version
 remains a separate evidence track.
 
 ## Authentication and TLS
@@ -105,6 +113,11 @@ remains a separate evidence track.
 - API-key authentication remains read-only for networks and WLANs. The
   documented local DNS policy and firewall endpoints are the only API-key
   mutation exceptions; no generic API-key mutation is enabled.
+- NAT inventory and mutations require local session authentication and the
+  classic `rest/portforward` endpoint. The v0.6 portable write subset is IPv4,
+  interface-selected public address, at most one source CIDR and no explicit
+  description, source zone or hairpin behavior; unsupported variants fail
+  closed.
 - DNS policies require UniFi Network 10.3.58 or a controller version with the
   same official Integration API contract. The portable scope is `A`, `AAAA`
   and `CNAME`; unsupported policy types are ignored on read and are never
@@ -118,8 +131,8 @@ remains a separate evidence track.
   shadowing or reorder warnings requires an additional explicit risk
   acknowledgement. MCP remains read-only.
 - Username/password session authentication targets the classic API and is
-  required for declarative network and WLAN mutations; it does not advertise
-  DNS policy operations.
+  required for declarative network, WLAN and supported NAT mutations; it does
+  not advertise DNS or firewall policy operations.
 - TLS certificate verification is enabled by default.
 - `UNIFI_VERIFY_TLS=false` is an explicit escape hatch for local certificates.
 
@@ -208,6 +221,13 @@ evidence is independent from the network and DNS mutation suites. The v0.5
 protected run covered one exact controller combination and passed both the
 read-only and firewall lifecycle jobs.
 
+The workflow also has a separate `run_nat_mutations` input. It requires local
+session mode, the protected `I_UNDERSTAND` confirmation, the same dedicated
+mutation account and a `lanweave-ci-*` prefix. The NAT suite uses one disabled
+IPv4 mapping on an unprivileged port, verifies create/update/protected prune and
+cleans it up in a `finally` block. Its evidence is independent from network,
+DNS and firewall mutation suites and is not enabled by default.
+
 The mutation job is disabled by default. Enabling it requires all of:
 
 1. the `run_mutations` workflow input;
@@ -251,6 +271,15 @@ Mutations must be run separately and only with a dedicated target:
 LANWEAVE_INTEGRATION_MUTATIONS=true \
 LANWEAVE_INTEGRATION_MUTATION_CONFIRM=I_UNDERSTAND \
 uv run pytest tests/integration/test_mutations.py -m integration_mutation -q
+```
+
+For the separately guarded NAT lifecycle, use a local session target and the
+dedicated NAT confirmation/prefix variables:
+
+```shell
+LANWEAVE_INTEGRATION_NAT_MUTATIONS=true \
+LANWEAVE_INTEGRATION_NAT_MUTATION_CONFIRM=I_UNDERSTAND \
+uv run pytest tests/integration/test_nat_mutations.py -m integration_mutation -q
 ```
 
 An absent protected configuration causes the read-only tests to skip safely;

@@ -34,11 +34,18 @@ def main() -> None:
     firewall_mutation_requested = (
         _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATIONS", "false").lower() == "true"
     )
-    mutation_requested = mutation_requested or dns_mutation_requested or firewall_mutation_requested
+    nat_mutation_requested = _env("LANWEAVE_INTEGRATION_NAT_MUTATIONS", "false").lower() == "true"
+    mutation_requested = (
+        mutation_requested
+        or dns_mutation_requested
+        or firewall_mutation_requested
+        or nat_mutation_requested
+    )
     mutation_guarded = (
         _env("LANWEAVE_INTEGRATION_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
         or _env("LANWEAVE_INTEGRATION_DNS_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
         or _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
+        or _env("LANWEAVE_INTEGRATION_NAT_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
     )
     generated = datetime.now(UTC).isoformat()
 
@@ -49,7 +56,11 @@ def main() -> None:
         mutation_status = "authorized-run" if mutation_guarded else "guard-not-enabled"
     else:
         mutation_status = "not-requested"
-    if firewall_mutation_requested:
+    if nat_mutation_requested:
+        mutation_scope = (
+            "disabled NAT create/update/protected-prune/delete via the local classic session API"
+        )
+    elif firewall_mutation_requested:
         mutation_scope = (
             "disabled firewall group/rule create/update/reorder/delete via the local "
             "Integration API"

@@ -39,6 +39,10 @@
     },
     "firewall": {
       "$ref": "config-v1.schema.json#/$defs/firewall"
+    },
+    "nat": {
+      "type": "array",
+      "items": { "$ref": "config-v1.schema.json#/$defs/nat_mapping" }
     }
   }
 }

@@ -32,7 +32,7 @@ implemented.
 | `v0.1.0rc1` | Release rehearsal | [milestone](https://github.com/Opperiesen/lanweave/milestone/3) | Protected release workflow builds and verifies installable artifacts |
 | `v0.1.0` | Stable local-first core | [milestone](https://github.com/Opperiesen/lanweave/milestone/3) | PyPI publication, provenance and compatibility matrix are complete |
 | `v0.2.0` | Multi-controller and multi-site profiles | [milestone](https://github.com/Opperiesen/lanweave/milestone/4) | Explicit local target selection works across CLI, plans and read-only MCP without breaking version-1 configs |
-| `v0.3.0` | Adapter architecture | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local and optional cloud adapters expose explicit capabilities |
+| `v0.3.0` | Adapter architecture and read-only cloud inventory | [milestone](https://github.com/Opperiesen/lanweave/milestone/5) | Local compatibility is preserved and the opt-in Site Manager adapter exposes documented capabilities |
 | `v0.4.0+` | Additional resource families | [milestone](https://github.com/Opperiesen/lanweave/milestone/6) | Each family has fixtures, dependency ordering and recovery semantics |
 
 ## Current release — `v0.2.0`
@@ -168,14 +168,27 @@ write-capable MCP.
 
 ## `v0.3.0` — adapter capability boundary
 
+The complete release scope is maintained in
+[roadmap-v0.3.0.md](roadmap-v0.3.0.md) and tracked by the
+[v0.3.0 epic #56](https://github.com/Opperiesen/lanweave/issues/56).
+
 The architecture is split before cloud implementation:
 
-- [#14 — adapter capability boundary](https://github.com/Opperiesen/lanweave/issues/14);
-- [#4 — official UniFi cloud API adapter](https://github.com/Opperiesen/lanweave/issues/4).
+- [#14 — adapter capability boundary and architecture review](https://github.com/Opperiesen/lanweave/issues/14);
+- [#57 — freeze adapter and capability contracts](https://github.com/Opperiesen/lanweave/issues/57);
+- [#58 — put the local classic client behind the adapter boundary](https://github.com/Opperiesen/lanweave/issues/58);
+- [#59 — add explicit adapter selection to profiles and target identity](https://github.com/Opperiesen/lanweave/issues/59);
+- [#4 — official cloud adapter implementation umbrella](https://github.com/Opperiesen/lanweave/issues/4);
+- [#60 — Site Manager authentication and transport](https://github.com/Opperiesen/lanweave/issues/60);
+- [#61 — cloud read-only inventory and health capabilities](https://github.com/Opperiesen/lanweave/issues/61);
+- [#62 — adapter and capability discovery in CLI, plans and read-only MCP](https://github.com/Opperiesen/lanweave/issues/62);
+- [#63 — cross-adapter compatibility, redaction and protected evidence](https://github.com/Opperiesen/lanweave/issues/63);
+- [#64 — migration documentation and release gates](https://github.com/Opperiesen/lanweave/issues/64).
 
 The local classic adapter remains the default and must not regress. The cloud
-adapter is opt-in, independently tested and explicit about unsupported
-resources. A local-to-cloud automatic fallback is not allowed.
+adapter is opt-in, independently tested and limited to documented Site Manager
+read operations in this release. A local-to-cloud automatic fallback is not
+allowed, and cloud writes are explicitly out of scope.
 
 Each adapter must expose capabilities for:
 
@@ -186,7 +199,11 @@ Each adapter must expose capabilities for:
 - endpoint or payload differences;
 - known compatibility limits.
 
-MCP remains read-only and must expose the selected adapter and target.
+The v0.3.0 cloud slice is limited to documented hosts, sites, devices and
+supported health metrics. Networks, WLANs, clients, export, plan and apply are
+unsupported unless the selected official API version exposes them with stable
+semantics and dedicated fixtures. MCP remains read-only and must expose the
+selected adapter, target and capabilities.
 
 ## `v0.4.0+` — resource families one at a time
 

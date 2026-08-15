@@ -98,9 +98,11 @@ normal update.
 ### Ownership and prune
 
 Only user-managed mappings with a confirmed ownership origin may be pruned.
-System/default and unknown-origin mappings remain protected. Every planned
-delete is rendered explicitly and requires the existing separate prune
-confirmation.
+System/default and unknown-origin mappings remain protected. When the classic
+endpoint omits origin metadata, a successful create is treated as managed only
+inside the current client session; a later client returns to the unknown-origin
+guard. Every planned delete is rendered explicitly and requires the existing
+separate prune confirmation.
 
 ### Capability boundary
 

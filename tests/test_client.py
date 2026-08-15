@@ -132,6 +132,25 @@ def test_session_mutates_classic_nat_endpoint_with_csrf_and_object_id() -> None:
                 )
             )
             return httpx.Response(201, json={"data": {"_id": "nat-created"}})
+        if request.url.path.endswith("/rest/portforward") and request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "_id": "nat-created",
+                            "name": "web",
+                            "enabled": True,
+                            "pfwd_interface": "wan",
+                            "src": "any",
+                            "dst_port": "443",
+                            "fwd": "192.0.2.10",
+                            "fwd_port": "8443",
+                            "proto": "tcp",
+                        }
+                    ]
+                },
+            )
         if request.url.path.endswith("/rest/portforward/nat-1") and request.method == "PUT":
             calls.append(
                 (
@@ -166,6 +185,7 @@ def test_session_mutates_classic_nat_endpoint_with_csrf_and_object_id() -> None:
     }
     with UniFiClient(settings, transport=httpx.MockTransport(handler)) as client:
         client.create_nat(payload)
+        assert client.nat()[0]["_origin"] == "USER_DEFINED"
         client.update_nat("nat-1", payload)
         client.delete_nat("nat-1")
 

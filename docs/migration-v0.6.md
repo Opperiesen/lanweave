@@ -45,7 +45,10 @@ commande. Utilise l'environnement ou le gestionnaire de secrets du profil.
 
 L'export supprime les IDs et origines du contrôleur. La planification protège
 les origines `SYSTEM_DEFINED`, `DEFAULT` et inconnues; `--prune` ne cible que
-les mappings avec une origine utilisateur explicite.
+les mappings avec une origine utilisateur explicite. L'endpoint classic ne
+retournant pas toujours cette origine, un mapping créé est reconnu comme
+session-owned uniquement jusqu'à la fin du client courant; une nouvelle
+invocation le protège jusqu'à une preuve indépendante.
 
 Il n'y a pas de rollback automatique. Après timeout ou échec partiel, relis
 l'inventaire, produis un plan neuf et ne rejoue pas un ancien JSON. Le détail

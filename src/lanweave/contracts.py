@@ -1,6 +1,7 @@
 """Versioned public contract identifiers."""
 
 CONFIG_SCHEMA_VERSION = 1
+PROFILE_LAYER_VERSION = 2
 PLAN_FORMAT_VERSION = 1
 MCP_CONTRACT_VERSION = 1
 
@@ -8,4 +9,5 @@ __all__ = [
     "CONFIG_SCHEMA_VERSION",
     "MCP_CONTRACT_VERSION",
     "PLAN_FORMAT_VERSION",
+    "PROFILE_LAYER_VERSION",
 ]

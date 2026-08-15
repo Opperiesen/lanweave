@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urljoin
@@ -17,8 +18,8 @@ class CredentialsError(ValueError):
     """Raised when controller credentials are absent or unsafe."""
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    value = os.getenv(name)
+def _env_bool(name: str, default: bool, environment: Mapping[str, str]) -> bool:
+    value = environment.get(name)
     if value is None:
         return default
     normalized = value.strip().lower()
@@ -147,15 +148,19 @@ class ControllerSettings:
     password: str = ""
 
     @classmethod
-    def from_env(cls) -> ControllerSettings:
-        load_dotenv()
+    def from_env(cls, environ: Mapping[str, str] | None = None) -> ControllerSettings:
+        if environ is None:
+            load_dotenv()
+            environment = os.environ
+        else:
+            environment = environ
         settings = cls(
-            host=os.getenv("UNIFI_HOST", "").rstrip("/"),
-            site=os.getenv("UNIFI_SITE", "default"),
-            verify_tls=_env_bool("UNIFI_VERIFY_TLS", True),
-            api_key=os.getenv("UNIFI_API_KEY", ""),
-            username=os.getenv("UNIFI_USER", ""),
-            password=os.getenv("UNIFI_PASS", ""),
+            host=environment.get("UNIFI_HOST", "").rstrip("/"),
+            site=environment.get("UNIFI_SITE", "default"),
+            verify_tls=_env_bool("UNIFI_VERIFY_TLS", True, environment),
+            api_key=environment.get("UNIFI_API_KEY", ""),
+            username=environment.get("UNIFI_USER", ""),
+            password=environment.get("UNIFI_PASS", ""),
         )
         _reject_unresolved(
             {

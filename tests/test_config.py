@@ -129,6 +129,45 @@ def test_firewall_unknown_network_is_rejected() -> None:
         validate_config(config)
 
 
+def test_nat_references_top_level_networks() -> None:
+    config = {
+        "version": CONFIG_SCHEMA_VERSION,
+        "controller": {"site": "default"},
+        "networks": [{"name": "Home", "purpose": "corporate"}],
+        "wlans": [],
+        "nat": [
+            {
+                "name": "https",
+                "protocol": "TCP",
+                "public": {"interface": "WAN", "port": 443},
+                "private": {"network": "Home", "address": "192.168.10.10", "port": 8443},
+            }
+        ],
+    }
+
+    validate_config(config)
+
+
+def test_nat_unknown_network_is_rejected() -> None:
+    config = {
+        "version": CONFIG_SCHEMA_VERSION,
+        "controller": {"site": "default"},
+        "networks": [{"name": "Home", "purpose": "corporate"}],
+        "wlans": [],
+        "nat": [
+            {
+                "name": "https",
+                "protocol": "TCP",
+                "public": {"interface": "WAN", "port": 443},
+                "private": {"network": "Missing", "address": "192.168.10.10", "port": 8443},
+            }
+        ],
+    }
+
+    with pytest.raises(ConfigError, match="unknown network"):
+        validate_config(config)
+
+
 def test_open_wlan_cannot_carry_a_password() -> None:
     import yaml
 

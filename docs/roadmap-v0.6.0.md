@@ -9,6 +9,10 @@ analysis, explicit profile selection, capability reporting and manual recovery
 semantics. It must preserve the read-only MCP boundary and all existing
 network, WLAN, DNS and firewall behavior.
 
+The frozen field-level contract is documented in [nat.md](nat.md). Controller
+payload conversion and live endpoint semantics remain outside this foundation
+and are handled by the following issues.
+
 ## Product outcome
 
 At the end of v0.6.0 an operator can:

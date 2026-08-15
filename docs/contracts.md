@@ -1,18 +1,19 @@
-# Lanweave v1 contracts
+# Lanweave configuration, CLI and adapter contracts
 
-This document is normative for the `v0.1.x` beta line. It freezes the public
-configuration, CLI, plan JSON and read-only MCP surfaces without adding new
-resource families or write-capable MCP tools.
+The v1 sections are normative for the `v0.1.x` line. The v2 sections define
+the backward-compatible local profile additions for `v0.2.0`. Both versions
+keep the public configuration, CLI, plan JSON and read-only MCP surfaces
+explicit; neither adds new resource families or write-capable MCP tools.
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
-schema `1`, plan format `1` and MCP contract `1`.
+schema `1`, profile layer `2`, plan format `1` and MCP contract `1`.
 
 The `v0.2.0` profile design is documented separately in
 [`profiles.md`](profiles.md). It adds a version-2 local connection layer while
 keeping the version-1 resource and controller contracts accepted. Runtime
-support is introduced by the profile roadmap issues; this document continues
-to describe the shipped `v0.1.x` surface until that work is released.
+support is delivered incrementally by the profile roadmap issues; the v1
+surface remains unchanged while the v2 release is assembled.
 
 ## Configuration schema v1
 
@@ -49,6 +50,26 @@ remain valid. A semantic change or removal requires a new schema version, a
 migration note and an explicit release decision; Lanweave does not silently
 rewrite a file between schema versions.
 
+## Configuration schema v2
+
+The canonical machine-readable schema is
+[`config-v2.schema.json`](contracts/config-v2.schema.json). It composes the
+existing version-1 network and WLAN resource definitions with the version-2
+local profile layer from [`profiles.md`](profiles.md).
+
+Version-2 files add:
+
+- `controllers`: named local controller connection definitions using only
+  environment variable references for host and credentials;
+- `profiles`: named controller/site targets;
+- optional `profile`: an explicit document-level selector;
+- the unchanged `networks[]` and `wlans[]` resource model.
+
+`validate` and `profiles validate` reject unknown, incomplete or ambiguous
+profile fields locally. `profiles list` prints only sanitized profile target
+identities and never contacts a controller or resolves credentials. Version-1
+files remain accepted and retain their legacy environment precedence.
+
 ## CLI contract
 
 The executable is `lanweave`. `--help` and `--version` exit with `0`.
@@ -61,6 +82,8 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | --- | --- | --- |
 | `init` | `--path`, `--force` | Create the generic v1 YAML file; never overwrite without `--force` |
 | `validate` | `--config` | Validate locally; no controller request |
+| `profiles list` | `--config` | List sanitized v1 or v2 target identities; no controller request |
+| `profiles validate` | `--config` | Validate v1 or v2 configuration locally; no controller request |
 | `doctor` | `--check` | Inspect settings; probe health only with `--check` |
 | `export` | `--out`, `--force` | Write secret-free v1 YAML or stdout |
 | `plan` | `--config`, `--prune`, `--output table/json` | Print deterministic changes; JSON is plan format v1 |

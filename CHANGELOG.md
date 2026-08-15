@@ -3,7 +3,10 @@
 ## Unreleased
 
 - define the v0.2.0 local profile shape, selector precedence and version-1
-  migration contract; runtime support is tracked separately.
+  migration contract;
+- add the reusable version-1/version-2 local target resolver;
+- validate version-2 local profile configurations and add offline `profiles`
+  list and validation commands.
 
 ## 0.1.0 — 2026-08-15
 

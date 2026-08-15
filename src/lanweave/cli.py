@@ -6,7 +6,6 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -14,11 +13,11 @@ import httpx
 
 from . import __version__
 from .backup import capture_backup, default_backup_dir, write_backup
-from .client import ControllerSettings, CredentialsError, UniFiClient
+from .client import CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
 from .export import export_yaml
 from .plan import Plan, PlanApplyError, apply_plan, build_plan
-from .profiles import list_profile_identities
+from .profiles import ResolvedTarget, list_profile_identities, resolve_target
 from .status import filter_clients, format_bytes, status_summary
 
 
@@ -70,6 +69,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="also perform a health request against the controller",
     )
+    doctor_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    doctor_parser.add_argument("--profile", help="explicit target profile")
 
     export_parser = subparsers.add_parser("export", help="export live state as secret-free YAML")
     export_parser.add_argument(
@@ -79,6 +85,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="output path, or - for stdout (default: -)",
     )
     export_parser.add_argument("--force", action="store_true", help="overwrite an existing file")
+    export_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    export_parser.add_argument("--profile", help="explicit target profile")
 
     for command, help_text in (
         ("plan", "show the changes that would be applied"),
@@ -91,6 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
             default=Path("config/network.yaml"),
             help="configuration path (default: config/network.yaml)",
         )
+        command_parser.add_argument("--profile", help="explicit target profile")
         command_parser.add_argument(
             "--prune",
             action="store_true",
@@ -116,14 +130,35 @@ def build_parser() -> argparse.ArgumentParser:
         default=default_backup_dir(),
         help="backup directory (default: ~/.lanweave/backups)",
     )
+    backup_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    backup_parser.add_argument("--profile", help="explicit target profile")
 
     status_parser = subparsers.add_parser("status", help="show controller health")
     status_parser.add_argument("--output", choices=("table", "json"), default="table")
+    status_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    status_parser.add_argument("--profile", help="explicit target profile")
 
     clients_parser = subparsers.add_parser("clients", help="list connected clients")
     clients_parser.add_argument("--filter", dest="query", help="filter by name, hostname or MAC")
     clients_parser.add_argument("--wired", action="store_true", help="include wired clients")
     clients_parser.add_argument("--output", choices=("table", "json"), default="table")
+    clients_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    clients_parser.add_argument("--profile", help="explicit target profile")
     return parser
 
 
@@ -176,12 +211,30 @@ def _profiles_validate(path: Path) -> int:
     return 0
 
 
-def _doctor(check: bool = False) -> int:
+def _load_optional_config(path: Path | None) -> dict[str, Any] | None:
+    return load_config(path) if path is not None else None
+
+
+def _announce_target(target: ResolvedTarget) -> None:
+    print(f"target: {target.identity.label()}", file=sys.stderr)
+
+
+def _doctor(
+    check: bool = False,
+    config_path: Path | None = None,
+    profile: str | None = None,
+) -> int:
     try:
-        settings = ControllerSettings.from_env()
+        config = _load_optional_config(config_path)
+        target = resolve_target(config, profile=profile)
+    except ConfigError as exc:
+        print(f"invalid configuration: {exc}", file=sys.stderr)
+        return 2
     except CredentialsError as exc:
         print(f"controller configuration incomplete: {exc}", file=sys.stderr)
         return 2
+    _announce_target(target)
+    settings = target.settings
     auth_mode = "api-key" if settings.api_key else "session"
     tls_mode = "verified" if settings.verify_tls else "insecure"
     print(f"controller configuration looks usable: {settings.host}")
@@ -197,28 +250,35 @@ def _doctor(check: bool = False) -> int:
     return 0
 
 
-def _settings_for_config(config: dict[str, Any]) -> ControllerSettings:
-    settings = ControllerSettings.from_env()
-    site = config.get("controller", {}).get("site")
-    return replace(settings, site=site or settings.site)
-
-
 def _with_client(
-    operation: Callable[[UniFiClient], int],
+    operation: Callable[[UniFiClient, ResolvedTarget], int],
     config: dict[str, Any] | None = None,
+    profile: str | None = None,
 ) -> int:
     try:
-        settings = (
-            _settings_for_config(config) if config is not None else ControllerSettings.from_env()
-        )
-        with UniFiClient(settings) as client:
-            return operation(client)
+        target = resolve_target(config, profile=profile)
+        _announce_target(target)
+        with UniFiClient(target.settings) as client:
+            return operation(client, target)
     except (ConfigError, CredentialsError, RuntimeError) as exc:
         print(f"operation failed: {exc}", file=sys.stderr)
         return 2
     except httpx.HTTPError as exc:
         print(f"controller request failed: {type(exc).__name__}", file=sys.stderr)
         return 2
+
+
+def _with_target_config(
+    operation: Callable[[UniFiClient, ResolvedTarget], int],
+    config_path: Path | None,
+    profile: str | None,
+) -> int:
+    try:
+        config = _load_optional_config(config_path)
+    except ConfigError as exc:
+        print(f"invalid configuration: {exc}", file=sys.stderr)
+        return 2
+    return _with_client(operation, config, profile)
 
 
 def _render_plan(plan: Plan, output: str) -> None:
@@ -244,16 +304,18 @@ def _load_runtime_config(path: Path) -> dict[str, Any]:
     return load_config_with_options(path, resolve_secrets=True)
 
 
-def _plan(path: Path, prune: bool, output: str) -> int:
+def _plan(path: Path, prune: bool, output: str, profile: str | None) -> int:
     try:
+        target_config = load_config(path)
         config = _load_runtime_config(path)
     except ConfigError as exc:
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
 
     return _with_client(
-        lambda client: _plan_with_client(client, config, prune, output),
-        config,
+        lambda client, _target: _plan_with_client(client, config, prune, output),
+        target_config,
+        profile,
     )
 
 
@@ -286,14 +348,15 @@ def _confirm_apply(plan: Plan, prune: bool, yes: bool) -> bool:
     return True
 
 
-def _apply(path: Path, prune: bool, output: str, yes: bool) -> int:
+def _apply(path: Path, prune: bool, output: str, yes: bool, profile: str | None) -> int:
     try:
+        target_config = load_config(path)
         config = _load_runtime_config(path)
     except ConfigError as exc:
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
 
-    def operation(client: UniFiClient) -> int:
+    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
         plan = build_plan(client, config, prune=prune)
         _render_plan(plan, output)
         if not plan.has_changes():
@@ -312,11 +375,16 @@ def _apply(path: Path, prune: bool, output: str, yes: bool) -> int:
         print("plan applied")
         return 0
 
-    return _with_client(operation, config)
+    return _with_client(operation, target_config, profile)
 
 
-def _export(out: Path, force: bool) -> int:
-    def operation(client: UniFiClient) -> int:
+def _export(
+    out: Path,
+    force: bool,
+    config_path: Path | None,
+    profile: str | None,
+) -> int:
+    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
         text = export_yaml(client)
         if str(out) == "-":
             sys.stdout.write(text)
@@ -329,20 +397,20 @@ def _export(out: Path, force: bool) -> int:
         print(f"exported {out}")
         return 0
 
-    return _with_client(operation)
+    return _with_target_config(operation, config_path, profile)
 
 
-def _backup(output: Path) -> int:
-    def operation(client: UniFiClient) -> int:
+def _backup(output: Path, config_path: Path | None, profile: str | None) -> int:
+    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
         path = write_backup(capture_backup(client), output)
         print(f"backup written to {path}")
         return 0
 
-    return _with_client(operation)
+    return _with_target_config(operation, config_path, profile)
 
 
-def _status(output: str) -> int:
-    def operation(client: UniFiClient) -> int:
+def _status(output: str, config_path: Path | None, profile: str | None) -> int:
+    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
         summary = status_summary(client.health(), client.clients(), client.devices())
         if output == "json":
             print(json.dumps(summary, indent=2, sort_keys=True))
@@ -353,11 +421,17 @@ def _status(output: str) -> int:
             print(f"{item.get('subsystem', '?')}: {item.get('status', '?')}")
         return 0
 
-    return _with_client(operation)
+    return _with_target_config(operation, config_path, profile)
 
 
-def _clients(query: str | None, wired: bool, output: str) -> int:
-    def operation(client: UniFiClient) -> int:
+def _clients(
+    query: str | None,
+    wired: bool,
+    output: str,
+    config_path: Path | None,
+    profile: str | None,
+) -> int:
+    def operation(client: UniFiClient, _target: ResolvedTarget) -> int:
         clients = filter_clients(client.clients(), query=query, include_wired=wired)
         if output == "json":
             print(json.dumps(clients, indent=2, sort_keys=True, default=str))
@@ -371,7 +445,7 @@ def _clients(query: str | None, wired: bool, output: str) -> int:
             print(f"{name:<28} {item.get('ip', '-'):>15}  {signal:>5}  down={rx:<8} up={tx:<8}")
         return 0
 
-    return _with_client(operation)
+    return _with_target_config(operation, config_path, profile)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -387,19 +461,19 @@ def main(argv: list[str] | None = None) -> int:
             return _profiles_validate(args.config)
         return 2
     if args.command == "doctor":
-        return _doctor(args.check)
+        return _doctor(args.check, args.config, args.profile)
     if args.command == "export":
-        return _export(args.out, args.force)
+        return _export(args.out, args.force, args.config, args.profile)
     if args.command == "plan":
-        return _plan(args.config, args.prune, args.output)
+        return _plan(args.config, args.prune, args.output, args.profile)
     if args.command == "apply":
-        return _apply(args.config, args.prune, args.output, args.yes)
+        return _apply(args.config, args.prune, args.output, args.yes, args.profile)
     if args.command == "backup":
-        return _backup(args.output)
+        return _backup(args.output, args.config, args.profile)
     if args.command == "status":
-        return _status(args.output)
+        return _status(args.output, args.config, args.profile)
     if args.command == "clients":
-        return _clients(args.query, args.wired, args.output)
+        return _clients(args.query, args.wired, args.output, args.config, args.profile)
     return 2
 
 

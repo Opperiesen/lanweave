@@ -84,13 +84,13 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | `validate` | `--config` | Validate locally; no controller request |
 | `profiles list` | `--config` | List sanitized v1 or v2 target identities; no controller request |
 | `profiles validate` | `--config` | Validate v1 or v2 configuration locally; no controller request |
-| `doctor` | `--check` | Inspect settings; probe health only with `--check` |
-| `export` | `--out`, `--force` | Write secret-free v1 YAML or stdout |
-| `plan` | `--config`, `--prune`, `--output table/json` | Print deterministic changes; JSON is plan format v1 |
-| `apply` | `--config`, `--prune`, `--output table/json`, `--yes` | Apply only after confirmation; no implicit mutation |
-| `backup` | `--output` | Write a local redacted snapshot with mode `0600` |
-| `status` | `--output table/json` | Show health and device summary |
-| `clients` | `--filter`, `--wired`, `--output table/json` | Show filtered client inventory |
+| `doctor` | `--check`, `--config`, `--profile` | Inspect settings; probe health only with `--check` |
+| `export` | `--out`, `--force`, `--config`, `--profile` | Write secret-free v1 YAML or stdout |
+| `plan` | `--config`, `--profile`, `--prune`, `--output table/json` | Print deterministic changes; JSON is plan format v1 |
+| `apply` | `--config`, `--profile`, `--prune`, `--output table/json`, `--yes` | Apply only after confirmation; no implicit mutation |
+| `backup` | `--output`, `--config`, `--profile` | Write a local redacted snapshot with mode `0600` |
+| `status` | `--output table/json`, `--config`, `--profile` | Show health and device summary |
+| `clients` | `--filter`, `--wired`, `--output table/json`, `--config`, `--profile` | Show filtered client inventory |
 
 `--prune` is opt-in and retains its separate confirmation boundary.
 `apply --output json` writes a structured failure report to stderr when

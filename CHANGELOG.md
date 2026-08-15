@@ -7,6 +7,8 @@
 - add the reusable version-1/version-2 local target resolver;
 - validate version-2 local profile configurations and add offline `profiles`
   list and validation commands.
+- thread explicit profile and configuration selectors through controller-facing
+  CLI commands, with sanitized target announcements and early conflict checks.
 
 ## 0.1.0 — 2026-08-15
 

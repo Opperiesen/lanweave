@@ -65,6 +65,14 @@ class MutationTarget:
     vlan: int
 
 
+@dataclass(frozen=True)
+class DnsMutationTarget:
+    client: UniFiClient
+    name: str
+    initial_address: str
+    updated_address: str
+
+
 @pytest.fixture(scope="session")
 def mutation_target(integration_client: UniFiClient) -> MutationTarget:
     """Return a uniquely named, explicitly authorized mutation target."""
@@ -99,3 +107,30 @@ def mutation_target(integration_client: UniFiClient) -> MutationTarget:
         pytest.fail("mutation VLAN must be between 2 and 4094")
 
     return MutationTarget(client=integration_client, name=name, subnet=subnet, vlan=vlan)
+
+
+@pytest.fixture(scope="session")
+def dns_mutation_target(integration_client: UniFiClient) -> DnsMutationTarget:
+    """Return an isolated DNS target for the API-key-only mutation suite."""
+
+    if _env("LANWEAVE_INTEGRATION_DNS_MUTATIONS").lower() not in {"1", "true", "yes", "on"}:
+        pytest.skip("DNS mutation suite is disabled")
+    if _env("LANWEAVE_INTEGRATION_DNS_MUTATION_CONFIRM") != "I_UNDERSTAND":
+        pytest.skip("DNS mutation confirmation is not enabled")
+    if not integration_client.settings.api_key:
+        pytest.fail("DNS mutations require a local Integration API key")
+
+    prefix = _env("LANWEAVE_INTEGRATION_DNS_MUTATION_PREFIX")
+    if not prefix.startswith("lanweave-ci-"):
+        pytest.fail("DNS mutation prefix must start with lanweave-ci-")
+    run_id = _env("LANWEAVE_INTEGRATION_RUN_ID") or "local"
+    name = f"{prefix}{run_id}.home.arpa"
+    if len(name) > 253:
+        pytest.fail("DNS mutation name is too long")
+
+    return DnsMutationTarget(
+        client=integration_client,
+        name=name,
+        initial_address=_env("LANWEAVE_INTEGRATION_DNS_INITIAL_ADDRESS") or "192.0.2.10",
+        updated_address=_env("LANWEAVE_INTEGRATION_DNS_UPDATED_ADDRESS") or "192.0.2.11",
+    )

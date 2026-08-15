@@ -15,6 +15,7 @@ from lanweave.plan import (
     network_to_unifi,
 )
 from lanweave.profiles import TargetIdentity
+from lanweave.resources import ResourceContractError
 
 
 class FakeController:
@@ -69,6 +70,41 @@ class FakeController:
             object_id = path.rsplit("/", maxsplit=1)[-1]
             self._networks[:] = [item for item in self._networks if item.get("_id") != object_id]
         return None
+
+
+class FakeDnsController:
+    def __init__(self, records: list[dict[str, Any]] | None = None) -> None:
+        self._records = list(records or [])
+        self.calls: list[tuple[str, str, Any]] = []
+        self.inventory_calls = 0
+        self.settings = SimpleNamespace(host="https://controller.test", site="default")
+
+    def site_url(self, path: str) -> str:
+        return f"/{path}"
+
+    def networks(self) -> list[dict[str, Any]]:
+        self.inventory_calls += 1
+        return []
+
+    def wlans(self) -> list[dict[str, Any]]:
+        self.inventory_calls += 1
+        return []
+
+    def dns(self) -> list[dict[str, Any]]:
+        return list(self._records)
+
+    def create_dns(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.calls.append(("create", "/dns", payload))
+        record = {"_id": "dns-created", **payload}
+        self._records.append(record)
+        return record
+
+    def update_dns(self, object_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        self.calls.append(("update", f"/dns/{object_id}", payload))
+        return payload
+
+    def delete_dns(self, object_id: str) -> None:
+        self.calls.append(("delete", f"/dns/{object_id}", None))
 
 
 def test_network_subnet_is_converted_to_gateway_address() -> None:
@@ -183,6 +219,126 @@ def test_prune_keeps_default_and_wan_networks() -> None:
     plan = build_plan(controller, config, prune=True)
 
     assert [(diff.action, diff.name) for diff in plan.diffs] == [("delete", "Old")]
+
+
+def test_dns_plan_is_deterministic_and_prunes_only_user_records() -> None:
+    controller = FakeDnsController(
+        records=[
+            {
+                "_id": "dns-a",
+                "_origin": "USER",
+                "name": "printer.home.arpa",
+                "type": "A",
+                "address": "192.0.2.1",
+                "ttl_seconds": 300,
+                "enabled": True,
+            },
+            {
+                "_id": "dns-system",
+                "_origin": "SYSTEM",
+                "name": "gateway.home.arpa",
+                "type": "A",
+                "address": "192.0.2.254",
+                "ttl_seconds": 300,
+                "enabled": True,
+            },
+            {
+                "_id": "dns-old",
+                "_origin": "USER",
+                "name": "old.home.arpa",
+                "type": "A",
+                "address": "192.0.2.2",
+                "ttl_seconds": 300,
+                "enabled": True,
+            },
+        ]
+    )
+    config = {
+        "dns": [
+            {
+                "name": "printer.home.arpa",
+                "type": "A",
+                "address": "192.0.2.10",
+            },
+            {
+                "name": "portal.home.arpa",
+                "type": "CNAME",
+                "target": "printer.home.arpa",
+            },
+        ]
+    }
+
+    plan = build_plan(controller, config, prune=True)
+
+    assert [(diff.action, diff.name) for diff in plan.diffs] == [
+        ("update", "printer.home.arpa [A]"),
+        ("create", "portal.home.arpa [CNAME]"),
+        ("delete", "old.home.arpa [A]"),
+    ]
+    assert plan.diffs[0].payload["ipv4Address"] == "192.0.2.10"
+    assert "192.0.2.254" not in str(plan.to_dict())
+    assert plan.to_dict() == build_plan(controller, config, prune=True).to_dict()
+
+
+def test_dns_plan_refuses_to_mutate_protected_controller_records() -> None:
+    controller = FakeDnsController(
+        records=[
+            {
+                "_id": "dns-system",
+                "_origin": "SYSTEM",
+                "name": "gateway.home.arpa",
+                "type": "A",
+                "address": "192.0.2.254",
+                "ttl_seconds": 300,
+                "enabled": True,
+            }
+        ]
+    )
+
+    with pytest.raises(ResourceContractError, match="protected origin SYSTEM"):
+        build_plan(
+            controller,
+            {
+                "dns": [
+                    {
+                        "name": "gateway.home.arpa",
+                        "type": "A",
+                        "address": "192.0.2.1",
+                    }
+                ]
+            },
+        )
+
+
+def test_dns_apply_does_not_refresh_network_inventory() -> None:
+    controller = FakeDnsController()
+    plan = Plan(
+        diffs=[
+            ResourceDiff(
+                kind="dns",
+                action="create",
+                name="printer.home.arpa [A]",
+                payload={
+                    "type": "A_RECORD",
+                    "enabled": True,
+                    "domain": "printer.home.arpa",
+                    "ttlSeconds": 300,
+                    "ipv4Address": "192.0.2.10",
+                },
+            ),
+            ResourceDiff(
+                kind="dns",
+                action="delete",
+                name="old.home.arpa [A]",
+                object_id="dns-old",
+            ),
+        ]
+    )
+
+    apply_plan(controller, plan)
+
+    assert [call[0] for call in controller.calls] == ["create", "delete"]
+    assert controller.inventory_calls == 0
 
 
 def test_apply_orders_networks_before_wlans() -> None:

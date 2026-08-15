@@ -32,10 +32,11 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.3.0` is the stable adapter and capability release. It preserves
+Lanweave `0.4.0` is the stable local DNS resource release. It preserves
 the local-first profile behavior tested against simulated controller responses,
 with read-only and authorized mutation evidence on one designated UniFi OS
-controller, and adds an explicit, read-only Site Manager cloud adapter. It
+controller, adds an explicit, read-only Site Manager cloud adapter, and
+manages local DNS policies through the official Integration API. It
 targets the classic local UniFi Network API used by self-hosted UniFi Network
 applications and UniFi OS consoles; see [compatibility](docs/compatibility.md)
 and the [apply recovery model](docs/recovery.md) for the exact scope, tested
@@ -46,6 +47,7 @@ Supported resource families in this release:
 
 - networks;
 - WLANs, including references to environment-provided passwords;
+- local DNS `A`, `AAAA` and `CNAME` records;
 - local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
@@ -54,9 +56,9 @@ The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-Firewall, DNS, NAT, VPN and device mutation workflows are deliberately not
-included yet. They need their own fixtures, dependency rules and rollback
-story before being safe to expose.
+Firewall, NAT, VPN and device mutation workflows remain outside v0.4.0. They
+need their own fixtures, dependency rules and rollback story before being safe
+to expose.
 
 ## Quick start
 
@@ -64,7 +66,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.3.0
+uv tool install lanweave==0.4.0
 lanweave --version
 ```
 
@@ -89,6 +91,12 @@ wlans:
     network: Home
     security: wpapsk
     password_env: WIFI_HOME_PASSWORD
+
+dns:
+  - name: printer.home.arpa
+    type: A
+    address: 192.0.2.10
+    ttl_seconds: 300
 ```
 
 Use a local API key when possible. TLS verification is enabled by default;
@@ -116,7 +124,8 @@ lanweave clients --filter phone  # connected-client view
 ```
 
 `--prune` is opt-in. It never targets the controller's WAN or `Default`
-network, and it requires a separate `DELETE` confirmation in interactive mode.
+network, skips system/unknown-origin DNS policies, and requires a separate
+`DELETE` confirmation in interactive mode.
 Non-interactive mutation requires `--yes`; there is no implicit apply.
 If an apply stops part-way through, review a fresh plan before retrying; see
 [apply recovery](docs/recovery.md).
@@ -140,9 +149,10 @@ The tool names, parameters and error codes are frozen in
 ## Configuration and credentials
 
 Copy `.env.example` to `.env`, or export the variables in the process
-environment. `.env` is ignored by Git. API keys provide read-only access to the
-local Integration API; username and password session authentication are
-required for declarative mutations.
+environment. `.env` is ignored by Git. API keys provide read-only access to
+networks and WLANs through the local Integration API, plus the documented DNS
+policy create/update/delete endpoint. Username and password session
+authentication remains required for network and WLAN mutations.
 
 Lanweave rejects literal WLAN passwords in YAML and refuses unresolved
 `op://...` secret-manager references. This keeps the public configuration

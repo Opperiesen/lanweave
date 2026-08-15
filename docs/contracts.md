@@ -37,6 +37,8 @@ controller:
   site: default
 networks: []
 wlans: []
+# optional local DNS records
+dns: []
 ```
 
 The public fields are:
@@ -47,6 +49,9 @@ The public fields are:
 - `wlans[]`: `name`, `ssid`, `network`, `bands`, `security`, optional WLAN
   behavior flags and either `password_env` or a `${UPPERCASE_ENV_NAME}`
   placeholder for protected WLANs.
+- optional `dns[]`: normalized local `A`, `AAAA` and `CNAME` records. A/AAAA
+  use `address`; CNAME uses `target`; `ttl_seconds` defaults to 300 and
+  controller-origin metadata is never part of the portable file.
 
 Unknown fields fail validation at every documented object level. Literal
 passwords, secret-manager references and unresolved environment values are
@@ -166,7 +171,7 @@ The optional stdio adapter exposes exactly these seven tools:
 | `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, devices}` |
 | `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
 | `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
-| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans}` |
+| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns}` |
 | `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false`, `profile: string|null = null` | target-bound redacted plan JSON format v1 |
 
 The four controller-facing inventory/export tools preserve their version-1

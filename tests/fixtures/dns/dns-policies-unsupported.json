@@ -1,0 +1,21 @@
+{
+  "offset": 0,
+  "limit": 200,
+  "count": 2,
+  "totalCount": 2,
+  "data": [
+    {
+      "id": "dns-forward-1",
+      "type": "FORWARD",
+      "enabled": true,
+      "domain": "example.home.arpa",
+      "targetDomain": "upstream.example"
+    },
+    {
+      "id": "dns-missing-1",
+      "type": "TXT_RECORD",
+      "enabled": true,
+      "domain": "example.home.arpa"
+    }
+  ]
+}

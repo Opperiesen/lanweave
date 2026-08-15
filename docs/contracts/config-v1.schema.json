@@ -15,6 +15,10 @@
     "wlans": {
       "type": "array",
       "items": { "$ref": "#/$defs/wlan" }
+    },
+    "dns": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dns_record" }
     }
   },
   "$defs": {
@@ -125,6 +129,46 @@
               { "required": ["password"] },
               { "required": ["password_env"] }
             ]
+          }
+        }
+      ]
+    },
+    "dns_record": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type", "address"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]*$" },
+            "type": { "const": "A" },
+            "address": { "type": "string", "format": "ipv4" },
+            "ttl_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+            "enabled": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type", "address"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]*$" },
+            "type": { "const": "AAAA" },
+            "address": { "type": "string", "format": "ipv6" },
+            "ttl_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+            "enabled": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "type", "target"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]*$" },
+            "type": { "const": "CNAME" },
+            "target": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]*$" },
+            "ttl_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+            "enabled": { "type": "boolean" }
           }
         }
       ]

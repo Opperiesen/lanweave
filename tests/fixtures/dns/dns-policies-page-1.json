@@ -1,0 +1,44 @@
+{
+  "offset": 0,
+  "limit": 200,
+  "count": 4,
+  "totalCount": 4,
+  "data": [
+    {
+      "id": "dns-a-1",
+      "type": "A_RECORD",
+      "enabled": true,
+      "domain": "Printer.Home.arpa.",
+      "ipv4Address": "192.0.2.10",
+      "ttlSeconds": 300,
+      "metadata": {"origin": "USER"}
+    },
+    {
+      "id": "dns-aaaa-1",
+      "type": "AAAA_RECORD",
+      "enabled": true,
+      "domain": "printer.home.arpa",
+      "ipv6Address": "2001:db8::10",
+      "ttlSeconds": 600,
+      "metadata": {"origin": "USER_DEFINED"}
+    },
+    {
+      "id": "dns-cname-1",
+      "type": "CNAME_RECORD",
+      "enabled": true,
+      "domain": "portal.home.arpa",
+      "targetDomain": "printer.home.arpa.",
+      "ttlSeconds": 3600,
+      "metadata": {"origin": "USER"}
+    },
+    {
+      "id": "dns-system-1",
+      "type": "A_RECORD",
+      "enabled": true,
+      "domain": "gateway.home.arpa",
+      "ipv4Address": "192.0.2.1",
+      "ttlSeconds": 300,
+      "metadata": {"origin": "SYSTEM"}
+    }
+  ]
+}

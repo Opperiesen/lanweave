@@ -33,11 +33,11 @@ Deliberate v0.2 changes:
 Cloud adapters, new resource families and write-capable MCP remain outside the
 v0.2.0 compatibility claim. The v0.3 additions are described below.
 
-Lanweave 0.1 supports two local UniFi Network API surfaces. Username/password
+Lanweave 0.4 supports two local UniFi Network API surfaces. Username/password
 session authentication uses the classic endpoints below `/proxy/network/api`.
 API-key authentication uses the v1 Integration API below
-`/proxy/network/integration/v1` and is currently read-only. Both modes resolve
-the current site selected by `UNIFI_SITE` (default: `default`).
+`/proxy/network/integration/v1`. Both modes resolve the current site selected by
+`UNIFI_SITE` (default: `default`).
 
 ## Supported in 0.1
 
@@ -48,6 +48,7 @@ the current site selected by `UNIFI_SITE` (default: `default`).
 | Clients | `stat/sta` / `v1/sites/{siteId}/clients` | read |
 | Networks | `rest/networkconf` / `v1/sites/{siteId}/networks` | session read/create/update/delete; API key read |
 | WLANs | `rest/wlanconf` / `v1/sites/{siteId}/wifi/broadcasts` | session read/create/update/delete; API key read |
+| DNS policies | n/a / `v1/sites/{siteId}/dns/policies` | API key read/export/plan/create/update/delete/prune; session unsupported |
 | Backup | common `stat/*` and `rest/*` endpoints | redacted read |
 
 The exact fields returned by UniFi can vary between Network application
@@ -66,34 +67,43 @@ treated as supported without a corresponding report.
 | Deployment | UniFi OS | UniFi Network | Authentication | TLS | Read-only probes | Mutations |
 | --- | --- | --- | --- | --- | --- | --- |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | **tested** — [create/update/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31884501527) |
-| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | not run |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | **tested** — DNS create/update/prune |
 
 The first evidence was collected on 2026-08-15 with the dedicated
 `lanweave-ci` account. The probes covered health, device and client inventory,
 networks and WLANs. No controller host, site name, credentials, topology or
 raw response is part of this matrix.
 
+The v0.4 DNS evidence used the same designated controller and a protected API
+key. It read the DNS policy family, created and updated one isolated `A`
+record, pruned it as a user-managed policy and verified an empty final state.
+The sanitized record is documented in
+[`evidence/v0.4.0-dns.md`](evidence/v0.4.0-dns.md).
+
 The authorized mutation evidence used the separate local-only `Lanweave
 Mutation` role and created, updated and deleted one VLAN-only network on the
 dedicated target; the final controller inventory contains no mutation target.
 
-This matrix currently proves read-only session and API-key authentication, plus
-session create/update/delete coverage, for one exact controller combination. A
-second controller version and API-key mutations remain separate evidence
-tracks.
+This matrix currently proves read-only session and API-key authentication,
+session network mutations and API-key DNS policy mutations for one exact
+controller combination. A second controller version remains a separate
+evidence track.
 
 ## Authentication and TLS
 
 - The v0.3 adapter name for this surface is `local-classic`.
 - Session authentication exposes read, export, plan, apply and explicit prune
   for the supported network and WLAN resources.
-- API-key authentication remains read-only at the controller boundary; it can
-  inventory, export and plan the supported resources but cannot apply or
-  prune them.
-- API-key authentication targets the v1 Integration API and is read-only for
-  now.
+- API-key authentication remains read-only for networks and WLANs. The only
+  API-key mutation exception in v0.4 is the documented local DNS policy
+  endpoint; no generic API-key mutation is enabled.
+- DNS policies require UniFi Network 10.3.58 or a controller version with the
+  same official Integration API contract. The portable scope is `A`, `AAAA`
+  and `CNAME`; unsupported policy types are ignored on read and are never
+  silently converted.
 - Username/password session authentication targets the classic API and is
-  required for declarative mutations.
+  required for declarative network and WLAN mutations; it does not advertise
+  DNS policy operations.
 - TLS certificate verification is enabled by default.
 - `UNIFI_VERIFY_TLS=false` is an explicit escape hatch for local certificates.
 

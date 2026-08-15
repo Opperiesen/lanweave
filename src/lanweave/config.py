@@ -12,6 +12,7 @@ from typing import Any
 import yaml
 
 from .contracts import CONFIG_SCHEMA_VERSION, PROFILE_LAYER_VERSION
+from .dns import DnsError, validate_dns_records
 
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 PLACEHOLDER_RE = re.compile(r"^\$[{][A-Z_][A-Z0-9_]*[}]$")
@@ -20,7 +21,7 @@ SUPPORTED_PURPOSES = {"corporate", "guest", "vlan-only", "wan"}
 SUPPORTED_SECURITY = {"open", "wpa2", "wpa3", "wpa3-transition"}
 SUPPORTED_BANDS = {"2g", "5g", "6g"}
 SUPPORTED_PMF = {"disabled", "optional", "required"}
-TOP_LEVEL_KEYS = {"version", "controller", "networks", "wlans"}
+TOP_LEVEL_KEYS = {"version", "controller", "networks", "wlans", "dns"}
 CONTROLLER_KEYS = {"site"}
 DHCP_KEYS = {"enabled", "start", "stop", "lease_time", "dns"}
 IPV6_KEYS = {"enabled", "type"}
@@ -101,6 +102,7 @@ wlans:
     security: wpa2
     password_env: WIFI_IOT_PASSWORD
     client_isolation: true
+
 """
 
 
@@ -215,6 +217,7 @@ def validate_config(config: dict[str, Any]) -> None:
                 "controller": {"site": "default"},
                 "networks": config.get("networks"),
                 "wlans": config.get("wlans"),
+                "dns": config.get("dns", []),
             }
         )
         return
@@ -355,6 +358,11 @@ def _validate_version_one_config(config: dict[str, Any]) -> None:
         ):
             if boolean_key in wlan and not isinstance(wlan[boolean_key], bool):
                 raise ConfigError(f"{label}.{boolean_key} must be a boolean")
+
+    try:
+        validate_dns_records(config.get("dns", []))
+    except DnsError as exc:
+        raise ConfigError(str(exc)) from None
 
 
 def load_config(path: Path) -> dict[str, Any]:

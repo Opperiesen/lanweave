@@ -16,6 +16,7 @@ exports/
 plans/
 *.json
 !docs/contracts/*.schema.json
+!tests/fixtures/dns/*.json
 *.yaml
 !examples/*.yaml
 !tests/fixtures/profiles/*.yaml

@@ -30,6 +30,7 @@ PROFILE_DOCUMENT_KEYS = {
     "profiles",
     "networks",
     "wlans",
+    "dns",
 }
 CONTROLLER_PROFILE_KEYS = {"host_env", "verify_tls", "auth", "adapter"}
 AUTH_PROFILE_KEYS = {"api_key_env", "username_env", "password_env"}

@@ -186,6 +186,7 @@ def create_server() -> Any:
             "version": config.get("version", CONFIG_SCHEMA_VERSION),
             "networks": len(config["networks"]),
             "wlans": len(config["wlans"]),
+            "dns": len(config.get("dns", [])),
         }
 
     @server.tool()

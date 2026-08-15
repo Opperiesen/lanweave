@@ -154,6 +154,18 @@ class FakeAdapter:
     def wlans(self) -> list[dict[str, Any]]:
         return []
 
+    def dns(self) -> list[dict[str, Any]]:
+        return []
+
+    def create_dns(self, payload: dict[str, Any]) -> Any:
+        return payload
+
+    def update_dns(self, object_id: str, payload: dict[str, Any]) -> Any:
+        return payload
+
+    def delete_dns(self, object_id: str) -> Any:
+        return None
+
     def get(self, path: str, **kwargs: Any) -> Any:
         return None
 

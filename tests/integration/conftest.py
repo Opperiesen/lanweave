@@ -181,6 +181,6 @@ def firewall_mutation_target(integration_client: UniFiClient) -> FirewallMutatio
     return FirewallMutationTarget(
         client=integration_client,
         prefix=resource_prefix,
-        zone="LAN",
+        zone="Internal",
         **names,
     )

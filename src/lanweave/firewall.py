@@ -622,7 +622,13 @@ def normalize_controller_firewall_zone(
 def normalize_controller_traffic_matching_list(
     value: Mapping[str, Any], label: str = "controller.traffic_matching_list"
 ) -> dict[str, Any]:
-    """Normalize one supported address or port group from the Integration API."""
+    """Normalize one supported address or port group from the Integration API.
+
+    The official traffic-matching-list endpoint exposes editable lists but does
+    not return entity metadata. Treating a list without metadata as unknown
+    would make a create/update cycle impossible, so the endpoint's scope is
+    used as the ownership boundary here.
+    """
     if not isinstance(value, Mapping):
         raise FirewallError(f"{label} must be a mapping")
     identifier = _controller_id(value)
@@ -658,6 +664,9 @@ def normalize_controller_traffic_matching_list(
         raise UnsupportedFirewallVariantError(
             f"unsupported controller traffic matching list type: {list_type or 'missing'}"
         )
+    origin = _controller_origin(value)
+    if origin == "UNKNOWN":
+        origin = "USER_DEFINED"
     return {
         "_id": identifier,
         "id": identifier,
@@ -665,7 +674,7 @@ def normalize_controller_traffic_matching_list(
         "type": list_type,
         "group_type": group_type,
         "items": portable_items,
-        "_origin": _controller_origin(value),
+        "_origin": origin,
     }
 
 
@@ -1255,7 +1264,7 @@ def firewall_rule_to_unifi(
             protocol_filter = {
                 "type": "NAMED_PROTOCOL",
                 "matchOpposite": False,
-                "protocol": {"name": protocol.lower()},
+                "protocol": {"name": protocol},
             }
         payload["ipProtocolScope"]["protocolFilter"] = protocol_filter
     elif rule.get("protocol_number") is not None:

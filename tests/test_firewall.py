@@ -303,7 +303,7 @@ def test_firewall_payloads_follow_integration_api_shape() -> None:
             "protocolFilter": {
                 "type": "NAMED_PROTOCOL",
                 "matchOpposite": False,
-                "protocol": {"name": "tcp"},
+                "protocol": {"name": "TCP"},
             },
         },
         "connectionStateFilter": ["NEW"],
@@ -360,6 +360,20 @@ def test_firewall_fixtures_cover_unsupported_variants_and_protected_origins() ->
     normalized = normalize_controller_traffic_matching_list(protected)
     assert normalized["_origin"] == "SYSTEM_DEFINED"
     assert firewall_is_user_managed(normalized) is False
+
+
+def test_traffic_matching_list_without_metadata_is_user_managed() -> None:
+    normalized = normalize_controller_traffic_matching_list(
+        {
+            "id": "group-created-by-integration-api",
+            "name": "created-group",
+            "type": "PORTS",
+            "items": [{"type": "PORT_NUMBER", "value": 65535}],
+        }
+    )
+
+    assert normalized["_origin"] == "USER_DEFINED"
+    assert firewall_is_user_managed(normalized) is True
 
 
 def test_firewall_empty_fixture_is_a_valid_empty_page() -> None:

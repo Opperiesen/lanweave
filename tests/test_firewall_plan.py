@@ -11,7 +11,7 @@ from lanweave.firewall import (
     normalize_controller_firewall_zone,
     normalize_controller_traffic_matching_list,
 )
-from lanweave.plan import PlanRiskError, apply_plan, build_plan
+from lanweave.plan import PlanRiskError, ResourceContractError, apply_plan, build_plan
 
 
 class FakeFirewallController:
@@ -279,3 +279,34 @@ def test_firewall_order_preserves_undeclared_user_rules_without_prune() -> None:
     reorder = plan.by_action("reorder")
     assert len(reorder) == 1
     assert reorder[0].payload["after_system_defined"] == ["keep-existing", "allow-web"]
+
+
+def test_firewall_plan_allows_duplicate_protected_system_policy_names() -> None:
+    controller = FakeFirewallController()
+    for identifier in ("system-1", "system-2"):
+        controller._policies.append(
+            normalize_controller_firewall_policy(
+                {
+                    "id": identifier,
+                    "name": "Allow All Traffic",
+                    "action": {"type": "ALLOW", "allowReturnTraffic": True},
+                    "source": {"zoneId": "zone-lan"},
+                    "destination": {"zoneId": "zone-lan"},
+                    "ipProtocolScope": {"ipVersion": "IPV4_AND_IPV6"},
+                    "metadata": {"origin": "SYSTEM_DEFINED"},
+                }
+            )
+        )
+
+    plan = build_plan(controller, _config())
+
+    assert plan.by_action("create")
+
+
+def test_firewall_plan_rejects_unknown_rule_zone_before_mutation() -> None:
+    controller = FakeFirewallController()
+    config = deepcopy(_config())
+    config["firewall"]["rules"][0]["source"]["zone"] = "Missing"
+
+    with pytest.raises(ResourceContractError, match="unknown zone: Missing"):
+        build_plan(controller, config)

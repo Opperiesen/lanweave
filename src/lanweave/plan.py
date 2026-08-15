@@ -577,19 +577,18 @@ def _merge_firewall_order(
     current: dict[str, list[str]],
     requested: dict[str, list[str]],
     *,
-    policies_by_name: dict[str, dict[str, Any]],
     desired_names: set[str],
+    protected_policy_names: set[str],
     prune: bool,
 ) -> dict[str, list[str]]:
     """Merge declared order with live policies outside the desired document."""
-    keep_names = {
-        name
-        for name, policy in policies_by_name.items()
-        if not prune or not firewall_is_user_managed(policy) or name in desired_names
-    }
     merged: dict[str, list[str]] = {}
     for placement in ("before_system_defined", "after_system_defined"):
-        original = [name for name in current.get(placement, []) if name in keep_names]
+        original = [
+            name
+            for name in current.get(placement, [])
+            if not prune or name in desired_names or name in protected_policy_names
+        ]
         requested_names = requested.get(placement, [])
         merged_values: list[str] = []
         requested_index = 0
@@ -615,7 +614,16 @@ def _read_firewall_inventory(
     policies = client.firewall_policies()
     zones_by_name = _firewall_unique_name_index(zones, "zone")
     groups_by_name = _firewall_unique_name_index(groups, "group")
-    policies_by_name = _firewall_unique_name_index(policies, "policy")
+    policies_by_name: dict[str, dict[str, Any]] = {}
+    protected_policy_names: set[str] = set()
+    for policy in policies:
+        name = str(policy["name"])
+        if firewall_is_user_managed(policy):
+            if name in policies_by_name or name in protected_policy_names:
+                raise ResourceContractError(f"ambiguous firewall policy name: {name}")
+            policies_by_name[name] = policy
+        else:
+            protected_policy_names.add(name)
     network_names_by_id = {
         str(network.get("_id") or network.get("id")): str(network["name"])
         for network in current_networks
@@ -631,7 +639,6 @@ def _read_firewall_inventory(
     )
     orderings = {pair: client.firewall_policy_ordering(*pair) for pair in pairs}
     current_rules: dict[str, dict[str, Any]] = {}
-    current_policy_by_name: dict[str, dict[str, Any]] = {}
     for policy in policies:
         if not firewall_is_user_managed(policy):
             continue
@@ -649,7 +656,6 @@ def _read_firewall_inventory(
             used_names={str(group["name"]) for group in groups},
         )
         current_rules[policy["name"]] = portable
-        current_policy_by_name[policy["name"]] = policy
     return {
         "zones": zones,
         "groups": groups,
@@ -657,11 +663,11 @@ def _read_firewall_inventory(
         "zones_by_name": zones_by_name,
         "groups_by_name": groups_by_name,
         "policies_by_name": policies_by_name,
+        "protected_policy_names": protected_policy_names,
         "orderings": orderings,
         "zone_names_by_id": zone_names_by_id,
         "network_names_by_id": network_names_by_id,
         "current_rules": current_rules,
-        "current_policy_by_name": current_policy_by_name,
     }
 
 
@@ -739,6 +745,12 @@ def _append_firewall_plan(
     current_groups = inventory["groups_by_name"]
     current_policies = inventory["policies_by_name"]
     current_rules = inventory["current_rules"]
+    known_zone_names = set(current_zones) | {str(zone["name"]) for zone in desired["zones"]}
+    for rule in desired["rules"]:
+        for side_name in ("source", "destination"):
+            zone_name = str(rule[side_name]["zone"])
+            if zone_name not in known_zone_names:
+                raise ResourceContractError(f"firewall rule refers to an unknown zone: {zone_name}")
 
     desired_zones = desired["zones"]
     desired_zone_names = {str(zone["name"]) for zone in desired_zones}
@@ -845,6 +857,8 @@ def _append_firewall_plan(
         existing = current_policies.get(name)
         payload = dict(rule)
         if existing is None:
+            if name in inventory["protected_policy_names"]:
+                raise ResourceContractError(f"refusing to mutate protected firewall rule: {name}")
             plan.diffs.append(
                 ResourceDiff(
                     kind="firewall_rule",
@@ -929,7 +943,12 @@ def _append_firewall_plan(
                     raise ResourceContractError(
                         "firewall policy ordering refers to an unknown policy"
                     )
-                current_by_pair[pair][placement].append(str(policy["name"]))
+                name = str(policy["name"])
+                if any(name in values for values in current_by_pair[pair].values()):
+                    raise ResourceContractError(
+                        f"firewall policy ordering has an ambiguous policy name: {name}"
+                    )
+                current_by_pair[pair][placement].append(name)
     for pair, desired_order in desired_by_pair.items():
         current_order = current_by_pair.get(
             pair, {"before_system_defined": [], "after_system_defined": []}
@@ -937,8 +956,8 @@ def _append_firewall_plan(
         merged_order = _merge_firewall_order(
             current_order,
             desired_order,
-            policies_by_name=current_policies,
             desired_names=desired_rule_names,
+            protected_policy_names=inventory["protected_policy_names"],
             prune=prune,
         )
         if current_order == merged_order:
@@ -1520,9 +1539,20 @@ def apply_plan(
             fresh_zones = client.firewall_zones()
             firewall_zone_ids = {str(zone["name"]): str(zone["id"]) for zone in fresh_zones}
             fresh_policies = client.firewall_policies()
-            firewall_policy_ids = {
-                str(policy["name"]): str(policy["id"]) for policy in fresh_policies
+            requested_policy_names = {
+                name
+                for diff in firewall_reorders
+                for placement in ("before_system_defined", "after_system_defined")
+                for name in diff.payload[placement]
             }
+            firewall_policy_ids: dict[str, str] = {}
+            for policy in fresh_policies:
+                name = str(policy["name"])
+                if name not in requested_policy_names:
+                    continue
+                if name in firewall_policy_ids:
+                    raise RuntimeError(f"ambiguous firewall policy name: {name}")
+                firewall_policy_ids[name] = str(policy["id"])
         except Exception as exc:
             _raise_apply_error(
                 client,
@@ -1537,7 +1567,7 @@ def apply_plan(
                 cause_type=type(exc).__name__,
             )
         for diff in firewall_reorders:
-            partial_request = True
+            partial_request = False
             try:
                 source_zone = diff.payload["source_zone"]
                 destination_zone = diff.payload["destination_zone"]
@@ -1549,6 +1579,7 @@ def apply_plan(
                 after_ids = [
                     firewall_policy_ids[name] for name in diff.payload["after_system_defined"]
                 ]
+                partial_request = True
                 client.reorder_firewall_policies(
                     source_zone_id,
                     destination_zone_id,

@@ -2,10 +2,18 @@
 
 ## Unreleased
 
-- add the v0.5 firewall contract, fixture-backed inventory/export and
-  dependency-aware plan/apply lifecycle behind protected release gates;
+No unreleased changes.
+
+## 0.5.0 — 2026-08-15
+
+- add the portable local firewall contract with zones, address groups, port
+  groups and ordered rules;
+- add fixture-backed inventory/export, deterministic planning, dependency-safe
+  apply, protected prune and sanitized recovery reporting;
 - keep firewall writes local API-key-only, MCP read-only and mutation evidence
   opt-in on disabled, prefixed test rules;
+- publish protected read-only and authorized firewall lifecycle evidence for
+  UniFi Network 10.5.67 on UniFi OS 5.1.19.
 
 ## 0.4.0 — 2026-08-15
 

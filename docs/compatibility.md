@@ -33,16 +33,15 @@ Deliberate v0.2 changes:
 Cloud adapters, new resource families and write-capable MCP remain outside the
 v0.2.0 compatibility claim. The v0.3 additions are described below.
 
-Lanweave 0.4 supports two local UniFi Network API surfaces. Username/password
+Lanweave 0.5 supports two local UniFi Network API surfaces. Username/password
 session authentication uses the classic endpoints below `/proxy/network/api`.
 API-key authentication uses the v1 Integration API below
 `/proxy/network/integration/v1`. Both modes resolve the current site selected by
 `UNIFI_SITE` (default: `default`).
 
-The v0.5 firewall extension is intentionally narrower: it uses only the local
-API-key Integration API and does not broaden session or Site Manager
-capabilities. Its live status is tracked separately in
-[`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md).
+The v0.5 firewall extension uses only the local API-key Integration API and does
+not broaden session or Site Manager capabilities. Its protected evidence is
+recorded in [`evidence/v0.5.0-firewall.md`](evidence/v0.5.0-firewall.md).
 
 ## Supported local surfaces
 
@@ -76,6 +75,7 @@ treated as supported without a corresponding report.
 | --- | --- | --- | --- | --- | --- | --- |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | **tested** — [create/update/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31884501527) |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | **tested** — DNS create/update/prune |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [6 passed](https://github.com/Opperiesen/lanweave/actions/runs/31903782251) | **tested** — [firewall create/update/reorder/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31903782251) |
 
 The first evidence was collected on 2026-08-15 with the dedicated
 `lanweave-ci` account. The probes covered health, device and client inventory,
@@ -93,18 +93,18 @@ Mutation` role and created, updated and deleted one VLAN-only network on the
 dedicated target; the final controller inventory contains no mutation target.
 
 This matrix currently proves read-only session and API-key authentication,
-session network mutations and API-key DNS policy mutations for one exact
-controller combination. A second controller version remains a separate
-evidence track.
+session network mutations, API-key DNS policy mutations and API-key firewall
+mutations for one exact controller combination. A second controller version
+remains a separate evidence track.
 
 ## Authentication and TLS
 
 - The v0.3 adapter name for this surface is `local-classic`.
 - Session authentication exposes read, export, plan, apply and explicit prune
   for the supported network and WLAN resources.
-- API-key authentication remains read-only for networks and WLANs. The only
-  API-key mutation exception in v0.4 is the documented local DNS policy
-  endpoint; no generic API-key mutation is enabled.
+- API-key authentication remains read-only for networks and WLANs. The
+  documented local DNS policy and firewall endpoints are the only API-key
+  mutation exceptions; no generic API-key mutation is enabled.
 - DNS policies require UniFi Network 10.3.58 or a controller version with the
   same official Integration API contract. The portable scope is `A`, `AAAA`
   and `CNAME`; unsupported policy types are ignored on read and are never
@@ -204,7 +204,9 @@ controller host, credentials, topology or raw API responses.
 The same workflow has a separate `run_firewall_mutations` input. It requires
 API-key mode, the protected `I_UNDERSTAND` firewall confirmation, a
 `lanweave-ci-*` prefix and uses only disabled groups/rules. Its lifecycle
-evidence is independent from the network and DNS mutation suites.
+evidence is independent from the network and DNS mutation suites. The v0.5
+protected run covered one exact controller combination and passed both the
+read-only and firewall lifecycle jobs.
 
 The mutation job is disabled by default. Enabling it requires all of:
 

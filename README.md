@@ -32,9 +32,7 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.4.0` is the stable local DNS resource release. The `v0.5.0`
-firewall family is under development behind independent fixture and protected
-controller evidence gates. It preserves
+Lanweave `0.5.0` is the stable local firewall resource release. It preserves
 the local-first profile behavior tested against simulated controller responses,
 with read-only and authorized mutation evidence on one designated UniFi OS
 controller, adds an explicit, read-only Site Manager cloud adapter, and
@@ -50,23 +48,21 @@ Supported resource families in this release:
 - networks;
 - WLANs, including references to environment-provided passwords;
 - local DNS `A`, `AAAA` and `CNAME` records;
+- local firewall zones, address groups, port groups and ordered rules;
 - local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
 
-The `v0.5.0` firewall slice adds portable zones, address groups, port groups
-and ordered rules through the local API-key Integration API. See
-[firewall](docs/firewall.md) and the [v0.5 roadmap](docs/roadmap-v0.5.0.md)
-for the exact support boundary. It is not part of the stable `0.4.0` claim
-until both protected controller evidence gates pass.
+The firewall family is limited to the documented local API-key Integration API
+surface. See [firewall](docs/firewall.md), [compatibility](docs/compatibility.md)
+and the [v0.5 roadmap](docs/roadmap-v0.5.0.md) for the exact support boundary.
 
 The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-Firewall, NAT, VPN and device mutation workflows remain outside v0.4.0. They
-need their own fixtures, dependency rules and rollback story before being safe
-to expose.
+NAT, VPN and device mutation workflows remain outside v0.5.0. They need their
+own fixtures, dependency rules and rollback story before being safe to expose.
 
 ## Quick start
 
@@ -74,7 +70,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.4.0
+uv tool install lanweave==0.5.0
 lanweave --version
 ```
 

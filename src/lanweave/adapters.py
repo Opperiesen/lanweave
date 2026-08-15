@@ -230,6 +230,8 @@ class Adapter(Protocol):
 
     def wlans(self) -> list[dict[str, Any]]: ...
 
+    def nat(self) -> list[dict[str, Any]]: ...
+
     def dns(self) -> list[dict[str, Any]]: ...
 
     def create_dns(self, payload: dict[str, Any]) -> Any: ...
@@ -293,6 +295,7 @@ def local_classic_capabilities(auth_mode: str) -> AdapterCapabilities:
             "devices": ("read",),
             "health": ("read",),
             "networks": ("read", "export", "plan", "apply", "prune"),
+            "nat": ("read", "export"),
             "wlans": ("read", "export", "plan", "apply", "prune"),
         }
     elif auth_mode == AUTH_MODE_API_KEY:

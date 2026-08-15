@@ -34,6 +34,22 @@ def test_declarative_resources_are_readable(integration_client: UniFiClient) -> 
     assert isinstance(wlans, list)
 
 
+def test_nat_inventory_and_export_are_readable_with_session_auth(
+    integration_client: UniFiClient,
+) -> None:
+    if integration_client.settings.api_key:
+        pytest.skip("NAT inventory evidence requires local session authentication")
+
+    mappings = integration_client.nat()
+    exported = export_config(integration_client)
+
+    assert isinstance(mappings, list)
+    assert isinstance(exported["nat"], list)
+    serialized = json.dumps(exported, sort_keys=True)
+    assert '"_id"' not in serialized
+    assert '"_origin"' not in serialized
+
+
 def test_firewall_inventory_and_export_are_readable(
     integration_client: UniFiClient,
 ) -> None:

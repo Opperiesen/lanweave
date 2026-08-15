@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from lanweave.backup import redact_snapshot
+from lanweave.config import validate_config
 from lanweave.export import export_config
 
 
@@ -55,6 +56,34 @@ class ExportController:
             },
         ]
 
+    def nat(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "_id": "nat-user",
+                "_origin": "USER_DEFINED",
+                "name": "web",
+                "enabled": True,
+                "protocol": "TCP",
+                "ip_version": "IPV4",
+                "public": {"interface": "wan", "port": 443},
+                "source": {"addresses": []},
+                "private": {"address": "192.0.2.10", "port": 8443},
+                "hairpin": False,
+            },
+            {
+                "_id": "nat-system",
+                "_origin": "SYSTEM_DEFINED",
+                "name": "system",
+                "enabled": True,
+                "protocol": "TCP",
+                "ip_version": "IPV4",
+                "public": {"interface": "wan", "port": 9443},
+                "source": {"addresses": []},
+                "private": {"address": "192.0.2.11", "port": 9443},
+                "hairpin": False,
+            },
+        ]
+
 
 def test_export_uses_environment_reference_instead_of_password() -> None:
     exported = export_config(ExportController())
@@ -75,6 +104,21 @@ def test_export_uses_environment_reference_instead_of_password() -> None:
     ]
     assert "dns-user" not in str(exported)
     assert "gateway.home.arpa" not in str(exported)
+    assert exported["nat"] == [
+        {
+            "name": "web",
+            "enabled": True,
+            "protocol": "TCP",
+            "ip_version": "IPV4",
+            "public": {"interface": "wan", "port": 443},
+            "source": {"addresses": []},
+            "private": {"address": "192.0.2.10", "port": 8443},
+            "hairpin": False,
+        }
+    ]
+    assert "nat-user" not in str(exported)
+    assert "nat-system" not in str(exported)
+    validate_config(exported)
 
 
 def test_backup_redacts_nested_sensitive_fields() -> None:

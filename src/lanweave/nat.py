@@ -31,6 +31,15 @@ SUPPORTED_NAT_IP_VERSIONS = frozenset({"IPV4", "IPV6"})
 NAT_PORT_MIN = 1
 NAT_PORT_MAX = 65535
 
+_CONTROLLER_PROTOCOLS = {
+    "tcp": "TCP",
+    "udp": "UDP",
+    "tcp_udp": "TCP_UDP",
+    "tcp/udp": "TCP_UDP",
+    "both": "TCP_UDP",
+}
+_BROAD_SOURCE_VALUES = {"", "any", "all", "*", "0.0.0.0/0", "::/0"}
+
 
 class NatError(ValueError):
     """Raised when portable NAT state is malformed or ambiguous."""
@@ -270,6 +279,185 @@ def validate_nat(
     return normalized
 
 
+def _controller_port(value: Any, label: str) -> int | dict[str, int]:
+    """Normalize the string or integer port form returned by the classic API."""
+    if isinstance(value, bool):
+        raise UnsupportedNatVariantError(f"{label} must be a port number or range")
+    if isinstance(value, int):
+        try:
+            return normalize_nat_port(value, label)
+        except NatError as exc:
+            raise UnsupportedNatVariantError(str(exc)) from exc
+    if not isinstance(value, str):
+        raise UnsupportedNatVariantError(f"{label} must be a port number or range")
+
+    text = value.strip()
+    if not text:
+        raise UnsupportedNatVariantError(f"{label} must be a port number or range")
+    parts = text.split("-")
+    if len(parts) == 1:
+        try:
+            return normalize_nat_port(int(parts[0]), label)
+        except (TypeError, ValueError):
+            raise UnsupportedNatVariantError(f"{label} must be a port number or range") from None
+    if len(parts) != 2 or any(not part.strip().isdigit() for part in parts):
+        raise UnsupportedNatVariantError(f"{label} must be a port number or range")
+    try:
+        return normalize_nat_port(
+            {"start": int(parts[0]), "stop": int(parts[1])},
+            label,
+        )
+    except NatError as exc:
+        raise UnsupportedNatVariantError(str(exc)) from exc
+
+
+def _controller_source(value: Any, label: str) -> dict[str, Any]:
+    """Translate classic ``src`` values into the portable source scope."""
+    if value is None:
+        return {"addresses": []}
+    if isinstance(value, str):
+        raw_values = value.split(",")
+    elif isinstance(value, list):
+        raw_values = value
+    else:
+        raise UnsupportedNatVariantError(f"{label} must be any, an IP/CIDR, or a list")
+
+    values = [item.strip() if isinstance(item, str) else item for item in raw_values]
+    normalized_values = [str(item).lower() for item in values if isinstance(item, str)]
+    if any(item in _BROAD_SOURCE_VALUES for item in normalized_values):
+        if any(item not in _BROAD_SOURCE_VALUES for item in normalized_values):
+            raise UnsupportedNatVariantError(f"{label} mixes unrestricted and restricted sources")
+        return {"addresses": []}
+
+    addresses: list[str] = []
+    for index, source in enumerate(values):
+        try:
+            normalized, _family = _canonical_address(
+                source,
+                f"{label}[{index}]",
+                allow_network=True,
+            )
+        except NatError as exc:
+            raise UnsupportedNatVariantError(str(exc)) from exc
+        if normalized not in addresses:
+            addresses.append(normalized)
+    return {"addresses": sorted(addresses)}
+
+
+def _controller_origin(value: Mapping[str, Any]) -> str:
+    """Return a conservative ownership marker for a legacy controller rule."""
+    raw_origin = value.get("setting_preference", value.get("origin"))
+    if raw_origin is None:
+        return "UNKNOWN"
+    normalized = str(raw_origin).strip().upper().replace("-", "_")
+    if normalized in {"MANUAL", "USER", "USER_DEFINED", "CUSTOM"}:
+        return "USER_DEFINED"
+    if normalized in {"AUTO", "DEFAULT", "SYSTEM", "SYSTEM_DEFINED", "GENERATED"}:
+        return "SYSTEM_DEFINED"
+    return "UNKNOWN"
+
+
+def normalize_controller_nat(
+    value: Mapping[str, Any],
+    label: str = "controller.nat",
+) -> dict[str, Any]:
+    """Normalize one classic ``rest/portforward`` response.
+
+    The local classic endpoint uses legacy field names and string ports. Only
+    the proven mapping fields are translated; counters and UI-only fields are
+    intentionally discarded. Missing identifiers or unsupported variants fail
+    closed so later mutation code cannot target an ambiguous rule.
+    """
+    controller = _mapping(value, label)
+    object_id = controller.get("_id", controller.get("id"))
+    try:
+        object_id = _string(object_id, f"{label}._id")
+        name = _string(controller.get("name"), f"{label}.name")
+        interface = _string(controller.get("pfwd_interface"), f"{label}.pfwd_interface")
+        private_address = _string(controller.get("fwd"), f"{label}.fwd")
+    except NatError as exc:
+        raise UnsupportedNatVariantError(str(exc)) from exc
+
+    raw_protocol = controller.get("proto")
+    if not isinstance(raw_protocol, str):
+        raise UnsupportedNatVariantError(f"{label}.proto must be tcp, udp or tcp_udp")
+    protocol = _CONTROLLER_PROTOCOLS.get(raw_protocol.strip().lower())
+    if protocol is None:
+        raise UnsupportedNatVariantError(
+            f"{label}.proto is unsupported: {raw_protocol.strip() or '<empty>'}"
+        )
+
+    enabled = controller.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise UnsupportedNatVariantError(f"{label}.enabled must be a boolean")
+
+    public_address: str | None = None
+    raw_public_address = controller.get("dst")
+    if raw_public_address is not None:
+        if not isinstance(raw_public_address, str):
+            raise UnsupportedNatVariantError(f"{label}.dst must be an IP address or any")
+        public_text = raw_public_address.strip()
+        if public_text and public_text.lower() not in _BROAD_SOURCE_VALUES:
+            try:
+                public_address = str(ipaddress.ip_address(public_text))
+            except ValueError as exc:
+                raise UnsupportedNatVariantError(
+                    f"{label}.dst must be an IP address or any"
+                ) from exc
+
+    portable: dict[str, Any] = {
+        "name": name,
+        "enabled": enabled,
+        "protocol": protocol,
+        "public": {
+            "interface": interface,
+            "port": _controller_port(controller.get("dst_port"), f"{label}.dst_port"),
+        },
+        "source": _controller_source(controller.get("src"), f"{label}.src"),
+        "private": {
+            "address": private_address,
+            "port": _controller_port(controller.get("fwd_port"), f"{label}.fwd_port"),
+        },
+        "hairpin": controller.get("hairpin", False),
+    }
+    if public_address is not None:
+        portable["public"]["address"] = public_address
+    if controller.get("description") is not None:
+        portable["description"] = controller.get("description")
+
+    try:
+        normalized = normalize_nat_mapping(portable, label)
+    except NatError as exc:
+        raise UnsupportedNatVariantError(f"{label} is unsupported: {exc}") from exc
+    normalized.update({"_id": object_id, "_origin": _controller_origin(controller)})
+    return normalized
+
+
+def normalize_controller_nat_list(
+    value: Any,
+    label: str = "controller.nat",
+) -> list[dict[str, Any]]:
+    """Normalize and deterministically order one classic inventory response."""
+    if isinstance(value, Mapping):
+        value = value.get("data")
+    if not isinstance(value, list):
+        raise UnsupportedNatVariantError(f"{label} must be a list response")
+
+    normalized = [
+        normalize_controller_nat(item, f"{label}[{index}]") for index, item in enumerate(value)
+    ]
+    identities = [nat_mapping_identity(item) for item in normalized]
+    if len(set(identities)) != len(identities):
+        raise UnsupportedNatVariantError(f"{label} contains duplicate mapping names")
+    return sorted(normalized, key=lambda item: (item["name"], item["_id"]))
+
+
+def nat_export_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Return one portable NAT mapping without live controller metadata."""
+    portable = {key: value[key] for key in NAT_MAPPING_KEYS if key in value}
+    return normalize_nat_mapping(portable, "nat export")
+
+
 def nat_is_broad(value: Mapping[str, Any]) -> bool:
     """Return whether a mapping accepts traffic from any source address."""
     source = value.get("source") or {}
@@ -298,6 +486,9 @@ __all__ = [
     "nat_is_broad",
     "nat_is_user_managed",
     "nat_mapping_identity",
+    "nat_export_mapping",
+    "normalize_controller_nat",
+    "normalize_controller_nat_list",
     "normalize_nat_mapping",
     "normalize_nat_port",
     "validate_nat",

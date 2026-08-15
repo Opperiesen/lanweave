@@ -112,6 +112,16 @@ def test_firewall_capabilities_are_api_key_only() -> None:
     assert api_key.supports("firewall", "prune")
 
 
+def test_nat_read_and_export_are_session_only_until_mutation_support_exists() -> None:
+    session = local_classic_capabilities(AUTH_MODE_SESSION)
+    api_key = local_classic_capabilities(AUTH_MODE_API_KEY)
+
+    assert session.supports("nat", "read")
+    assert session.supports("nat", "export")
+    assert not session.supports("nat", "plan")
+    assert not api_key.supports("nat", "read")
+
+
 def test_adapter_errors_use_stable_codes_without_response_payloads() -> None:
     errors = [
         AdapterConfigurationError("unknown adapter: cloud-site-manager"),
@@ -164,6 +174,9 @@ class FakeAdapter:
         return []
 
     def wlans(self) -> list[dict[str, Any]]:
+        return []
+
+    def nat(self) -> list[dict[str, Any]]:
         return []
 
     def dns(self) -> list[dict[str, Any]]:

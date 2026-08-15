@@ -1,10 +1,16 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from lanweave.nat import (
     NatError,
+    UnsupportedNatVariantError,
+    nat_export_mapping,
     nat_is_broad,
     nat_is_user_managed,
     nat_mapping_identity,
+    normalize_controller_nat_list,
     normalize_nat_mapping,
     normalize_nat_port,
     validate_nat,
@@ -155,3 +161,72 @@ def test_top_level_nat_validation_is_a_list_and_allows_empty_state() -> None:
 
     with pytest.raises(NatError, match="nat must be a list"):
         validate_nat({"mappings": []})
+
+
+def test_controller_fixture_normalizes_legacy_fields_ports_and_origins() -> None:
+    fixture = json.loads(
+        (Path(__file__).parent / "fixtures" / "nat" / "portforward-page-1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    normalized = normalize_controller_nat_list(fixture)
+
+    assert [(item["name"], item["_id"], item["_origin"]) for item in normalized] == [
+        ("controller-dns", "nat-system-1", "SYSTEM_DEFINED"),
+        ("web", "nat-user-1", "USER_DEFINED"),
+    ]
+    assert normalized[0]["protocol"] == "UDP"
+    assert normalized[0]["ip_version"] == "IPV6"
+    assert normalized[0]["public"]["port"] == {"start": 5300, "stop": 5302}
+    assert normalized[0]["private"]["port"] == {"start": 53, "stop": 55}
+    assert normalized[0]["source"] == {"addresses": []}
+    assert normalized[1]["source"] == {"addresses": ["198.51.100.0/24"]}
+
+
+def test_controller_fixture_rejects_unsupported_and_malformed_variants() -> None:
+    fixture_dir = Path(__file__).parent / "fixtures" / "nat"
+    unsupported = json.loads((fixture_dir / "portforward-unsupported.json").read_text())
+    malformed = json.loads((fixture_dir / "portforward-malformed.json").read_text())
+
+    with pytest.raises(UnsupportedNatVariantError, match="proto is unsupported"):
+        normalize_controller_nat_list(unsupported)
+    with pytest.raises(UnsupportedNatVariantError, match="proto must be"):
+        normalize_controller_nat_list(malformed)
+
+
+def test_controller_empty_fixture_is_a_valid_empty_inventory() -> None:
+    fixture = json.loads(
+        (Path(__file__).parent / "fixtures" / "nat" / "portforward-empty-page.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert normalize_controller_nat_list(fixture) == []
+
+
+def test_nat_export_drops_controller_metadata() -> None:
+    live = normalize_controller_nat_list(
+        {
+            "data": [
+                {
+                    "_id": "nat-user-1",
+                    "name": "web",
+                    "enabled": True,
+                    "pfwd_interface": "wan",
+                    "src": "any",
+                    "dst_port": "443",
+                    "fwd": "192.0.2.10",
+                    "fwd_port": "8443",
+                    "proto": "tcp",
+                    "setting_preference": "manual",
+                }
+            ]
+        }
+    )[0]
+
+    exported = nat_export_mapping(live)
+
+    assert exported["name"] == "web"
+    assert "_id" not in exported
+    assert "_origin" not in exported

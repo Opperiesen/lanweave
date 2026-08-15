@@ -78,6 +78,44 @@ def test_api_key_reads_integration_api() -> None:
         assert client.wlans()[0]["security"] == "wpa2"
 
 
+def test_session_reads_classic_nat_inventory_from_versioned_fixture() -> None:
+    fixture_path = Path(__file__).parent / "fixtures" / "nat" / "portforward-page-1.json"
+    nat_page = json.loads(fixture_path.read_text(encoding="utf-8"))
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        if request.url.path == "/api/auth/login":
+            return httpx.Response(200, json={"data": {}})
+        if request.url.path.endswith("/rest/portforward"):
+            return httpx.Response(200, json=nat_page)
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    settings = ControllerSettings(
+        host="https://controller.example",
+        username="admin",
+        password="fixture-password",
+    )
+    with UniFiClient(settings, transport=httpx.MockTransport(handler)) as client:
+        mappings = client.nat()
+
+    assert [mapping["name"] for mapping in mappings] == ["controller-dns", "web"]
+    assert calls == [
+        ("POST", "/api/auth/login"),
+        ("GET", "/proxy/network/api/s/default/rest/portforward"),
+    ]
+
+
+def test_api_key_does_not_fallback_to_undocumented_nat_endpoint() -> None:
+    settings = ControllerSettings(host="https://controller.example", api_key="test")
+    transport = httpx.MockTransport(lambda _request: httpx.Response(500))
+    with (
+        UniFiClient(settings, transport=transport) as client,
+        pytest.raises(RuntimeError, match="local session authentication"),
+    ):
+        client.nat()
+
+
 def test_api_key_paginates_integration_lists() -> None:
     requests: list[tuple[str, str]] = []
 

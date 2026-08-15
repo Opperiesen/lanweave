@@ -37,3 +37,7 @@ Please include the UniFi Network application/controller version, the command
 that failed, a redacted response or fixture, and whether the request used an
 API key or session authentication. Never attach credentials, private keys,
 Wi-Fi passphrases, public IPs or a raw controller backup.
+
+Use the [issue tracker](https://github.com/Opperiesen/lanweave/issues) for
+reproducible compatibility reports. Security-sensitive reports belong in the
+[private advisory channel](../SECURITY.md).

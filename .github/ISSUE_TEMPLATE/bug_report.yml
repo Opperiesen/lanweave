@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a reproducible problem in Lanweave
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, Wi-Fi passphrases, raw controller backups,
+        public IPs, MAC addresses or private topology.
+  - type: input
+    id: version
+    attributes:
+      label: Lanweave version
+      placeholder: 0.1.0a1
+    validations:
+      required: true
+  - type: input
+    id: controller
+    attributes:
+      label: UniFi Network version
+      description: Include the Network application or UniFi OS version.
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Authentication mode
+      options:
+        - API key
+        - Session username/password
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the command, a sanitized configuration fragment and the observed output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or fixture
+      description: Remove credentials and private infrastructure identifiers.

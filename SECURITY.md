@@ -21,4 +21,6 @@ advisory mechanism when the public repository exists, or contact the
 maintainers privately with reproduction steps and affected versions.
 
 Do not test destructive operations against a controller you do not own or
-administer.
+administer. For a confirmed vulnerability, use the repository's
+[private security advisory](https://github.com/Opperiesen/lanweave/security/advisories/new)
+instead of a public issue.

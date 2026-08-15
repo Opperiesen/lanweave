@@ -1,5 +1,9 @@
 # Lanweave
 
+[![CI](https://github.com/Opperiesen/lanweave/actions/workflows/ci.yml/badge.svg)](https://github.com/Opperiesen/lanweave/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Opperiesen/lanweave)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/Opperiesen/lanweave?include_prereleases)](https://github.com/Opperiesen/lanweave/releases)
+
 ![Lanweave logo](assets/logo.svg)
 
 Lanweave is a local-first, open-source toolkit for managing and observing
@@ -47,7 +51,9 @@ story before being safe to expose.
 
 ## Quick start
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The alpha release
+is currently installed from a checkout; package-index publication is tracked
+in the [roadmap](docs/roadmap.md).
 
 ```shell
 uv sync --extra dev
@@ -133,3 +139,10 @@ designated controllers. See [contributing](CONTRIBUTING.md),
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
+
+## Project links
+
+- [source repository](https://github.com/Opperiesen/lanweave);
+- [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
+- [security policy](SECURITY.md);
+- [contribution guide](CONTRIBUTING.md).

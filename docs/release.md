@@ -31,9 +31,10 @@ The v0.3.0 cloud claim is not complete until the read-only Site Manager
 workflow has exercised a real account. The controller administrator password
 and the local `UNIFI_API_KEY` are not valid credentials for this API.
 
-1. Create a dedicated API key in the Ubiquiti Site Manager account. Use it
-   only for this integration and restrict its permissions to read-only when
-   the account interface exposes that option.
+1. Sign in to the Ubiquiti Site Manager account, open [Settings → API
+   Keys](https://unifi.ui.com/settings/api-keys), and select **Create New API
+   Key**. Use the generated key only for this integration; Site Manager API v1
+   keys are currently read-only.
 2. Keep the key in the approved secret manager; never put it in YAML, a plan,
    an issue, a shell command, or a public artifact.
 3. In the repository settings, open the protected environment

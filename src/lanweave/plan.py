@@ -16,6 +16,17 @@ from .dns import (
     dns_to_unifi,
     validate_dns_records,
 )
+from .firewall import (
+    FirewallError,
+    firewall_group_to_unifi,
+    firewall_is_user_managed,
+    firewall_policy_to_portable,
+    firewall_rule_is_broad,
+    firewall_rule_match_key,
+    firewall_rule_to_unifi,
+    firewall_zone_to_unifi,
+    validate_firewall,
+)
 from .profiles import TargetIdentity
 from .resources import DependencyGraph, ResourceContractError, ResourceKey
 
@@ -182,10 +193,13 @@ class ResourceDiff:
     current: dict[str, Any] = field(default_factory=dict)
     object_id: str | None = None
     source: dict[str, Any] = field(default_factory=dict)
+    warnings: tuple[str, ...] = ()
 
     @property
     def changed_fields(self) -> list[str]:
-        if self.action == "create":
+        if self.action == "reorder":
+            fields = {"order"}
+        elif self.action == "create":
             fields = {key for key in self.payload if key not in SENSITIVE_FIELDS}
         elif self.action == "delete":
             fields = set()
@@ -200,7 +214,7 @@ class ResourceDiff:
         return sorted(fields)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "kind": self.kind,
             "action": self.action,
             "name": self.name,
@@ -208,6 +222,9 @@ class ResourceDiff:
             "changed_fields": self.changed_fields,
             "payload": _redact(self.payload),
         }
+        if self.warnings:
+            result["warnings"] = list(self.warnings)
+        return result
 
 
 @dataclass
@@ -222,9 +239,16 @@ class Plan:
         return [diff for diff in self.diffs if diff.action == action]
 
     def summary(self) -> dict[str, int]:
-        return {
+        summary = {
             action: len(self.by_action(action)) for action in ("create", "update", "delete", "noop")
         }
+        reorder_count = len(self.by_action("reorder"))
+        if reorder_count:
+            summary["reorder"] = reorder_count
+        return summary
+
+    def risk_warnings(self) -> list[str]:
+        return [warning for diff in self.diffs for warning in diff.warnings]
 
     def to_dict(self) -> dict[str, Any]:
         rendered = {
@@ -335,6 +359,20 @@ class PlanTargetMismatchError(RuntimeError):
             "error": "plan_target_mismatch",
             "expected_target": self.expected.to_dict(),
             "selected_target": self.actual.to_dict() if self.actual is not None else None,
+        }
+
+
+class PlanRiskError(RuntimeError):
+    """Raised when a risky Firewall plan has not been explicitly acknowledged."""
+
+    def __init__(self, warnings: list[str]) -> None:
+        self.warnings = tuple(dict.fromkeys(warnings))
+        super().__init__("firewall risk acknowledgement required")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "error": "firewall_risk_acknowledgement_required",
+            "warnings": list(self.warnings),
         }
 
 
@@ -485,6 +523,382 @@ def _append_dns_plan(
         )
 
 
+def _firewall_current_payload(
+    zone: dict[str, Any], network_names_by_id: dict[str, str]
+) -> dict[str, Any]:
+    try:
+        networks = [network_names_by_id[identifier] for identifier in zone.get("network_ids", [])]
+    except KeyError as exc:
+        raise ResourceContractError(
+            f"managed firewall zone {zone.get('name')} refers to an unknown network"
+        ) from exc
+    return {"name": zone["name"], "networks": networks}
+
+
+def _firewall_group_current_payload(group: dict[str, Any]) -> dict[str, Any]:
+    key = "addresses" if group.get("group_type") == "address_group" else "ports"
+    if group.get("group_type") not in {"address_group", "port_group"}:
+        raise ResourceContractError(f"unsupported firewall group type: {group.get('group_type')}")
+    return {"name": group["name"], key: list(group.get("items", []))}
+
+
+def _firewall_rule_content(rule: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in rule.items() if key not in {"order", "placement"}}
+
+
+def _firewall_order_position(
+    policy: dict[str, Any], ordering: dict[str, list[str]]
+) -> tuple[int, str]:
+    identifier = str(policy["id"])
+    for placement in ("before_system_defined", "after_system_defined"):
+        values = ordering.get(placement, [])
+        if identifier in values:
+            return values.index(identifier), placement
+    raise ResourceContractError(
+        f"firewall policy ordering does not contain managed policy {policy['name']}"
+    )
+
+
+def _read_firewall_inventory(
+    client: Adapter,
+    current_networks: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Read supported firewall resources and resolve explicit user ordering."""
+    zones = client.firewall_zones()
+    groups = client.firewall_traffic_matching_lists()
+    policies = client.firewall_policies()
+    network_names_by_id = {
+        str(network.get("_id") or network.get("id")): str(network["name"])
+        for network in current_networks
+        if network.get("name") and (network.get("_id") or network.get("id"))
+    }
+    zone_names_by_id = {str(zone["id"]): str(zone["name"]) for zone in zones}
+    groups_by_id = {str(group["id"]): group for group in groups}
+    pairs = sorted(
+        {
+            (str(policy["source"]["zone_id"]), str(policy["destination"]["zone_id"]))
+            for policy in policies
+        }
+    )
+    orderings = {pair: client.firewall_policy_ordering(*pair) for pair in pairs}
+    current_rules: dict[str, dict[str, Any]] = {}
+    current_policy_by_name: dict[str, dict[str, Any]] = {}
+    for policy in policies:
+        if not firewall_is_user_managed(policy):
+            continue
+        pair = (policy["source"]["zone_id"], policy["destination"]["zone_id"])
+        order, placement = _firewall_order_position(policy, orderings[pair])
+        generated: list[dict[str, Any]] = []
+        portable = firewall_policy_to_portable(
+            policy,
+            order=order,
+            placement=placement,
+            zone_names_by_id=zone_names_by_id,
+            network_names_by_id=network_names_by_id,
+            groups_by_id=groups_by_id,
+            generated=generated,
+            used_names={str(group["name"]) for group in groups},
+        )
+        current_rules[policy["name"]] = portable
+        current_policy_by_name[policy["name"]] = policy
+    return {
+        "zones": zones,
+        "groups": groups,
+        "policies": policies,
+        "orderings": orderings,
+        "zone_names_by_id": zone_names_by_id,
+        "network_names_by_id": network_names_by_id,
+        "current_rules": current_rules,
+        "current_policy_by_name": current_policy_by_name,
+    }
+
+
+def _firewall_rule_warnings(
+    rules: list[dict[str, Any]],
+    groups_by_name: dict[str, dict[str, Any]],
+) -> dict[str, tuple[str, ...]]:
+    warnings: dict[str, list[str]] = {str(rule["name"]): [] for rule in rules}
+    for rule in rules:
+        name = str(rule["name"])
+        if firewall_rule_is_broad(rule):
+            warnings[name].append("broad match: source, destination or protocol is unrestricted")
+        zones = (str(rule["source"]["zone"]), str(rule["destination"]["zone"]))
+        if any(
+            token in zone.lower()
+            for zone in zones
+            for token in ("wan", "internet", "external", "untrusted")
+        ):
+            warnings[name].append("external or untrusted zone can change Internet reachability")
+        for side_name in ("source", "destination"):
+            port_group_name = rule[side_name].get("port_group")
+            if not port_group_name:
+                continue
+            group = groups_by_name.get(str(port_group_name), {})
+            for item in group.get("ports", []):
+                first = item if isinstance(item, int) else item.get("start")
+                if isinstance(first, int) and first <= 1024:
+                    warnings[name].append("privileged destination/source port is in scope")
+                    break
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for rule in sorted(
+        rules,
+        key=lambda item: (
+            item["source"]["zone"],
+            item["destination"]["zone"],
+            item.get("placement", "after_system_defined"),
+            item["order"],
+        ),
+    ):
+        pair = (
+            str(rule["source"]["zone"]),
+            str(rule["destination"]["zone"]),
+            str(rule.get("placement", "after_system_defined")),
+        )
+        grouped.setdefault(pair, []).append(rule)
+    for grouped_rules in grouped.values():
+        seen: dict[tuple[Any, ...], str] = {}
+        for rule in grouped_rules:
+            key = firewall_rule_match_key(rule)
+            previous = seen.get(key)
+            if previous is not None:
+                warnings[rule["name"]].append(f"may be shadowed by earlier rule {previous}")
+            else:
+                seen[key] = str(rule["name"])
+    return {name: tuple(dict.fromkeys(values)) for name, values in warnings.items()}
+
+
+def _append_firewall_plan(
+    plan: Plan,
+    *,
+    client: Adapter,
+    config: dict[str, Any],
+    current_networks: list[dict[str, Any]],
+    prune: bool,
+) -> None:
+    try:
+        desired = validate_firewall(
+            config.get("firewall"),
+            network_names={str(network["name"]) for network in config.get("networks", [])},
+        )
+    except FirewallError as exc:
+        raise ResourceContractError(str(exc)) from None
+    inventory = _read_firewall_inventory(client, current_networks)
+    current_zones = {str(zone["name"]): zone for zone in inventory["zones"]}
+    current_groups = {str(group["name"]): group for group in inventory["groups"]}
+    current_policies = {str(policy["name"]): policy for policy in inventory["policies"]}
+    current_rules = inventory["current_rules"]
+
+    desired_zones = desired["zones"]
+    desired_zone_names = {str(zone["name"]) for zone in desired_zones}
+    for zone in desired_zones:
+        name = str(zone["name"])
+        payload = {"name": name, "networks": list(zone.get("networks", []))}
+        existing = current_zones.get(name)
+        if existing is None:
+            plan.diffs.append(
+                ResourceDiff(
+                    kind="firewall_zone", action="create", name=name, payload=payload, source=zone
+                )
+            )
+            continue
+        if not firewall_is_user_managed(existing):
+            current_payload = _firewall_current_payload(existing, inventory["network_names_by_id"])
+            if current_payload != payload:
+                raise ResourceContractError(f"refusing to mutate protected firewall zone: {name}")
+            plan.diffs.append(ResourceDiff(kind="firewall_zone", action="noop", name=name))
+            continue
+        current_payload = _firewall_current_payload(existing, inventory["network_names_by_id"])
+        action = "update" if current_payload != payload else "noop"
+        plan.diffs.append(
+            ResourceDiff(
+                kind="firewall_zone",
+                action=action,
+                name=name,
+                payload=payload,
+                current=current_payload,
+                object_id=existing.get("id"),
+                source=zone,
+            )
+        )
+    if prune:
+        for name, existing in current_zones.items():
+            if name not in desired_zone_names and firewall_is_user_managed(existing):
+                plan.diffs.append(
+                    ResourceDiff(
+                        kind="firewall_zone",
+                        action="delete",
+                        name=name,
+                        current=_firewall_current_payload(
+                            existing, inventory["network_names_by_id"]
+                        ),
+                        object_id=existing.get("id"),
+                    )
+                )
+
+    desired_groups = [*desired["address_groups"], *desired["port_groups"]]
+    desired_group_names = {str(group["name"]) for group in desired_groups}
+    for group in desired_groups:
+        name = str(group["name"])
+        existing = current_groups.get(name)
+        payload = dict(group)
+        if existing is None:
+            plan.diffs.append(
+                ResourceDiff(
+                    kind="firewall_group", action="create", name=name, payload=payload, source=group
+                )
+            )
+            continue
+        if not firewall_is_user_managed(existing):
+            current_payload = _firewall_group_current_payload(existing)
+            if current_payload != payload:
+                raise ResourceContractError(f"refusing to mutate protected firewall group: {name}")
+            plan.diffs.append(ResourceDiff(kind="firewall_group", action="noop", name=name))
+            continue
+        current_payload = _firewall_group_current_payload(existing)
+        if set(current_payload) != set(payload):
+            raise ResourceContractError(f"firewall group type cannot change in place: {name}")
+        action = "update" if current_payload != payload else "noop"
+        plan.diffs.append(
+            ResourceDiff(
+                kind="firewall_group",
+                action=action,
+                name=name,
+                payload=payload,
+                current=current_payload,
+                object_id=existing.get("id"),
+                source=group,
+            )
+        )
+    if prune:
+        for name, existing in current_groups.items():
+            if name not in desired_group_names and firewall_is_user_managed(existing):
+                plan.diffs.append(
+                    ResourceDiff(
+                        kind="firewall_group",
+                        action="delete",
+                        name=name,
+                        current=_firewall_group_current_payload(existing),
+                        object_id=existing.get("id"),
+                    )
+                )
+
+    desired_rules = desired["rules"]
+    rule_warnings = _firewall_rule_warnings(
+        desired_rules,
+        {str(group["name"]): group for group in desired_groups},
+    )
+    desired_rule_names = {str(rule["name"]) for rule in desired_rules}
+    for rule in desired_rules:
+        name = str(rule["name"])
+        existing = current_policies.get(name)
+        payload = dict(rule)
+        if existing is None:
+            plan.diffs.append(
+                ResourceDiff(
+                    kind="firewall_rule",
+                    action="create",
+                    name=name,
+                    payload=payload,
+                    source=rule,
+                    warnings=rule_warnings[name],
+                )
+            )
+            continue
+        if not firewall_is_user_managed(existing):
+            raise ResourceContractError(f"refusing to mutate protected firewall rule: {name}")
+        current_payload = current_rules[name]
+        action = (
+            "update"
+            if _firewall_rule_content(current_payload) != _firewall_rule_content(payload)
+            else "noop"
+        )
+        comparison_current = {
+            **current_payload,
+            "order": payload["order"],
+            "placement": payload["placement"],
+        }
+        plan.diffs.append(
+            ResourceDiff(
+                kind="firewall_rule",
+                action=action,
+                name=name,
+                payload=payload,
+                current=comparison_current,
+                object_id=existing.get("id"),
+                source=rule,
+                warnings=rule_warnings[name] if action != "noop" else (),
+            )
+        )
+    if prune:
+        for name, existing in current_policies.items():
+            if name not in desired_rule_names and firewall_is_user_managed(existing):
+                plan.diffs.append(
+                    ResourceDiff(
+                        kind="firewall_rule",
+                        action="delete",
+                        name=name,
+                        current=current_rules[name],
+                        object_id=existing.get("id"),
+                    )
+                )
+
+    desired_by_pair: dict[tuple[str, str], dict[str, list[str]]] = {}
+    for rule in desired_rules:
+        pair = (rule["source"]["zone"], rule["destination"]["zone"])
+        placement = rule.get("placement", "after_system_defined")
+        desired_by_pair.setdefault(pair, {"before_system_defined": [], "after_system_defined": []})[
+            placement
+        ].append(rule["name"])
+    for values in desired_by_pair.values():
+        for placement in values:
+            values[placement].sort(
+                key=lambda name: next(
+                    rule["order"] for rule in desired_rules if rule["name"] == name
+                )
+            )
+
+    policy_by_id = {str(policy["id"]): policy for policy in inventory["policies"]}
+    current_by_pair: dict[tuple[str, str], dict[str, list[str]]] = {}
+    for pair_ids, ordering in inventory["orderings"].items():
+        try:
+            pair = (
+                inventory["zone_names_by_id"][pair_ids[0]],
+                inventory["zone_names_by_id"][pair_ids[1]],
+            )
+        except KeyError as exc:
+            raise ResourceContractError(
+                "firewall policy refers to an unknown firewall zone"
+            ) from exc
+        current_by_pair[pair] = {"before_system_defined": [], "after_system_defined": []}
+        for placement in current_by_pair[pair]:
+            for identifier in ordering.get(placement, []):
+                policy = policy_by_id.get(identifier)
+                if policy is not None and firewall_is_user_managed(policy):
+                    current_by_pair[pair][placement].append(str(policy["name"]))
+    for pair, desired_order in desired_by_pair.items():
+        current_order = current_by_pair.get(
+            pair, {"before_system_defined": [], "after_system_defined": []}
+        )
+        if current_order == desired_order:
+            continue
+        plan.diffs.append(
+            ResourceDiff(
+                kind="firewall_rule",
+                action="reorder",
+                name=f"{pair[0]} -> {pair[1]}",
+                payload={
+                    "source_zone": pair[0],
+                    "destination_zone": pair[1],
+                    "before_system_defined": desired_order["before_system_defined"],
+                    "after_system_defined": desired_order["after_system_defined"],
+                },
+                current=current_order,
+                source={"source_zone": pair[0], "destination_zone": pair[1]},
+                warnings=("rule order changes first-match behavior",),
+            )
+        )
+
+
 def build_plan(
     client: Adapter,
     config: dict[str, Any],
@@ -528,6 +942,25 @@ def build_plan(
             plan,
             desired=desired_dns,
             current=client.dns(),
+            prune=prune,
+        )
+    if "firewall" in config:
+        capabilities = getattr(client, "capabilities", None)
+        if capabilities is not None:
+            capabilities.require("firewall", "plan")
+        required_methods = (
+            "firewall_zones",
+            "firewall_traffic_matching_lists",
+            "firewall_policies",
+            "firewall_policy_ordering",
+        )
+        if any(not callable(getattr(client, method, None)) for method in required_methods):
+            raise RuntimeError("selected adapter cannot read firewall resources")
+        _append_firewall_plan(
+            plan,
+            client=client,
+            config=config,
+            current_networks=current_networks,
             prune=prune,
         )
     return plan
@@ -580,6 +1013,19 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
                 key,
                 ResourceKey("network", str(diff.source["network"])),
             )
+        if diff.kind == "firewall_rule" and diff.action != "reorder":
+            for side in (diff.source.get("source", {}), diff.source.get("destination", {})):
+                if side.get("zone"):
+                    graph.add_dependency(key, ResourceKey("firewall_zone", str(side["zone"])))
+                for group_key in ("address_group", "port_group"):
+                    if side.get(group_key):
+                        graph.add_dependency(
+                            key, ResourceKey("firewall_group", str(side[group_key]))
+                        )
+        if diff.kind == "firewall_rule" and diff.action == "reorder":
+            for placement in ("before_system_defined", "after_system_defined"):
+                for name in diff.payload.get(placement, []):
+                    graph.add_dependency(key, ResourceKey("firewall_rule", str(name)))
     dependency_order = graph.topological_order()
 
     def select(predicate: Any, *, reverse: bool = False) -> list[ResourceDiff]:
@@ -594,15 +1040,50 @@ def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
         lambda item: item.kind == "network" and item.action in {"create", "update"}
     )
     dns_writes = select(lambda item: item.kind == "dns" and item.action in {"create", "update"})
+    firewall_zone_writes = select(
+        lambda item: item.kind == "firewall_zone" and item.action in {"create", "update"}
+    )
+    firewall_group_writes = select(
+        lambda item: item.kind == "firewall_group" and item.action in {"create", "update"}
+    )
+    firewall_rule_writes = select(
+        lambda item: item.kind == "firewall_rule" and item.action in {"create", "update"}
+    )
     wlan_deletes = select(
         lambda item: item.kind == "wlan" and item.action == "delete", reverse=True
     )
     dns_deletes = select(lambda item: item.kind == "dns" and item.action == "delete", reverse=True)
+    firewall_rule_deletes = select(
+        lambda item: item.kind == "firewall_rule" and item.action == "delete", reverse=True
+    )
+    firewall_reorders = select(
+        lambda item: item.kind == "firewall_rule" and item.action == "reorder"
+    )
     wlan_writes = select(lambda item: item.kind == "wlan" and item.action in {"create", "update"})
     network_deletes = select(
         lambda item: item.kind == "network" and item.action == "delete", reverse=True
     )
-    return network_writes + dns_writes + wlan_deletes + dns_deletes + wlan_writes + network_deletes
+    firewall_group_deletes = select(
+        lambda item: item.kind == "firewall_group" and item.action == "delete", reverse=True
+    )
+    firewall_zone_deletes = select(
+        lambda item: item.kind == "firewall_zone" and item.action == "delete", reverse=True
+    )
+    return (
+        network_writes
+        + dns_writes
+        + firewall_zone_writes
+        + firewall_group_writes
+        + firewall_rule_writes
+        + wlan_deletes
+        + dns_deletes
+        + firewall_rule_deletes
+        + firewall_reorders
+        + wlan_writes
+        + firewall_group_deletes
+        + firewall_zone_deletes
+        + network_deletes
+    )
 
 
 def _raise_apply_error(
@@ -646,9 +1127,12 @@ def apply_plan(
     plan: Plan,
     *,
     target: TargetIdentity | None = None,
+    acknowledge_firewall_risk: bool = False,
 ) -> None:
     """Apply a plan with dependency ordering and safe partial-failure reports."""
     _verify_plan_target(plan, target)
+    if plan.risk_warnings() and not acknowledge_firewall_risk:
+        raise PlanRiskError(plan.risk_warnings())
     network_base = client.site_url("rest/networkconf")
     wlan_base = client.site_url("rest/wlanconf")
     ordered = _ordered_apply_diffs(plan)
@@ -720,9 +1204,39 @@ def apply_plan(
     for diff in dns_writes:
         apply_dns_diff(diff)
 
+    firewall_changes = [diff for diff in ordered if diff.kind.startswith("firewall_")]
+    firewall_zone_writes = [
+        diff
+        for diff in ordered
+        if diff.kind == "firewall_zone" and diff.action in {"create", "update"}
+    ]
+    firewall_group_writes = [
+        diff
+        for diff in ordered
+        if diff.kind == "firewall_group" and diff.action in {"create", "update"}
+    ]
+    firewall_rule_writes = [
+        diff
+        for diff in ordered
+        if diff.kind == "firewall_rule" and diff.action in {"create", "update"}
+    ]
+    firewall_rule_deletes = [
+        diff for diff in ordered if diff.kind == "firewall_rule" and diff.action == "delete"
+    ]
+    firewall_reorders = [
+        diff for diff in ordered if diff.kind == "firewall_rule" and diff.action == "reorder"
+    ]
+    firewall_group_deletes = [
+        diff for diff in ordered if diff.kind == "firewall_group" and diff.action == "delete"
+    ]
+    firewall_zone_deletes = [
+        diff for diff in ordered if diff.kind == "firewall_zone" and diff.action == "delete"
+    ]
     network_ids: dict[str, str | None] = {}
+    firewall_zone_ids: dict[str, str] = {}
+    firewall_group_ids: dict[str, str] = {}
     template: dict[str, Any] = {}
-    if any(diff.kind in {"network", "wlan"} for diff in ordered):
+    if any(diff.kind in {"network", "wlan"} for diff in ordered) or firewall_changes:
         try:
             fresh_networks = client.networks()
             network_ids = {
@@ -730,12 +1244,21 @@ def apply_plan(
                 for network in fresh_networks
                 if network.get("name") and _object_id(network)
             }
-            existing_wlans = client.wlans()
-            if existing_wlans:
-                template = {
-                    key: value
-                    for key, value in existing_wlans[0].items()
-                    if key not in READ_ONLY_FIELDS | {"name", "x_passphrase", "x_iapp_key"}
+            if any(diff.kind in {"network", "wlan"} for diff in ordered):
+                existing_wlans = client.wlans()
+                if existing_wlans:
+                    template = {
+                        key: value
+                        for key, value in existing_wlans[0].items()
+                        if key not in READ_ONLY_FIELDS | {"name", "x_passphrase", "x_iapp_key"}
+                    }
+            if firewall_changes:
+                firewall_zone_ids = {
+                    str(zone["name"]): str(zone["id"]) for zone in client.firewall_zones()
+                }
+                firewall_group_ids = {
+                    str(group["name"]): str(group["id"])
+                    for group in client.firewall_traffic_matching_lists()
                 }
         except Exception as exc:
             _raise_apply_error(
@@ -750,6 +1273,133 @@ def apply_plan(
                 partial_request=False,
                 cause_type=type(exc).__name__,
             )
+
+    def apply_firewall_zone_diff(diff: ResourceDiff) -> None:
+        partial_request = True
+        try:
+            payload = firewall_zone_to_unifi(
+                diff.payload,
+                {name: identifier for name, identifier in network_ids.items() if identifier},
+            )
+            if diff.action == "create":
+                client.create_firewall_zone(payload)
+            else:
+                if not diff.object_id:
+                    raise RuntimeError("firewall zone update requires a controller object id")
+                client.update_firewall_zone(diff.object_id, payload)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"firewall_zone/{diff.name}",
+                operation=diff.action,
+                phase="firewall",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
+
+    def apply_firewall_group_diff(diff: ResourceDiff) -> None:
+        partial_request = True
+        try:
+            payload = firewall_group_to_unifi(diff.payload)
+            if diff.action == "create":
+                client.create_firewall_traffic_matching_list(payload)
+            else:
+                if not diff.object_id:
+                    raise RuntimeError("firewall group update requires a controller object id")
+                client.update_firewall_traffic_matching_list(diff.object_id, payload)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"firewall_group/{diff.name}",
+                operation=diff.action,
+                phase="firewall",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
+
+    for diff in firewall_zone_writes:
+        apply_firewall_zone_diff(diff)
+    for diff in firewall_group_writes:
+        apply_firewall_group_diff(diff)
+
+    if firewall_zone_writes or firewall_group_writes:
+        try:
+            fresh_networks = client.networks()
+            network_ids = {
+                network["name"]: _object_id(network)
+                for network in fresh_networks
+                if network.get("name") and _object_id(network)
+            }
+            firewall_zone_ids = {
+                str(zone["name"]): str(zone["id"]) for zone in client.firewall_zones()
+            }
+            firewall_group_ids = {
+                str(group["name"]): str(group["id"])
+                for group in client.firewall_traffic_matching_lists()
+            }
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=None,
+                resource="controller firewall inventory",
+                operation="refresh",
+                phase="firewall",
+                partial_request=False,
+                cause_type=type(exc).__name__,
+            )
+
+    def apply_firewall_rule_diff(diff: ResourceDiff) -> None:
+        partial_request = True
+        try:
+            if diff.action == "delete":
+                if not diff.object_id:
+                    raise RuntimeError("firewall rule delete requires a controller object id")
+                client.delete_firewall_policy(diff.object_id)
+            else:
+                payload = firewall_rule_to_unifi(
+                    diff.payload,
+                    zone_ids_by_name=firewall_zone_ids,
+                    network_ids_by_name={
+                        name: identifier for name, identifier in network_ids.items() if identifier
+                    },
+                    group_ids_by_name=firewall_group_ids,
+                )
+                if diff.action == "create":
+                    client.create_firewall_policy(payload)
+                else:
+                    if not diff.object_id:
+                        raise RuntimeError("firewall rule update requires a controller object id")
+                    client.update_firewall_policy(diff.object_id, payload)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"firewall_rule/{diff.name}",
+                operation=diff.action,
+                phase="firewall",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
+
+    for diff in firewall_rule_writes:
+        apply_firewall_rule_diff(diff)
 
     def apply_wlan_diff(diff: ResourceDiff) -> None:
         partial_request = False
@@ -800,11 +1450,111 @@ def apply_plan(
     for diff in dns_deletes:
         apply_dns_diff(diff)
 
+    for diff in firewall_rule_deletes:
+        apply_firewall_rule_diff(diff)
+
+    if firewall_reorders:
+        try:
+            fresh_zones = client.firewall_zones()
+            firewall_zone_ids = {str(zone["name"]): str(zone["id"]) for zone in fresh_zones}
+            fresh_policies = client.firewall_policies()
+            firewall_policy_ids = {
+                str(policy["name"]): str(policy["id"]) for policy in fresh_policies
+            }
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=None,
+                resource="controller firewall inventory",
+                operation="refresh",
+                phase="firewall",
+                partial_request=False,
+                cause_type=type(exc).__name__,
+            )
+        for diff in firewall_reorders:
+            partial_request = True
+            try:
+                source_zone = diff.payload["source_zone"]
+                destination_zone = diff.payload["destination_zone"]
+                source_zone_id = firewall_zone_ids[source_zone]
+                destination_zone_id = firewall_zone_ids[destination_zone]
+                before_ids = [
+                    firewall_policy_ids[name] for name in diff.payload["before_system_defined"]
+                ]
+                after_ids = [
+                    firewall_policy_ids[name] for name in diff.payload["after_system_defined"]
+                ]
+                client.reorder_firewall_policies(
+                    source_zone_id,
+                    destination_zone_id,
+                    after_system_defined=after_ids,
+                    before_system_defined=before_ids,
+                )
+            except Exception as exc:
+                _raise_apply_error(
+                    client,
+                    plan,
+                    ordered=ordered,
+                    completed=completed,
+                    failed=diff,
+                    resource=f"firewall_rule/{diff.name}",
+                    operation="reorder",
+                    phase="firewall",
+                    partial_request=partial_request,
+                    cause_type=type(exc).__name__,
+                )
+            completed.append(diff)
+
     wlan_writes = [
         diff for diff in ordered if diff.kind == "wlan" and diff.action in {"create", "update"}
     ]
     for diff in wlan_writes:
         apply_wlan_diff(diff)
+
+    for diff in firewall_group_deletes:
+        partial_request = True
+        try:
+            if not diff.object_id:
+                raise RuntimeError("firewall group delete requires a controller object id")
+            client.delete_firewall_traffic_matching_list(diff.object_id)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"firewall_group/{diff.name}",
+                operation="delete",
+                phase="firewall",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
+
+    for diff in firewall_zone_deletes:
+        partial_request = True
+        try:
+            if not diff.object_id:
+                raise RuntimeError("firewall zone delete requires a controller object id")
+            client.delete_firewall_zone(diff.object_id)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"firewall_zone/{diff.name}",
+                operation="delete",
+                phase="firewall",
+                partial_request=partial_request,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
 
     network_deletes = [
         diff for diff in ordered if diff.kind == "network" and diff.action == "delete"

@@ -1049,13 +1049,19 @@ def export_firewall_config(
                 f"missing firewall policy ordering for {source_zone_id}/{destination_zone_id}"
             )
         placement = "after_system_defined"
-        order = len(ordering.get("after_system_defined", []))
+        order = 0
+        found_in_ordering = False
         for candidate_placement in ("before_system_defined", "after_system_defined"):
             ids = list(ordering.get(candidate_placement, []))
             if policy["id"] in ids:
                 placement = candidate_placement
                 order = ids.index(policy["id"])
+                found_in_ordering = True
                 break
+        if not found_in_ordering:
+            raise FirewallError(
+                f"firewall policy {policy['name']} is absent from its controller ordering"
+            )
         exported_rules.append(
             firewall_policy_to_portable(
                 policy,
@@ -1114,6 +1120,158 @@ def export_firewall_config(
     }
 
 
+def firewall_zone_to_unifi(
+    zone: Mapping[str, Any], network_ids_by_name: Mapping[str, str]
+) -> dict[str, Any]:
+    """Convert one portable zone to the official Integration API payload."""
+    networks = zone.get("networks", [])
+    try:
+        network_ids = [network_ids_by_name[name] for name in networks]
+    except KeyError as exc:
+        raise FirewallError(
+            f"firewall zone {zone.get('name')} refers to an unknown network"
+        ) from exc
+    return {"name": zone["name"], "networkIds": network_ids}
+
+
+def firewall_group_to_unifi(group: Mapping[str, Any]) -> dict[str, Any]:
+    """Convert one portable address or port group to the official payload."""
+    if "addresses" in group:
+        normalized = normalize_address_items(group["addresses"], f"group {group['name']}.addresses")
+        family = normalized[0]["family"]
+        list_type = "IPV4_ADDRESSES" if family == 4 else "IPV6_ADDRESSES"
+        items = [
+            {key: value for key, value in item.items() if key != "family"} for item in normalized
+        ]
+    elif "ports" in group:
+        normalized = normalize_port_items(group["ports"], f"group {group['name']}.ports")
+        list_type = "PORTS"
+        items = normalized
+    else:
+        raise FirewallError(f"firewall group {group.get('name')} has no addresses or ports")
+    return {"name": group["name"], "type": list_type, "items": items}
+
+
+def _firewall_port_filter(group_id: str, match_opposite: bool) -> dict[str, Any]:
+    return {
+        "type": "TRAFFIC_MATCHING_LIST",
+        "trafficMatchingListId": group_id,
+        "matchOpposite": match_opposite,
+    }
+
+
+def _firewall_endpoint_to_unifi(
+    side: Mapping[str, Any],
+    *,
+    network_ids_by_name: Mapping[str, str],
+    group_ids_by_name: Mapping[str, str],
+) -> dict[str, Any]:
+    try:
+        zone_id = group_ids_by_name[side["zone"]]
+    except KeyError as exc:
+        raise FirewallError(f"firewall rule refers to an unknown zone: {side.get('zone')}") from exc
+    endpoint: dict[str, Any] = {"zoneId": zone_id}
+    traffic_filter: dict[str, Any] | None = None
+    match_opposite = bool(side.get("match_opposite", False))
+    if side.get("networks"):
+        try:
+            network_ids = [network_ids_by_name[name] for name in side["networks"]]
+        except KeyError as exc:
+            raise FirewallError(
+                f"firewall rule refers to an unknown network: {exc.args[0]}"
+            ) from exc
+        traffic_filter = {
+            "type": "NETWORK",
+            "networkFilter": {"networkIds": network_ids, "matchOpposite": match_opposite},
+        }
+    elif side.get("address_group"):
+        try:
+            group_id = group_ids_by_name[side["address_group"]]
+        except KeyError as exc:
+            raise FirewallError(
+                f"firewall rule refers to an unknown address group: {side['address_group']}"
+            ) from exc
+        traffic_filter = {
+            "type": "IP_ADDRESS",
+            "ipAddressFilter": {
+                "type": "TRAFFIC_MATCHING_LIST",
+                "trafficMatchingListId": group_id,
+                "matchOpposite": match_opposite,
+            },
+        }
+    if side.get("port_group"):
+        try:
+            port_group_id = group_ids_by_name[side["port_group"]]
+        except KeyError as exc:
+            raise FirewallError(
+                f"firewall rule refers to an unknown port group: {side['port_group']}"
+            ) from exc
+        port_filter = _firewall_port_filter(
+            port_group_id, bool(side.get("port_match_opposite", False))
+        )
+        if traffic_filter is None:
+            traffic_filter = {"type": "PORT"}
+        traffic_filter["portFilter"] = port_filter
+    if traffic_filter is not None:
+        endpoint["trafficFilter"] = traffic_filter
+    return endpoint
+
+
+def firewall_rule_to_unifi(
+    rule: Mapping[str, Any],
+    *,
+    zone_ids_by_name: Mapping[str, str],
+    network_ids_by_name: Mapping[str, str],
+    group_ids_by_name: Mapping[str, str],
+) -> dict[str, Any]:
+    """Convert one portable rule to the official Integration API payload."""
+    endpoint_ids = dict(group_ids_by_name)
+    endpoint_ids.update(zone_ids_by_name)
+    payload: dict[str, Any] = {
+        "name": rule["name"],
+        "enabled": rule.get("enabled", True),
+        "action": {"type": rule["action"]},
+        "source": _firewall_endpoint_to_unifi(
+            rule["source"],
+            network_ids_by_name=network_ids_by_name,
+            group_ids_by_name=endpoint_ids,
+        ),
+        "destination": _firewall_endpoint_to_unifi(
+            rule["destination"],
+            network_ids_by_name=network_ids_by_name,
+            group_ids_by_name=endpoint_ids,
+        ),
+        "ipProtocolScope": {"ipVersion": rule.get("ip_version", "IPV4_AND_IPV6")},
+        "loggingEnabled": rule.get("logging", False),
+    }
+    if rule["action"] == "ALLOW":
+        payload["action"]["allowReturnTraffic"] = rule.get("allow_return_traffic", False)
+    if rule.get("protocol"):
+        protocol = rule["protocol"]
+        if protocol == "TCP_UDP":
+            protocol_filter = {"type": "PRESET", "preset": {"name": "TCP_UDP"}}
+        else:
+            protocol_filter = {
+                "type": "NAMED_PROTOCOL",
+                "matchOpposite": False,
+                "protocol": {"name": protocol.lower()},
+            }
+        payload["ipProtocolScope"]["protocolFilter"] = protocol_filter
+    elif rule.get("protocol_number") is not None:
+        payload["ipProtocolScope"]["protocolFilter"] = {
+            "type": "PROTOCOL_NUMBER",
+            "matchOpposite": False,
+            "protocolNumber": rule["protocol_number"],
+        }
+    if rule.get("connection_states") is not None:
+        payload["connectionStateFilter"] = list(rule["connection_states"])
+    if rule.get("ipsec") is not None:
+        payload["ipsecFilter"] = rule["ipsec"]
+    if rule.get("description") is not None:
+        payload["description"] = rule["description"]
+    return payload
+
+
 def firewall_is_user_managed(value: Mapping[str, Any]) -> bool:
     """Return whether a live firewall object may be mutated or pruned."""
     return str(value.get("_origin", "UNKNOWN")).upper() in FIREWALL_USER_ORIGINS
@@ -1138,6 +1296,9 @@ __all__ = [
     "firewall_is_user_managed",
     "firewall_policy_to_portable",
     "export_firewall_config",
+    "firewall_group_to_unifi",
+    "firewall_rule_to_unifi",
+    "firewall_zone_to_unifi",
     "normalize_address_item",
     "normalize_address_items",
     "normalize_port_item",

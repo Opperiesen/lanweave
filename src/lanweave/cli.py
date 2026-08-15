@@ -17,7 +17,14 @@ from .backup import capture_backup, default_backup_dir, write_backup
 from .client import CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
 from .export import export_yaml
-from .plan import Plan, PlanApplyError, PlanTargetMismatchError, apply_plan, build_plan
+from .plan import (
+    Plan,
+    PlanApplyError,
+    PlanRiskError,
+    PlanTargetMismatchError,
+    apply_plan,
+    build_plan,
+)
 from .profiles import (
     ResolvedTarget,
     auth_mode_for_identity,
@@ -131,6 +138,11 @@ def build_parser() -> argparse.ArgumentParser:
                 action="store_true",
                 help="confirm the complete plan without an interactive prompt",
             )
+            command_parser.add_argument(
+                "--acknowledge-firewall-risk",
+                action="store_true",
+                help="allow reviewed firewall plans that contain risk warnings",
+            )
 
     backup_parser = subparsers.add_parser("backup", help="write a redacted local snapshot")
     backup_parser.add_argument(
@@ -200,9 +212,14 @@ def _validate(path: Path) -> int:
     except ConfigError as exc:
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
+    firewall = config.get("firewall") or {}
     print(
         f"valid configuration: {len(config['networks'])} network(s), "
-        f"{len(config['wlans'])} WLAN(s), {len(config.get('dns', []))} DNS record(s)"
+        f"{len(config['wlans'])} WLAN(s), {len(config.get('dns', []))} DNS record(s), "
+        f"{len(firewall.get('zones', []))} firewall zone(s), "
+        f"{len(firewall.get('address_groups', []))} address group(s), "
+        f"{len(firewall.get('port_groups', []))} port group(s), "
+        f"{len(firewall.get('rules', []))} firewall rule(s)"
     )
     return 0
 
@@ -226,11 +243,16 @@ def _profiles_validate(path: Path) -> int:
     except ConfigError as exc:
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
+    firewall = config.get("firewall") or {}
     print(
         "valid configuration: "
         f"version={config['version']} profiles={len(identities)} "
         f"networks={len(config['networks'])} wlans={len(config['wlans'])} "
-        f"dns={len(config.get('dns', []))}"
+        f"dns={len(config.get('dns', []))} "
+        f"firewall_zones={len(firewall.get('zones', []))} "
+        f"firewall_address_groups={len(firewall.get('address_groups', []))} "
+        f"firewall_port_groups={len(firewall.get('port_groups', []))} "
+        f"firewall_rules={len(firewall.get('rules', []))}"
     )
     return 0
 
@@ -373,11 +395,15 @@ def _render_plan(plan: Plan, output: str) -> None:
         f"-{summary['delete']} delete  "
         f"={summary['noop']} unchanged"
     )
+    if summary.get("reorder"):
+        print(f"!{summary['reorder']} reorder")
     for diff in plan.diffs:
         if diff.action == "noop":
             continue
         fields = ", ".join(diff.changed_fields) or "-"
         print(f"{diff.action:>6}  {diff.kind:<7} {diff.name:<30} {fields}")
+        for warning in diff.warnings:
+            print(f"WARNING  {diff.kind}/{diff.name}: {warning}")
 
 
 def _load_runtime_config(path: Path) -> dict[str, Any]:
@@ -411,9 +437,27 @@ def _plan_with_client(
     return 0
 
 
-def _confirm_apply(plan: Plan, prune: bool, yes: bool) -> bool:
+def _confirm_apply(
+    plan: Plan,
+    prune: bool,
+    yes: bool,
+    acknowledge_firewall_risk: bool,
+) -> bool:
     if not plan.has_changes():
         return True
+    warnings = plan.risk_warnings()
+    if warnings and not acknowledge_firewall_risk:
+        if yes or not sys.stdin.isatty():
+            print(
+                "refusing risky firewall apply; pass --acknowledge-firewall-risk "
+                "after reviewing the plan warnings",
+                file=sys.stderr,
+            )
+            return False
+        answer = input("Type ACKNOWLEDGE_FIREWALL_RISK to allow risky firewall operations: ")
+        if answer != "ACKNOWLEDGE_FIREWALL_RISK":
+            print("firewall risk acknowledgement cancelled")
+            return False
     if yes:
         return True
     if not sys.stdin.isatty():
@@ -434,7 +478,14 @@ def _confirm_apply(plan: Plan, prune: bool, yes: bool) -> bool:
     return True
 
 
-def _apply(path: Path, prune: bool, output: str, yes: bool, profile: str | None) -> int:
+def _apply(
+    path: Path,
+    prune: bool,
+    output: str,
+    yes: bool,
+    acknowledge_firewall_risk: bool,
+    profile: str | None,
+) -> int:
     try:
         target_config = load_config(path)
         config = _load_runtime_config(path)
@@ -448,11 +499,16 @@ def _apply(path: Path, prune: bool, output: str, yes: bool, profile: str | None)
         if not plan.has_changes():
             print("nothing to apply")
             return 0
-        if not _confirm_apply(plan, prune, yes):
+        if not _confirm_apply(plan, prune, yes, acknowledge_firewall_risk):
             return 2
         try:
-            apply_plan(client, plan, target=target.identity)
-        except (PlanApplyError, PlanTargetMismatchError) as exc:
+            apply_plan(
+                client,
+                plan,
+                target=target.identity,
+                acknowledge_firewall_risk=acknowledge_firewall_risk,
+            )
+        except (PlanApplyError, PlanRiskError, PlanTargetMismatchError) as exc:
             if output == "json":
                 print(json.dumps(exc.to_dict(), indent=2, sort_keys=True), file=sys.stderr)
             else:
@@ -566,7 +622,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "plan":
         return _plan(args.config, args.prune, args.output, args.profile)
     if args.command == "apply":
-        return _apply(args.config, args.prune, args.output, args.yes, args.profile)
+        return _apply(
+            args.config,
+            args.prune,
+            args.output,
+            args.yes,
+            args.acknowledge_firewall_risk,
+            args.profile,
+        )
     if args.command == "backup":
         return _backup(args.output, args.config, args.profile)
     if args.command == "status":

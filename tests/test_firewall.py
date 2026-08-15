@@ -3,7 +3,10 @@ import pytest
 from lanweave.firewall import (
     FirewallError,
     export_firewall_config,
+    firewall_group_to_unifi,
     firewall_rule_is_broad,
+    firewall_rule_to_unifi,
+    firewall_zone_to_unifi,
     normalize_address_items,
     normalize_controller_firewall_policy,
     normalize_controller_firewall_zone,
@@ -229,3 +232,109 @@ def test_firewall_export_is_secret_free_and_preserves_group_references() -> None
     assert exported["rules"][0]["protocol"] == "TCP"
     assert "policy-1" not in str(exported)
     assert "zone-custom" not in str(exported)
+
+
+def test_firewall_payloads_follow_integration_api_shape() -> None:
+    assert firewall_zone_to_unifi(
+        {"name": "Trusted", "networks": ["Home"]},
+        {"Home": "network-home"},
+    ) == {"name": "Trusted", "networkIds": ["network-home"]}
+    assert firewall_group_to_unifi(
+        {"name": "web", "ports": [443, {"start": 8000, "stop": 8080}]}
+    ) == {
+        "name": "web",
+        "type": "PORTS",
+        "items": [
+            {"type": "PORT_NUMBER", "value": 443},
+            {"type": "PORT_NUMBER_RANGE", "start": 8000, "stop": 8080},
+        ],
+    }
+    assert firewall_rule_to_unifi(
+        {
+            "name": "allow-web",
+            "source": {"zone": "Trusted", "address_group": "servers"},
+            "destination": {"zone": "LAN", "port_group": "web"},
+            "action": "ALLOW",
+            "enabled": True,
+            "ip_version": "IPV4",
+            "protocol": "TCP",
+            "connection_states": ["NEW"],
+            "logging": False,
+            "allow_return_traffic": True,
+        },
+        zone_ids_by_name={"Trusted": "zone-trusted", "LAN": "zone-lan"},
+        network_ids_by_name={"Home": "network-home"},
+        group_ids_by_name={"servers": "group-servers", "web": "group-web"},
+    ) == {
+        "name": "allow-web",
+        "enabled": True,
+        "action": {"type": "ALLOW", "allowReturnTraffic": True},
+        "source": {
+            "zoneId": "zone-trusted",
+            "trafficFilter": {
+                "type": "IP_ADDRESS",
+                "ipAddressFilter": {
+                    "type": "TRAFFIC_MATCHING_LIST",
+                    "trafficMatchingListId": "group-servers",
+                    "matchOpposite": False,
+                },
+            },
+        },
+        "destination": {
+            "zoneId": "zone-lan",
+            "trafficFilter": {
+                "type": "PORT",
+                "portFilter": {
+                    "type": "TRAFFIC_MATCHING_LIST",
+                    "trafficMatchingListId": "group-web",
+                    "matchOpposite": False,
+                },
+            },
+        },
+        "ipProtocolScope": {
+            "ipVersion": "IPV4",
+            "protocolFilter": {
+                "type": "NAMED_PROTOCOL",
+                "matchOpposite": False,
+                "protocol": {"name": "tcp"},
+            },
+        },
+        "connectionStateFilter": ["NEW"],
+        "loggingEnabled": False,
+    }
+
+
+def test_firewall_export_rejects_policy_missing_from_ordering() -> None:
+    policy = normalize_controller_firewall_policy(
+        {
+            "id": "policy-1",
+            "name": "allow-web",
+            "action": {"type": "ALLOW"},
+            "source": {"zoneId": "zone-lan"},
+            "destination": {"zoneId": "zone-lan"},
+            "ipProtocolScope": {"ipVersion": "IPV4_AND_IPV6"},
+            "metadata": {"origin": "USER_DEFINED"},
+        }
+    )
+
+    with pytest.raises(FirewallError, match="absent from its controller ordering"):
+        export_firewall_config(
+            zones=[
+                normalize_controller_firewall_zone(
+                    {
+                        "id": "zone-lan",
+                        "name": "LAN",
+                        "metadata": {"origin": "SYSTEM_DEFINED"},
+                    }
+                )
+            ],
+            groups=[],
+            policies=[policy],
+            orderings={
+                ("zone-lan", "zone-lan"): {
+                    "before_system_defined": [],
+                    "after_system_defined": [],
+                }
+            },
+            network_names_by_id={},
+        )

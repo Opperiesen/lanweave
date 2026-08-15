@@ -181,12 +181,19 @@ def create_server() -> Any:
     def lanweave_validate_config(config_path: str = "config/network.yaml") -> dict[str, Any]:
         """Validate a local declarative configuration without contacting UniFi."""
         config = load_config(Path(config_path))
+        firewall = config.get("firewall") or {}
         return {
             "valid": True,
             "version": config.get("version", CONFIG_SCHEMA_VERSION),
             "networks": len(config["networks"]),
             "wlans": len(config["wlans"]),
             "dns": len(config.get("dns", [])),
+            "firewall": {
+                "zones": len(firewall.get("zones", [])),
+                "address_groups": len(firewall.get("address_groups", [])),
+                "port_groups": len(firewall.get("port_groups", [])),
+                "rules": len(firewall.get("rules", [])),
+            },
         }
 
     @server.tool()

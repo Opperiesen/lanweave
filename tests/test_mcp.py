@@ -179,7 +179,14 @@ def test_mcp_v2_requires_selection_and_exposes_only_sanitized_target(
     assert "LANWEAVE_LOCAL_API_KEY" not in str(plan)
 
     validate_tool = server._tool_manager.get_tool("lanweave_validate_config")
-    assert validate_tool.fn(str(config_path))["version"] == 2
+    validated = validate_tool.fn(str(config_path))
+    assert validated["version"] == 2
+    assert validated["firewall"] == {
+        "zones": 0,
+        "address_groups": 0,
+        "port_groups": 0,
+        "rules": 0,
+    }
 
 
 def test_mcp_v1_environment_only_health_remains_callable(monkeypatch: pytest.MonkeyPatch) -> None:

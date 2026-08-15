@@ -169,12 +169,18 @@ def firewall_mutation_target(integration_client: UniFiClient) -> FirewallMutatio
     if not prefix.startswith("lanweave-ci-"):
         pytest.fail("firewall mutation prefix must start with lanweave-ci-")
     run_id = _env("LANWEAVE_INTEGRATION_RUN_ID") or "local"
+    resource_prefix = f"{prefix}{run_id}-"
     names = {
-        "address_group": f"{prefix}{run_id}-fw-addresses",
-        "port_group": f"{prefix}{run_id}-fw-ports",
-        "first_rule": f"{prefix}{run_id}-fw-first",
-        "second_rule": f"{prefix}{run_id}-fw-second",
+        "address_group": f"{resource_prefix}fw-addresses",
+        "port_group": f"{resource_prefix}fw-ports",
+        "first_rule": f"{resource_prefix}fw-first",
+        "second_rule": f"{resource_prefix}fw-second",
     }
     if any(len(name) > 64 for name in names.values()):
         pytest.fail("firewall mutation resource names must be at most 64 characters")
-    return FirewallMutationTarget(client=integration_client, prefix=prefix, zone="LAN", **names)
+    return FirewallMutationTarget(
+        client=integration_client,
+        prefix=resource_prefix,
+        zone="LAN",
+        **names,
+    )

@@ -1,0 +1,24 @@
+version: 1
+
+controller:
+  site: default
+
+networks: []
+wlans: []
+
+dns:
+  - name: printer.home.arpa
+    type: A
+    address: 192.0.2.10
+    ttl_seconds: 300
+    enabled: true
+
+  - name: printer-v6.home.arpa
+    type: AAAA
+    address: 2001:db8::10
+    ttl_seconds: 600
+
+  - name: portal.home.arpa
+    type: CNAME
+    target: printer.home.arpa
+    ttl_seconds: 3600

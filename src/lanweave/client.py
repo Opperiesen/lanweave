@@ -18,6 +18,7 @@ from .adapters import (
     AdapterCapabilities,
     local_classic_capabilities,
 )
+from .dns import normalize_controller_dns_list
 
 INTEGRATION_API_PREFIX = "/proxy/network/integration/v1"
 INTEGRATION_PAGE_SIZE = 200
@@ -243,8 +244,12 @@ class LocalClassicAdapter:
         return f"/proxy/network/api/s/{self.settings.site}/{path.lstrip('/')}"
 
     def _integration_response(self, method: str, path: str, **kwargs: Any) -> Any:
-        if method.upper() != "GET":
-            raise RuntimeError("API-key mode currently supports read-only integration endpoints")
+        normalized_path = path.rstrip("/")
+        is_dns_policy_path = "/dns/policies" in normalized_path
+        if method.upper() != "GET" and not is_dns_policy_path:
+            raise RuntimeError(
+                "API-key mode supports mutations only for the DNS policy integration endpoint"
+            )
         url = urljoin("/", f"{INTEGRATION_API_PREFIX}/{path.lstrip('/')}")
         response = self._http.request(
             method,
@@ -394,6 +399,43 @@ class LocalClassicAdapter:
                 for item in self._integration_list(self._integration_site_path("wifi/broadcasts"))
             ]
         return self.get(self.site_url("rest/wlanconf")) or []
+
+    def dns(self) -> list[dict[str, Any]]:
+        """List supported DNS policies through the official Integration API."""
+        if not self.settings.api_key:
+            raise RuntimeError("DNS policy support requires an Integration API key")
+        return normalize_controller_dns_list(
+            self._integration_list(self._integration_site_path("dns/policies"))
+        )
+
+    def create_dns(self, payload: dict[str, Any]) -> Any:
+        """Create one DNS policy through the API-key-only Integration API."""
+        if not self.settings.api_key:
+            raise RuntimeError("DNS policy support requires an Integration API key")
+        return self._integration_request(
+            "POST",
+            self._integration_site_path("dns/policies"),
+            json=payload,
+        )
+
+    def update_dns(self, object_id: str, payload: dict[str, Any]) -> Any:
+        """Update one DNS policy through the API-key-only Integration API."""
+        if not self.settings.api_key:
+            raise RuntimeError("DNS policy support requires an Integration API key")
+        return self._integration_request(
+            "PUT",
+            self._integration_site_path(f"dns/policies/{object_id}"),
+            json=payload,
+        )
+
+    def delete_dns(self, object_id: str) -> Any:
+        """Delete one DNS policy through the API-key-only Integration API."""
+        if not self.settings.api_key:
+            raise RuntimeError("DNS policy support requires an Integration API key")
+        return self._integration_request(
+            "DELETE",
+            self._integration_site_path(f"dns/policies/{object_id}"),
+        )
 
     def devices(self) -> list[dict[str, Any]]:
         if self.settings.api_key:

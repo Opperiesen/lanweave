@@ -237,6 +237,18 @@ class SiteManagerClient:
     def wlans(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "wlans", "read")
 
+    def dns(self) -> list[dict[str, Any]]:
+        raise UnsupportedCapabilityError(self.adapter_name, "dns", "read")
+
+    def create_dns(self, payload: dict[str, Any]) -> Any:
+        raise UnsupportedCapabilityError(self.adapter_name, "dns", "apply")
+
+    def update_dns(self, object_id: str, payload: dict[str, Any]) -> Any:
+        raise UnsupportedCapabilityError(self.adapter_name, "dns", "apply")
+
+    def delete_dns(self, object_id: str) -> Any:
+        raise UnsupportedCapabilityError(self.adapter_name, "dns", "prune")
+
     def get(self, path: str, **kwargs: Any) -> Any:
         raise UnsupportedCapabilityError(self.adapter_name, "controller", "read")
 

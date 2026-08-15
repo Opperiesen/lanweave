@@ -32,6 +32,10 @@
     "wlans": {
       "type": "array",
       "items": { "$ref": "config-v1.schema.json#/$defs/wlan" }
+    },
+    "dns": {
+      "type": "array",
+      "items": { "$ref": "config-v1.schema.json#/$defs/dns_record" }
     }
   }
 }

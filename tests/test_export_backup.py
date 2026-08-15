@@ -33,6 +33,28 @@ class ExportController:
             }
         ]
 
+    def dns(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "_id": "dns-user",
+                "_origin": "USER",
+                "name": "printer.home.arpa",
+                "type": "A",
+                "address": "192.0.2.10",
+                "ttl_seconds": 300,
+                "enabled": True,
+            },
+            {
+                "_id": "dns-system",
+                "_origin": "SYSTEM",
+                "name": "gateway.home.arpa",
+                "type": "A",
+                "address": "192.0.2.1",
+                "ttl_seconds": 300,
+                "enabled": True,
+            },
+        ]
+
 
 def test_export_uses_environment_reference_instead_of_password() -> None:
     exported = export_config(ExportController())
@@ -42,6 +64,17 @@ def test_export_uses_environment_reference_instead_of_password() -> None:
     assert wlan["password_env"] == "WIFI_HOME_PASSWORD"
     assert "x_passphrase" not in str(exported)
     assert "never-export-this" not in str(exported)
+    assert exported["dns"] == [
+        {
+            "name": "printer.home.arpa",
+            "type": "A",
+            "address": "192.0.2.10",
+            "ttl_seconds": 300,
+            "enabled": True,
+        }
+    ]
+    assert "dns-user" not in str(exported)
+    assert "gateway.home.arpa" not in str(exported)
 
 
 def test_backup_redacts_nested_sensitive_fields() -> None:

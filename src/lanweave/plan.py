@@ -9,7 +9,15 @@ from urllib.parse import urlsplit
 
 from .adapters import Adapter
 from .contracts import PLAN_FORMAT_VERSION
+from .dns import (
+    dns_display_name,
+    dns_is_user_managed,
+    dns_record_identity,
+    dns_to_unifi,
+    validate_dns_records,
+)
 from .profiles import TargetIdentity
+from .resources import DependencyGraph, ResourceContractError, ResourceKey
 
 SENSITIVE_FIELDS = {
     "api_key",
@@ -402,6 +410,81 @@ def _append_resource_plan(
             )
 
 
+def _dns_current_payload(record: dict[str, Any]) -> dict[str, Any]:
+    """Render a normalized live record for plan comparison and updates."""
+    payload = dns_to_unifi(record)
+    if record.get("_origin") is not None:
+        payload["_origin"] = record["_origin"]
+    return payload
+
+
+def _append_dns_plan(
+    plan: Plan,
+    *,
+    desired: list[dict[str, Any]],
+    current: list[dict[str, Any]],
+    prune: bool,
+) -> None:
+    """Append DNS changes while protecting system and unknown-origin records."""
+    desired_records = validate_dns_records(desired)
+    current_by_identity = {dns_record_identity(record): record for record in current}
+    desired_identities = {dns_record_identity(record) for record in desired_records}
+
+    for source in desired_records:
+        identity = dns_record_identity(source)
+        name = dns_display_name(source)
+        existing = current_by_identity.get(identity)
+        payload = dns_to_unifi(source)
+        if existing is None:
+            plan.diffs.append(
+                ResourceDiff(kind="dns", action="create", name=name, payload=payload, source=source)
+            )
+            continue
+        current_payload = _dns_current_payload(existing)
+        if not _significant_diff(payload, current_payload):
+            plan.diffs.append(ResourceDiff(kind="dns", action="noop", name=name, source=source))
+            continue
+        if not dns_is_user_managed(existing):
+            origin = existing.get("_origin", "UNKNOWN")
+            raise ResourceContractError(
+                f"refusing to mutate DNS record with protected origin {origin}: {name}"
+            )
+        object_id = _object_id(existing)
+        if not object_id:
+            raise ResourceContractError(f"managed DNS record has no controller id: {name}")
+        plan.diffs.append(
+            ResourceDiff(
+                kind="dns",
+                action="update",
+                name=name,
+                payload=payload,
+                current=current_payload,
+                object_id=object_id,
+                source=source,
+            )
+        )
+
+    if not prune:
+        return
+    for identity in sorted(set(current_by_identity) - desired_identities):
+        existing = current_by_identity[identity]
+        if not dns_is_user_managed(existing):
+            continue
+        name = dns_display_name(existing)
+        object_id = _object_id(existing)
+        if not object_id:
+            raise ResourceContractError(f"managed DNS record has no controller id: {name}")
+        plan.diffs.append(
+            ResourceDiff(
+                kind="dns",
+                action="delete",
+                name=name,
+                current=_dns_current_payload(existing),
+                object_id=object_id,
+            )
+        )
+
+
 def build_plan(
     client: Adapter,
     config: dict[str, Any],
@@ -434,6 +517,19 @@ def build_plan(
         payload_factory=lambda wlan: wlan_to_unifi(wlan, network_ids),
         prune=prune,
     )
+    desired_dns = validate_dns_records(config.get("dns", []))
+    if desired_dns or (prune and "dns" in config):
+        capabilities = getattr(client, "capabilities", None)
+        if capabilities is not None:
+            capabilities.require("dns", "plan")
+        if not callable(getattr(client, "dns", None)):
+            raise RuntimeError("selected adapter cannot read DNS policies")
+        _append_dns_plan(
+            plan,
+            desired=desired_dns,
+            current=client.dns(),
+            prune=prune,
+        )
     return plan
 
 
@@ -471,19 +567,42 @@ def _target_label(client: Adapter, identity: TargetIdentity | None = None) -> st
 
 def _ordered_apply_diffs(plan: Plan) -> list[ResourceDiff]:
     """Return the exact dependency-safe execution order for a plan."""
-    network_writes = [
-        diff
-        for diff in plan.diffs
-        if diff.kind == "network" and diff.action in {"create", "update"}
-    ]
-    wlan_deletes = [diff for diff in plan.diffs if diff.kind == "wlan" and diff.action == "delete"]
-    wlan_writes = [
-        diff for diff in plan.diffs if diff.kind == "wlan" and diff.action in {"create", "update"}
-    ]
-    network_deletes = [
-        diff for diff in plan.diffs if diff.kind == "network" and diff.action == "delete"
-    ]
-    return network_writes + wlan_deletes + wlan_writes + network_deletes
+    graph = DependencyGraph()
+    diffs_by_key: dict[ResourceKey, ResourceDiff] = {}
+    for diff in plan.diffs:
+        if diff.action == "noop":
+            continue
+        key = ResourceKey(diff.kind, diff.name)
+        graph.add(key)
+        diffs_by_key[key] = diff
+        if diff.kind == "wlan" and diff.source.get("network"):
+            graph.add_dependency(
+                key,
+                ResourceKey("network", str(diff.source["network"])),
+            )
+    dependency_order = graph.topological_order()
+
+    def select(predicate: Any, *, reverse: bool = False) -> list[ResourceDiff]:
+        keys = list(reversed(dependency_order)) if reverse else dependency_order
+        return [
+            diffs_by_key[key]
+            for key in keys
+            if key in diffs_by_key and predicate(diffs_by_key[key])
+        ]
+
+    network_writes = select(
+        lambda item: item.kind == "network" and item.action in {"create", "update"}
+    )
+    dns_writes = select(lambda item: item.kind == "dns" and item.action in {"create", "update"})
+    wlan_deletes = select(
+        lambda item: item.kind == "wlan" and item.action == "delete", reverse=True
+    )
+    dns_deletes = select(lambda item: item.kind == "dns" and item.action == "delete", reverse=True)
+    wlan_writes = select(lambda item: item.kind == "wlan" and item.action in {"create", "update"})
+    network_deletes = select(
+        lambda item: item.kind == "network" and item.action == "delete", reverse=True
+    )
+    return network_writes + dns_writes + wlan_deletes + dns_deletes + wlan_writes + network_deletes
 
 
 def _raise_apply_error(
@@ -568,37 +687,71 @@ def apply_plan(
             )
         completed.append(diff)
 
-    try:
-        fresh_networks = client.networks()
-        network_ids = {
-            network["name"]: _object_id(network)
-            for network in fresh_networks
-            if network.get("name") and _object_id(network)
-        }
-        existing_wlans = client.wlans()
-        template = {}
-        if existing_wlans:
-            template = {
-                key: value
-                for key, value in existing_wlans[0].items()
-                if key not in READ_ONLY_FIELDS | {"name", "x_passphrase", "x_iapp_key"}
-            }
-    except Exception as exc:
-        _raise_apply_error(
-            client,
-            plan,
-            ordered=ordered,
-            completed=completed,
-            failed=None,
-            resource="controller inventory",
-            operation="refresh",
-            phase="inventory",
-            partial_request=False,
-            cause_type=type(exc).__name__,
-        )
+    def apply_dns_diff(diff: ResourceDiff) -> None:
+        try:
+            if diff.action == "create":
+                client.create_dns(diff.payload)
+            elif diff.action == "update":
+                if not diff.object_id:
+                    raise RuntimeError("DNS update requires a controller object id")
+                client.update_dns(diff.object_id, diff.payload)
+            else:
+                if not diff.object_id:
+                    raise RuntimeError("DNS delete requires a controller object id")
+                client.delete_dns(diff.object_id)
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=diff,
+                resource=f"dns/{diff.name}",
+                operation=diff.action,
+                phase="dns",
+                partial_request=False,
+                cause_type=type(exc).__name__,
+            )
+        completed.append(diff)
 
-    wlan_diffs = [diff for diff in ordered if diff.kind == "wlan"]
-    for diff in wlan_diffs:
+    dns_writes = [
+        diff for diff in ordered if diff.kind == "dns" and diff.action in {"create", "update"}
+    ]
+    for diff in dns_writes:
+        apply_dns_diff(diff)
+
+    network_ids: dict[str, str | None] = {}
+    template: dict[str, Any] = {}
+    if any(diff.kind in {"network", "wlan"} for diff in ordered):
+        try:
+            fresh_networks = client.networks()
+            network_ids = {
+                network["name"]: _object_id(network)
+                for network in fresh_networks
+                if network.get("name") and _object_id(network)
+            }
+            existing_wlans = client.wlans()
+            if existing_wlans:
+                template = {
+                    key: value
+                    for key, value in existing_wlans[0].items()
+                    if key not in READ_ONLY_FIELDS | {"name", "x_passphrase", "x_iapp_key"}
+                }
+        except Exception as exc:
+            _raise_apply_error(
+                client,
+                plan,
+                ordered=ordered,
+                completed=completed,
+                failed=None,
+                resource="controller inventory",
+                operation="refresh",
+                phase="inventory",
+                partial_request=False,
+                cause_type=type(exc).__name__,
+            )
+
+    def apply_wlan_diff(diff: ResourceDiff) -> None:
         partial_request = False
         try:
             if diff.action == "delete":
@@ -638,6 +791,20 @@ def apply_plan(
                 cause_type=type(exc).__name__,
             )
         completed.append(diff)
+
+    wlan_deletes = [diff for diff in ordered if diff.kind == "wlan" and diff.action == "delete"]
+    for diff in wlan_deletes:
+        apply_wlan_diff(diff)
+
+    dns_deletes = [diff for diff in ordered if diff.kind == "dns" and diff.action == "delete"]
+    for diff in dns_deletes:
+        apply_dns_diff(diff)
+
+    wlan_writes = [
+        diff for diff in ordered if diff.kind == "wlan" and diff.action in {"create", "update"}
+    ]
+    for diff in wlan_writes:
+        apply_wlan_diff(diff)
 
     network_deletes = [
         diff for diff in ordered if diff.kind == "network" and diff.action == "delete"

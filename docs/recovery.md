@@ -10,14 +10,22 @@ of hiding a partial change.
 The plan engine uses this dependency-safe order:
 
 1. create or update networks;
-2. refresh network and WLAN inventory;
-3. delete WLANs;
-4. create or update WLANs;
-5. delete networks.
+2. create or update DNS policies;
+3. refresh network and WLAN inventory when those resources are involved;
+4. delete WLANs;
+5. delete user-managed DNS policies;
+6. create or update WLANs;
+7. delete networks.
 
 This ensures a WLAN can reference a network before it is written, and that a
 network is not deleted before its dependent WLANs have been removed. Operations
 after the failure are not started.
+
+DNS policies are independent of networks and WLANs in v0.4. Their writes run
+before DNS deletes, and only records whose controller metadata identifies a
+user-managed origin can be updated or pruned. System and unknown-origin records
+are retained. DNS writes are available only through the local API-key
+Integration API endpoint; session-authenticated adapters fail before mutation.
 
 ## Failure report
 
@@ -30,14 +38,14 @@ text. With `--output json`, the report has this shape:
   "error": "plan_apply_failed",
   "target": "profile=office controller=local site=default",
   "failed": {
-    "resource": "wlan/Home",
+    "resource": "dns/printer.home.arpa [A]",
     "operation": "create",
-    "phase": "wlan"
+    "phase": "dns"
   },
   "state": "partial",
-  "confirmed_completed": ["network/Home:create"],
-  "uncertain_failed": "wlan/Home:create",
-  "not_started": ["wlan/Guest:create"],
+  "confirmed_completed": ["dns/old.home.arpa [A]:create"],
+  "uncertain_failed": "dns/printer.home.arpa [A]:create",
+  "not_started": ["dns/portal.home.arpa [CNAME]:create"],
   "automatic_rollback": false
 }
 ```

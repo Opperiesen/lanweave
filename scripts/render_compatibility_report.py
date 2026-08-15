@@ -30,6 +30,7 @@ def main() -> None:
     )
     configured = host_configured and (api_key_configured or session_configured)
     mutation_requested = _env("LANWEAVE_INTEGRATION_MUTATIONS", "false").lower() == "true"
+    dns_mutation_requested = _env("LANWEAVE_INTEGRATION_DNS_MUTATIONS", "false").lower() == "true"
     mutation_guarded = _env("LANWEAVE_INTEGRATION_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
     generated = datetime.now(UTC).isoformat()
 
@@ -40,6 +41,11 @@ def main() -> None:
         mutation_status = "authorized-run" if mutation_guarded else "guard-not-enabled"
     else:
         mutation_status = "not-requested"
+    mutation_scope = (
+        "DNS policy create/update/prune via the local Integration API"
+        if dns_mutation_requested
+        else "network create/update/delete via the classic local API"
+    )
 
     lines = [
         "# Lanweave controller compatibility report",
@@ -54,6 +60,7 @@ def main() -> None:
         f"- Protected credentials configured: {'yes' if configured else 'no'}",
         f"- Read-only probes: {read_only_status}",
         f"- Mutation suite: {mutation_status}",
+        f"- Mutation scope: {mutation_scope}",
         "",
         "This report intentionally excludes controller hostnames, sites, credentials, "
         "topology, responses and raw backups.",

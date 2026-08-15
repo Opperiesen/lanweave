@@ -201,7 +201,8 @@ def _validate(path: Path) -> int:
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
     print(
-        f"valid configuration: {len(config['networks'])} network(s), {len(config['wlans'])} WLAN(s)"
+        f"valid configuration: {len(config['networks'])} network(s), "
+        f"{len(config['wlans'])} WLAN(s), {len(config.get('dns', []))} DNS record(s)"
     )
     return 0
 
@@ -228,7 +229,8 @@ def _profiles_validate(path: Path) -> int:
     print(
         "valid configuration: "
         f"version={config['version']} profiles={len(identities)} "
-        f"networks={len(config['networks'])} wlans={len(config['wlans'])}"
+        f"networks={len(config['networks'])} wlans={len(config['wlans'])} "
+        f"dns={len(config.get('dns', []))}"
     )
     return 0
 

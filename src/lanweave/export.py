@@ -9,6 +9,7 @@ import yaml
 
 from .adapters import Adapter
 from .contracts import CONFIG_SCHEMA_VERSION
+from .dns import dns_export_record, dns_is_user_managed
 
 
 def _network_subnet(value: str | None) -> str | None:
@@ -91,6 +92,17 @@ def export_config(client: Adapter) -> dict[str, Any]:
         for network in networks
         if network.get("name") and (network.get("_id") or network.get("id"))
     }
+    capabilities = getattr(client, "capabilities", None)
+    supports_dns = (
+        capabilities.supports("dns", "export")
+        if capabilities is not None
+        else callable(getattr(client, "dns", None))
+    )
+    dns_records: list[dict[str, Any]] = []
+    if supports_dns:
+        dns_records = [
+            dns_export_record(record) for record in client.dns() if dns_is_user_managed(record)
+        ]
     return {
         "version": CONFIG_SCHEMA_VERSION,
         "controller": {"site": client.settings.site},
@@ -98,6 +110,7 @@ def export_config(client: Adapter) -> dict[str, Any]:
             network_from_unifi(network) for network in networks if network.get("purpose") != "wan"
         ],
         "wlans": [wlan_from_unifi(wlan, networks_by_id) for wlan in wlans],
+        "dns": dns_records,
     }
 
 

@@ -35,9 +35,9 @@ mutating API calls outside the plan engine.
 
 ## Configuration model
 
-The public model starts with networks and WLANs. Firewall, DNS, NAT, VPN and
-device actions are separate resource families, added only with fixtures and
-rollback behavior.
+The public model starts with networks and WLANs. v0.4 adds a separate local DNS
+resource family only after its fixtures, ownership rules and recovery behavior
+are covered. Firewall, NAT, VPN and device actions remain separate families.
 
 The schema is versioned. Unknown top-level fields should fail validation so a
 typo cannot silently produce a partial network configuration.

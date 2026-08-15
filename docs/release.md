@@ -25,6 +25,30 @@ before any target request:
 lanweave capabilities --config config/network.yaml --profile office --output json
 ```
 
+## Complete the protected Site Manager evidence gate
+
+The v0.3.0 cloud claim is not complete until the read-only Site Manager
+workflow has exercised a real account. The controller administrator password
+and the local `UNIFI_API_KEY` are not valid credentials for this API.
+
+1. Create a dedicated API key in the Ubiquiti Site Manager account. Use it
+   only for this integration and restrict its permissions to read-only when
+   the account interface exposes that option.
+2. Keep the key in the approved secret manager; never put it in YAML, a plan,
+   an issue, a shell command, or a public artifact.
+3. In the repository settings, open the protected environment
+   `unifi-site-manager-integration` and add an environment secret named
+   `UNIFI_SITE_MANAGER_API_KEY`.
+4. Run [Site Manager integration](https://github.com/Opperiesen/lanweave/actions/workflows/site-manager-integration.yml)
+   manually on `main` and approve the protected environment when GitHub asks.
+5. Keep the generated sanitized report as the release evidence. It may state
+   the API version and test outcome, but must not contain the key, host,
+   inventory or raw responses.
+
+The workflow is manual-only, reads hosts, sites and devices, and contains no
+cloud mutation suite. If the key is missing or unresolved, it fails before
+making a request.
+
 ## Verify a GitHub Release
 
 Download the release assets into one directory. The checksum file contains

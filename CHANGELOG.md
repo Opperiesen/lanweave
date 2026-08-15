@@ -4,6 +4,14 @@
 
 - no unreleased changes.
 
+## 0.1.0rc1 — 2026-08-15
+
+- add a protected release workflow that runs the complete required CI;
+- verify annotated tag identity, project version, wheel and source distribution;
+- test both artifacts in clean environments before publication;
+- publish checksums and a signed build-provenance bundle with GitHub Releases;
+- reject forbidden commit trailers and generated-agent signatures in CI.
+
 ## 0.1.0b1 — 2026-08-15
 
 - freeze configuration schema version 1 and publish its machine-readable

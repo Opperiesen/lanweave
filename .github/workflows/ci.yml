@@ -3,11 +3,26 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
+  commit-policy:
+    name: commit-policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject trailers and generated-agent signatures
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: python scripts/check_commit_policy.py "${BASE_SHA}" "${HEAD_SHA}"
+
   test:
     runs-on: ubuntu-latest
     strategy:

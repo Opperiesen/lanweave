@@ -24,6 +24,14 @@ request with the provided template. Maintainers prefer small, reviewable
 changes. A pull request should not require access to a live controller to run
 its unit tests.
 
+## GitHub identity and commit messages
+
+- push branches, open pull requests, merge, tag and publish releases through
+  the `Opperiesen` GitHub account;
+- never add `Co-authored-by`, `Signed-off-by` or other trailers;
+- never mention an agent, generator or assistant in a commit message;
+- the `commit-policy` CI check rejects these metadata patterns before merge.
+
 ## Scope
 
 Small, composable changes are preferred. New resource families need a schema,

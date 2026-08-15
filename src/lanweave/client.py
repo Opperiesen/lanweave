@@ -69,9 +69,7 @@ class ControllerSettings:
         if not settings.host:
             raise CredentialsError("UNIFI_HOST is required")
         if not settings.api_key and not (settings.username and settings.password):
-            raise CredentialsError(
-                "set UNIFI_API_KEY or both UNIFI_USER and UNIFI_PASS"
-            )
+            raise CredentialsError("set UNIFI_API_KEY or both UNIFI_USER and UNIFI_PASS")
         return settings
 
 

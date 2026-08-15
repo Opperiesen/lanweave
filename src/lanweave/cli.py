@@ -129,8 +129,7 @@ def _validate(path: Path) -> int:
         print(f"invalid configuration: {exc}", file=sys.stderr)
         return 2
     print(
-        f"valid configuration: {len(config['networks'])} network(s), "
-        f"{len(config['wlans'])} WLAN(s)"
+        f"valid configuration: {len(config['networks'])} network(s), {len(config['wlans'])} WLAN(s)"
     )
     return 0
 
@@ -168,9 +167,7 @@ def _with_client(
 ) -> int:
     try:
         settings = (
-            _settings_for_config(config)
-            if config is not None
-            else ControllerSettings.from_env()
+            _settings_for_config(config) if config is not None else ControllerSettings.from_env()
         )
         with UniFiClient(settings) as client:
             return operation(client)

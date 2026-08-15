@@ -28,7 +28,8 @@ def filter_clients(
         result = [
             client
             for client in result
-            if needle in (
+            if needle
+            in (
                 str(client.get("name", ""))
                 + str(client.get("hostname", ""))
                 + str(client.get("mac", ""))

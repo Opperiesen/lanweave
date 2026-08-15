@@ -138,8 +138,7 @@ def _validate_sensitive_values(value: Any, path: str = "config") -> None:
                 and (not isinstance(child, str) or not PLACEHOLDER_RE.fullmatch(child))
             ):
                 raise ConfigError(
-                    f"{path}.{key} must be an environment placeholder such as "
-                    "$" + "{WIFI_PASSWORD}"
+                    f"{path}.{key} must be an environment placeholder such as $" + "{WIFI_PASSWORD}"
                 )
             _validate_sensitive_values(child, f"{path}.{key}")
     elif isinstance(value, list):
@@ -161,6 +160,7 @@ def _reject_unknown_fields(mapping: dict[str, Any], allowed: set[str], label: st
 
 def _resolve_value(value: Any, lookup: Callable[[str], str | None], path: str) -> Any:
     if isinstance(value, str):
+
         def replace(match: re.Match[str]) -> str:
             name = match.group(1)
             resolved = lookup(name)
@@ -195,8 +195,7 @@ def _resolve_value(value: Any, lookup: Callable[[str], str | None], path: str) -
         return resolved
     if isinstance(value, list):
         return [
-            _resolve_value(child, lookup, f"{path}[{index}]")
-            for index, child in enumerate(value)
+            _resolve_value(child, lookup, f"{path}[{index}]") for index, child in enumerate(value)
         ]
     return value
 
@@ -335,6 +334,7 @@ def validate_config(config: dict[str, Any]) -> None:
         ):
             if boolean_key in wlan and not isinstance(wlan[boolean_key], bool):
                 raise ConfigError(f"{label}.{boolean_key} must be a boolean")
+
 
 def load_config(path: Path) -> dict[str, Any]:
     """Load and validate a YAML configuration from disk."""

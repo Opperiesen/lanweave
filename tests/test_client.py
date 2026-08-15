@@ -8,9 +8,7 @@ def test_site_url_is_controller_relative() -> None:
     settings = ControllerSettings(host="https://controller.example", api_key="test")
 
     with UniFiClient(settings) as client:
-        assert client.site_url("stat/device") == (
-            "/proxy/network/api/s/default/stat/device"
-        )
+        assert client.site_url("stat/device") == ("/proxy/network/api/s/default/stat/device")
 
 
 def test_devices_unwraps_unifi_data() -> None:
@@ -33,9 +31,7 @@ def test_api_error_does_not_echo_request_body() -> None:
     settings = ControllerSettings(host="https://controller.example", api_key="test")
     transport = httpx.MockTransport(handler)
 
-    with UniFiClient(settings, transport=transport) as client, pytest.raises(
-        RuntimeError
-    ) as error:
+    with UniFiClient(settings, transport=transport) as client, pytest.raises(RuntimeError) as error:
         client.post("/somewhere", json={"password": "must-not-appear"})
 
     assert "must-not-appear" not in str(error.value)

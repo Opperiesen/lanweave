@@ -28,11 +28,13 @@ def create_server() -> Any:
     def lanweave_get_health() -> dict[str, Any]:
         """Return controller health, connected clients and adopted devices."""
         with UniFiClient(ControllerSettings.from_env()) as client:
-            return redact_snapshot({
-                "health": client.health(),
-                "online_clients": len(client.clients()),
-                "devices": len(client.devices()),
-            })
+            return redact_snapshot(
+                {
+                    "health": client.health(),
+                    "online_clients": len(client.clients()),
+                    "devices": len(client.devices()),
+                }
+            )
 
     @server.tool()
     def lanweave_list_devices() -> list[dict[str, Any]]:

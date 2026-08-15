@@ -63,9 +63,12 @@ jobs:
       - run: uv sync --extra dev --locked
       - name: Prepare report directory
         run: mkdir -p reports
-      - name: Run read-only controller probes
+      - name: Run read-only controller and profile probes
         id: probes
-        run: uv run pytest tests/integration/test_controller.py -m integration -q --junitxml=reports/read-only.xml
+        run: >-
+          uv run pytest tests/integration/test_controller.py
+          tests/integration/test_profile_integration.py -m integration -q
+          --junitxml=reports/read-only.xml
       - name: Render compatibility report
         if: always()
         env:

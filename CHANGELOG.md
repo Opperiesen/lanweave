@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- introduce explicit local and Site Manager adapter boundaries with
+  deterministic capability documents;
+- add offline CLI capability discovery and MCP contract v3;
+- add fixture-backed, read-only Site Manager hosts, sites, devices and health
+  inventory with protected integration evidence gates;
+- document v0.3 migration, compatibility limits and release verification.
+
 ## 0.2.0 — 2026-08-15
 
 - define the v0.2.0 local profile shape, selector precedence and version-1

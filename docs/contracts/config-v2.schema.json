@@ -36,6 +36,9 @@
     "dns": {
       "type": "array",
       "items": { "$ref": "config-v1.schema.json#/$defs/dns_record" }
+    },
+    "firewall": {
+      "$ref": "config-v1.schema.json#/$defs/firewall"
     }
   }
 }

@@ -92,6 +92,43 @@ def test_unknown_resource_field_is_rejected() -> None:
         validate_config(config)
 
 
+def test_firewall_references_top_level_networks() -> None:
+    config = {
+        "version": CONFIG_SCHEMA_VERSION,
+        "controller": {"site": "default"},
+        "networks": [{"name": "Home", "purpose": "corporate"}],
+        "wlans": [],
+        "firewall": {
+            "zones": [{"name": "LAN", "networks": ["Home"]}],
+            "rules": [
+                {
+                    "name": "allow-dns",
+                    "order": 10,
+                    "source": {"zone": "LAN"},
+                    "destination": {"zone": "LAN"},
+                    "action": "ALLOW",
+                    "protocol": "UDP",
+                }
+            ],
+        },
+    }
+
+    validate_config(config)
+
+
+def test_firewall_unknown_network_is_rejected() -> None:
+    config = {
+        "version": CONFIG_SCHEMA_VERSION,
+        "controller": {"site": "default"},
+        "networks": [{"name": "Home", "purpose": "corporate"}],
+        "wlans": [],
+        "firewall": {"zones": [{"name": "LAN", "networks": ["Missing"]}]},
+    }
+
+    with pytest.raises(ConfigError, match="unknown network"):
+        validate_config(config)
+
+
 def test_open_wlan_cannot_carry_a_password() -> None:
     import yaml
 

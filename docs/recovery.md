@@ -12,11 +12,17 @@ The plan engine uses this dependency-safe order:
 
 1. create or update networks;
 2. create or update DNS policies;
-3. refresh network and WLAN inventory when those resources are involved;
-4. delete WLANs;
-5. delete user-managed DNS policies;
-6. create or update WLANs;
-7. delete networks.
+3. create or update firewall zones;
+4. create or update firewall groups;
+5. create or update firewall rules;
+6. refresh network, zone and group inventory;
+7. delete WLANs;
+8. delete user-managed DNS policies;
+9. delete firewall rules;
+10. reorder firewall policies;
+11. create or update WLANs;
+12. delete firewall groups and zones;
+13. delete networks.
 
 This ensures a WLAN can reference a network before it is written, and that a
 network is not deleted before its dependent WLANs have been removed. Operations
@@ -27,6 +33,13 @@ before DNS deletes, and only records whose controller metadata identifies a
 user-managed origin can be updated or pruned. System and unknown-origin records
 are retained. DNS writes are available only through the local API-key
 Integration API endpoint; session-authenticated adapters fail before mutation.
+
+Firewall writes are independent of DNS but use the same one-request-at-a-time
+boundary. Zone and group IDs are refreshed before rule writes, and zone/policy
+IDs are read again before a reorder. Rules, groups and zones with unknown or
+protected origins are never implicit prune targets. An apply containing
+firewall warnings also requires the explicit risk acknowledgement described in
+[`firewall.md`](firewall.md).
 
 ## Failure report
 

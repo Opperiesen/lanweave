@@ -37,7 +37,8 @@
         "create": { "type": "integer", "minimum": 0 },
         "update": { "type": "integer", "minimum": 0 },
         "delete": { "type": "integer", "minimum": 0 },
-        "noop": { "type": "integer", "minimum": 0 }
+        "noop": { "type": "integer", "minimum": 0 },
+        "reorder": { "type": "integer", "minimum": 0 }
       }
     },
     "change": {
@@ -45,8 +46,8 @@
       "additionalProperties": false,
       "required": ["kind", "action", "name", "id", "changed_fields", "payload"],
       "properties": {
-        "kind": { "enum": ["network", "wlan", "dns"] },
-        "action": { "enum": ["create", "update", "delete"] },
+        "kind": { "enum": ["network", "wlan", "dns", "firewall_zone", "firewall_group", "firewall_rule"] },
+        "action": { "enum": ["create", "update", "delete", "reorder"] },
         "name": { "type": "string", "minLength": 1 },
         "id": { "type": ["string", "null"] },
         "changed_fields": {
@@ -56,6 +57,10 @@
         "payload": {
           "type": "object",
           "additionalProperties": true
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
         }
       }
     }

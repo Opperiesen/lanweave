@@ -1,0 +1,10 @@
+{
+  "id": "group-web",
+  "name": "web",
+  "type": "PORTS",
+  "items": [
+    {"type": "PORT_NUMBER", "value": 443},
+    {"type": "PORT_NUMBER_RANGE", "start": 8000, "stop": 8080}
+  ],
+  "metadata": {"origin": "USER_DEFINED"}
+}

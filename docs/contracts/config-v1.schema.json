@@ -19,6 +19,9 @@
     "dns": {
       "type": "array",
       "items": { "$ref": "#/$defs/dns_record" }
+    },
+    "firewall": {
+      "$ref": "#/$defs/firewall"
     }
   },
   "$defs": {
@@ -169,6 +172,151 @@
             "target": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9][A-Za-z0-9.-]*$" },
             "ttl_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
             "enabled": { "type": "boolean" }
+          }
+        }
+      ]
+    },
+    "firewall": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "zones": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/firewall_zone" }
+        },
+        "address_groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/address_group" }
+        },
+        "port_groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/port_group" }
+        },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/firewall_rule" }
+        }
+      }
+    },
+    "firewall_zone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "networks": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "address_item": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "stop"],
+          "properties": {
+            "start": { "type": "string", "minLength": 1 },
+            "stop": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "address_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "addresses"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "addresses": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/address_item" }
+        }
+      }
+    },
+    "port_item": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1, "maximum": 65535 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "stop"],
+          "properties": {
+            "start": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "stop": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        }
+      ]
+    },
+    "port_group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "ports"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "ports": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/port_item" }
+        }
+      }
+    },
+    "firewall_side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["zone"],
+      "properties": {
+        "zone": { "type": "string", "minLength": 1 },
+        "networks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "address_group": { "type": "string", "minLength": 1 },
+        "port_group": { "type": "string", "minLength": 1 },
+        "match_opposite": { "type": "boolean" },
+        "port_match_opposite": { "type": "boolean" }
+      }
+    },
+    "firewall_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "order", "source", "destination", "action"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "order": { "type": "integer", "minimum": 0 },
+        "placement": { "enum": ["before_system_defined", "after_system_defined"] },
+        "source": { "$ref": "#/$defs/firewall_side" },
+        "destination": { "$ref": "#/$defs/firewall_side" },
+        "action": { "enum": ["ALLOW", "BLOCK", "REJECT"] },
+        "enabled": { "type": "boolean" },
+        "ip_version": { "enum": ["IPV4", "IPV4_AND_IPV6", "IPV6"] },
+        "protocol": {
+          "enum": [
+            "AH", "DCCP", "ESP", "GRE", "ICMP", "ICMPV6", "IGMP", "IP",
+            "IPCOMP", "IPENCAP", "IPIP", "L2TP", "OSPF", "PIM", "SCTP", "TCP",
+            "TCP_UDP", "UDP", "UDPLITE", "VRRP"
+          ]
+        },
+        "protocol_number": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "connection_states": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["NEW", "INVALID", "ESTABLISHED", "RELATED"] }
+        },
+        "ipsec": { "enum": ["MATCH_ENCRYPTED", "MATCH_NOT_ENCRYPTED"] },
+        "logging": { "type": "boolean" },
+        "allow_return_traffic": { "type": "boolean" },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "not": {
+            "required": ["protocol", "protocol_number"]
           }
         }
       ]

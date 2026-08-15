@@ -1,0 +1,18 @@
+{
+  "count": 2,
+  "data": [
+    {
+      "id": "group-web",
+      "name": "web",
+      "type": "PORTS"
+    },
+    {
+      "id": "group-servers",
+      "name": "servers",
+      "type": "IPV4_ADDRESSES"
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "totalCount": 2
+}

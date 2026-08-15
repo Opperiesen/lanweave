@@ -1,0 +1,26 @@
+{
+  "count": 3,
+  "data": [
+    {
+      "id": "zone-lan",
+      "name": "LAN",
+      "networkIds": ["network-home"],
+      "metadata": {"origin": "SYSTEM_DEFINED", "configurable": true}
+    },
+    {
+      "id": "zone-wan",
+      "name": "WAN",
+      "networkIds": [],
+      "metadata": {"origin": "SYSTEM_DEFINED", "configurable": false}
+    },
+    {
+      "id": "zone-custom",
+      "name": "Trusted",
+      "networkIds": ["network-home"],
+      "metadata": {"origin": "USER_DEFINED", "configurable": true}
+    }
+  ],
+  "limit": 200,
+  "offset": 0,
+  "totalCount": 3
+}

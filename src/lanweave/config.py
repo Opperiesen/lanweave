@@ -13,6 +13,7 @@ import yaml
 
 from .contracts import CONFIG_SCHEMA_VERSION, PROFILE_LAYER_VERSION
 from .dns import DnsError, validate_dns_records
+from .firewall import FirewallError, validate_firewall
 
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 PLACEHOLDER_RE = re.compile(r"^\$[{][A-Z_][A-Z0-9_]*[}]$")
@@ -21,7 +22,7 @@ SUPPORTED_PURPOSES = {"corporate", "guest", "vlan-only", "wan"}
 SUPPORTED_SECURITY = {"open", "wpa2", "wpa3", "wpa3-transition"}
 SUPPORTED_BANDS = {"2g", "5g", "6g"}
 SUPPORTED_PMF = {"disabled", "optional", "required"}
-TOP_LEVEL_KEYS = {"version", "controller", "networks", "wlans", "dns"}
+TOP_LEVEL_KEYS = {"version", "controller", "networks", "wlans", "dns", "firewall"}
 CONTROLLER_KEYS = {"site"}
 DHCP_KEYS = {"enabled", "start", "stop", "lease_time", "dns"}
 IPV6_KEYS = {"enabled", "type"}
@@ -218,6 +219,7 @@ def validate_config(config: dict[str, Any]) -> None:
                 "networks": config.get("networks"),
                 "wlans": config.get("wlans"),
                 "dns": config.get("dns", []),
+                "firewall": config.get("firewall"),
             }
         )
         return
@@ -362,6 +364,10 @@ def _validate_version_one_config(config: dict[str, Any]) -> None:
     try:
         validate_dns_records(config.get("dns", []))
     except DnsError as exc:
+        raise ConfigError(str(exc)) from None
+    try:
+        validate_firewall(config.get("firewall"), network_names=network_names)
+    except FirewallError as exc:
         raise ConfigError(str(exc)) from None
 
 

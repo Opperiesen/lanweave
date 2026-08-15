@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- add the v0.5 firewall contract, fixture-backed inventory/export and
+  dependency-aware plan/apply lifecycle behind protected release gates;
+- keep firewall writes local API-key-only, MCP read-only and mutation evidence
+  opt-in on disabled, prefixed test rules;
+
 ## 0.4.0 — 2026-08-15
 
 - add the portable local DNS resource family for `A`, `AAAA` and `CNAME`;

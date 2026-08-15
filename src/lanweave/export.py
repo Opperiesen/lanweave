@@ -10,6 +10,7 @@ import yaml
 from .adapters import Adapter
 from .contracts import CONFIG_SCHEMA_VERSION
 from .dns import dns_export_record, dns_is_user_managed
+from .firewall import export_firewall_config
 
 
 def _network_subnet(value: str | None) -> str | None:
@@ -103,6 +104,28 @@ def export_config(client: Adapter) -> dict[str, Any]:
         dns_records = [
             dns_export_record(record) for record in client.dns() if dns_is_user_managed(record)
         ]
+    supports_firewall = (
+        capabilities.supports("firewall", "export")
+        if capabilities is not None
+        else callable(getattr(client, "firewall_zones", None))
+    )
+    firewall_config = {"zones": [], "address_groups": [], "port_groups": [], "rules": []}
+    if supports_firewall:
+        firewall_zones = client.firewall_zones()
+        firewall_groups = client.firewall_traffic_matching_lists()
+        firewall_policies = client.firewall_policies()
+        orderings: dict[tuple[str, str], dict[str, list[str]]] = {}
+        for policy in firewall_policies:
+            pair = (policy["source"]["zone_id"], policy["destination"]["zone_id"])
+            if pair not in orderings:
+                orderings[pair] = client.firewall_policy_ordering(*pair)
+        firewall_config = export_firewall_config(
+            zones=firewall_zones,
+            groups=firewall_groups,
+            policies=firewall_policies,
+            orderings=orderings,
+            network_names_by_id=networks_by_id,
+        )
     return {
         "version": CONFIG_SCHEMA_VERSION,
         "controller": {"site": client.settings.site},
@@ -111,6 +134,7 @@ def export_config(client: Adapter) -> dict[str, Any]:
         ],
         "wlans": [wlan_from_unifi(wlan, networks_by_id) for wlan in wlans],
         "dns": dns_records,
+        "firewall": firewall_config,
     }
 
 

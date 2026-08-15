@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from lanweave.client import UniFiClient
+from lanweave.export import export_config
 
 pytestmark = pytest.mark.integration
 
@@ -29,3 +32,35 @@ def test_declarative_resources_are_readable(integration_client: UniFiClient) -> 
 
     assert isinstance(networks, list)
     assert isinstance(wlans, list)
+
+
+def test_firewall_inventory_and_export_are_readable(
+    integration_client: UniFiClient,
+) -> None:
+    if not integration_client.settings.api_key:
+        pytest.skip("firewall Integration API evidence requires an API key")
+
+    zones = integration_client.firewall_zones()
+    groups = integration_client.firewall_traffic_matching_lists()
+    policies = integration_client.firewall_policies()
+    orderings = {
+        (
+            policy["source"]["zone_id"],
+            policy["destination"]["zone_id"],
+        ): integration_client.firewall_policy_ordering(
+            policy["source"]["zone_id"],
+            policy["destination"]["zone_id"],
+        )
+        for policy in policies
+    }
+
+    assert isinstance(zones, list)
+    assert isinstance(groups, list)
+    assert isinstance(policies, list)
+    assert all(orderings.values())
+
+    exported = export_config(integration_client)
+    assert set(exported["firewall"]) == {"zones", "address_groups", "port_groups", "rules"}
+    serialized = json.dumps(exported, sort_keys=True)
+    assert "_origin" not in serialized
+    assert '"metadata"' not in serialized

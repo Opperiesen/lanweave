@@ -1,0 +1,48 @@
+version: 1
+
+controller:
+  site: default
+
+networks:
+  - name: Home
+    purpose: corporate
+  - name: IoT
+    purpose: vlan-only
+
+wlans: []
+
+firewall:
+  zones:
+    - name: Trusted
+      networks: [Home]
+    - name: Devices
+      networks: [IoT]
+
+  address_groups:
+    - name: home-services
+      addresses:
+        - 192.168.10.10
+        - 192.168.10.20
+
+  port_groups:
+    - name: web
+      ports:
+        - 443
+        - start: 8000
+          stop: 8080
+
+  rules:
+    - name: allow-device-web
+      order: 100
+      source:
+        zone: Devices
+      destination:
+        zone: Trusted
+        address_group: home-services
+        port_group: web
+      action: ALLOW
+      enabled: true
+      ip_version: IPV4
+      protocol: TCP
+      connection_states: [NEW, ESTABLISHED]
+      allow_return_traffic: true

@@ -303,6 +303,7 @@ def local_classic_capabilities(auth_mode: str) -> AdapterCapabilities:
             "networks": ("read", "export", "plan"),
             "wlans": ("read", "export", "plan"),
             "dns": ("read", "export", "plan", "apply", "prune"),
+            "firewall": ("read", "export", "plan", "apply", "prune"),
         }
     else:
         raise AdapterConfigurationError(f"unsupported local authentication mode: {auth_mode}")

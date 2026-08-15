@@ -31,7 +31,15 @@ def main() -> None:
     configured = host_configured and (api_key_configured or session_configured)
     mutation_requested = _env("LANWEAVE_INTEGRATION_MUTATIONS", "false").lower() == "true"
     dns_mutation_requested = _env("LANWEAVE_INTEGRATION_DNS_MUTATIONS", "false").lower() == "true"
-    mutation_guarded = _env("LANWEAVE_INTEGRATION_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
+    firewall_mutation_requested = (
+        _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATIONS", "false").lower() == "true"
+    )
+    mutation_requested = mutation_requested or dns_mutation_requested or firewall_mutation_requested
+    mutation_guarded = (
+        _env("LANWEAVE_INTEGRATION_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
+        or _env("LANWEAVE_INTEGRATION_DNS_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
+        or _env("LANWEAVE_INTEGRATION_FIREWALL_MUTATION_CONFIRM", "") == "I_UNDERSTAND"
+    )
     generated = datetime.now(UTC).isoformat()
 
     read_only_status = _public(_env("LANWEAVE_INTEGRATION_STATUS"))
@@ -41,11 +49,15 @@ def main() -> None:
         mutation_status = "authorized-run" if mutation_guarded else "guard-not-enabled"
     else:
         mutation_status = "not-requested"
-    mutation_scope = (
-        "DNS policy create/update/prune via the local Integration API"
-        if dns_mutation_requested
-        else "network create/update/delete via the classic local API"
-    )
+    if firewall_mutation_requested:
+        mutation_scope = (
+            "disabled firewall group/rule create/update/reorder/delete via the local "
+            "Integration API"
+        )
+    elif dns_mutation_requested:
+        mutation_scope = "DNS policy create/update/prune via the local Integration API"
+    else:
+        mutation_scope = "network create/update/delete via the classic local API"
 
     lines = [
         "# Lanweave controller compatibility report",

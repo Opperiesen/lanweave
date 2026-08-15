@@ -6,6 +6,7 @@ import pytest
 
 from lanweave.adapters import ADAPTER_LOCAL_CLASSIC, AUTH_MODE_API_KEY
 from lanweave.client import ControllerSettings, CredentialsError, LocalClassicAdapter, UniFiClient
+from lanweave.firewall import UnsupportedFirewallVariantError
 
 
 def test_classic_site_url_is_controller_relative() -> None:
@@ -162,6 +163,172 @@ def test_api_key_reads_and_mutates_dns_through_the_official_integration_endpoint
     assert all("/proxy/network/integration/v1/" in path for _method, path, _content in calls)
 
 
+def test_api_key_reads_firewall_inventory_and_explicit_ordering() -> None:
+    fixture_dir = Path(__file__).parent / "fixtures" / "firewall"
+    zones_page = json.loads((fixture_dir / "firewall-zones-page-1.json").read_text())
+    groups_page = json.loads(
+        (fixture_dir / "firewall-traffic-matching-lists-page-1.json").read_text()
+    )
+    web_group = json.loads((fixture_dir / "firewall-traffic-matching-list-web.json").read_text())
+    servers_group = json.loads(
+        (fixture_dir / "firewall-traffic-matching-list-servers.json").read_text()
+    )
+    policies_page = json.loads((fixture_dir / "firewall-policies-page-1.json").read_text())
+    ordering = json.loads((fixture_dir / "firewall-ordering.json").read_text())
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["X-API-KEY"] == "test"
+        path = request.url.path
+        if path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if path.endswith("/firewall/zones"):
+            return httpx.Response(200, json=zones_page)
+        if path.endswith("/traffic-matching-lists"):
+            return httpx.Response(200, json=groups_page)
+        if path.endswith("/traffic-matching-lists/group-web"):
+            return httpx.Response(200, json=web_group)
+        if path.endswith("/traffic-matching-lists/group-servers"):
+            return httpx.Response(200, json=servers_group)
+        if path.endswith("/firewall/policies"):
+            return httpx.Response(200, json=policies_page)
+        if path.endswith("/firewall/policies/ordering"):
+            return httpx.Response(200, json=ordering)
+        raise AssertionError(f"unexpected request: {request.method} {path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with UniFiClient(settings, transport=httpx.MockTransport(handler)) as client:
+        zones = client.firewall_zones()
+        groups = client.firewall_traffic_matching_lists()
+        policies = client.firewall_policies()
+        policy_order = client.firewall_policy_ordering("zone-custom", "zone-lan")
+
+    assert [(zone["name"], zone["_origin"]) for zone in zones] == [
+        ("LAN", "SYSTEM_DEFINED"),
+        ("Trusted", "USER_DEFINED"),
+        ("WAN", "SYSTEM_DEFINED"),
+    ]
+    groups_by_name = {group["name"]: group for group in groups}
+    assert groups_by_name["web"]["group_type"] == "port_group"
+    assert groups_by_name["servers"]["items"] == ["192.0.2.10", "192.0.2.0/24"]
+    assert policies[0]["source"]["zone_id"] == "zone-custom"
+    assert policies[0]["action"] == "ALLOW"
+    assert policy_order == {
+        "after_system_defined": ["policy-allow"],
+        "before_system_defined": [],
+    }
+
+
+def test_api_key_rejects_malformed_firewall_pagination() -> None:
+    malformed_page = json.loads(
+        (
+            Path(__file__).parent / "fixtures" / "firewall" / "firewall-malformed-page.json"
+        ).read_text()
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if request.url.path.endswith("/firewall/zones"):
+            return httpx.Response(200, json=malformed_page)
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with (
+        UniFiClient(settings, transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(RuntimeError, match="invalid pagination metadata"),
+    ):
+        client.firewall_zones()
+
+
+def test_api_key_rejects_unsupported_firewall_group_variant() -> None:
+    unsupported = json.loads(
+        (
+            Path(__file__).parent
+            / "fixtures"
+            / "firewall"
+            / "firewall-traffic-matching-list-unsupported.json"
+        ).read_text()
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        if request.url.path.endswith("/traffic-matching-lists"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": unsupported["id"],
+                            "name": unsupported["name"],
+                            "type": unsupported["type"],
+                        }
+                    ],
+                    "limit": 200,
+                    "offset": 0,
+                    "totalCount": 1,
+                },
+            )
+        if request.url.path.endswith("/traffic-matching-lists/group-domain"):
+            return httpx.Response(200, json=unsupported)
+        raise AssertionError(f"unexpected request: {request.method} {request.url.path}")
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with (
+        UniFiClient(settings, transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(UnsupportedFirewallVariantError),
+    ):
+        client.firewall_traffic_matching_lists()
+
+
+def test_api_key_firewall_mutations_use_only_official_paths() -> None:
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        if request.url.path.endswith("/sites"):
+            return httpx.Response(200, json={"data": [{"id": "site-1", "name": "Default"}]})
+        return httpx.Response(200, json={"data": {"id": "created"}})
+
+    settings = ControllerSettings(host="https://controller.example", site="site-1", api_key="test")
+    with UniFiClient(settings, transport=httpx.MockTransport(handler)) as client:
+        client.create_firewall_zone({"name": "Trusted", "networkIds": []})
+        client.update_firewall_zone("zone-1", {"name": "Trusted", "networkIds": []})
+        client.delete_firewall_zone("zone-1")
+        client.create_firewall_traffic_matching_list({"name": "web", "type": "PORTS", "items": []})
+        client.update_firewall_traffic_matching_list(
+            "group-1", {"name": "web", "type": "PORTS", "items": []}
+        )
+        client.delete_firewall_traffic_matching_list("group-1")
+        client.create_firewall_policy({"name": "allow", "action": {"type": "ALLOW"}})
+        client.update_firewall_policy("policy-1", {"name": "allow", "action": {"type": "ALLOW"}})
+        client.delete_firewall_policy("policy-1")
+        client.reorder_firewall_policies(
+            "zone-1",
+            "zone-2",
+            after_system_defined=["policy-1"],
+            before_system_defined=[],
+        )
+
+    assert [method for method, _path in calls] == [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "POST",
+        "PUT",
+        "DELETE",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PUT",
+    ]
+    assert all(
+        "/firewall/" in path or "/traffic-matching-lists" in path or path.endswith("/sites")
+        for _, path in calls
+    )
+
+
 def test_session_capabilities_do_not_advertise_dns_mutations() -> None:
     settings = ControllerSettings(
         host="https://controller.example", username="admin", password="password"
@@ -170,6 +337,8 @@ def test_session_capabilities_do_not_advertise_dns_mutations() -> None:
 
     assert not capabilities.supports("dns", "read")
     assert not capabilities.supports("dns", "apply")
+    assert not capabilities.supports("firewall", "read")
+    assert not capabilities.supports("firewall", "apply")
 
 
 def test_api_key_rejects_unknown_wifi_security_type() -> None:

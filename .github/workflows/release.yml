@@ -53,6 +53,10 @@ jobs:
           enable-cache: false
       - name: Verify tag and project version
         run: python scripts/verify_release.py "$RELEASE_TAG"
+      - name: Verify v0.5 firewall evidence gate
+        env:
+          LANWEAVE_REQUIRE_V050_LIVE_EVIDENCE: "true"
+        run: uv run python scripts/verify_v050_evidence.py
       - name: Build wheel and source distribution
         run: |
           rm -rf dist

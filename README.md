@@ -32,14 +32,13 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave is an early beta. The first real-controller reliability slice is
-implemented and tested against simulated controller responses, with read-only
-and authorized mutation evidence on one designated UniFi OS controller. It
-targets the classic local UniFi Network API used by self-hosted UniFi Network
-applications and UniFi OS consoles; see [compatibility](docs/compatibility.md)
-and the [apply recovery model](docs/recovery.md) for the exact scope, tested
-matrix and partial-failure behavior. The frozen v1 surfaces are described in
-[contracts](docs/contracts.md).
+Lanweave `0.1.0` is the first stable local-first core. It is tested against
+simulated controller responses, with read-only and authorized mutation
+evidence on one designated UniFi OS controller. It targets the classic local
+UniFi Network API used by self-hosted UniFi Network applications and UniFi OS
+consoles; see [compatibility](docs/compatibility.md) and the [apply recovery
+model](docs/recovery.md) for the exact scope, tested matrix and partial-failure
+behavior. The frozen public surfaces are described in [contracts](docs/contracts.md).
 
 Supported resource families in this release:
 
@@ -54,9 +53,15 @@ story before being safe to expose.
 
 ## Quick start
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). The release
-candidate is currently installed from its GitHub release or a checkout;
-package-index publication is tracked in the [roadmap](docs/roadmap.md).
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
+package from PyPI with:
+
+```shell
+uv tool install lanweave==0.1.0
+lanweave --version
+```
+
+For a checkout and development environment:
 
 ```shell
 uv sync --extra dev
@@ -64,6 +69,9 @@ uv run lanweave init
 cp .env.example .env
 uv run lanweave validate
 ```
+
+See [release verification](docs/release.md) for checksums, provenance and
+attestation verification.
 
 Edit `config/network.yaml` and provide secrets only through the environment:
 

@@ -57,6 +57,11 @@ def test_cli_contract_exposes_stable_options() -> None:
     assert capabilities.command == "capabilities"
     assert capabilities.output == "json"
 
+    vpn = build_parser().parse_args(["vpn", "--config", "profiles.yaml", "--output", "json"])
+    assert vpn.command == "vpn"
+    assert vpn.config.name == "profiles.yaml"
+    assert vpn.output == "json"
+
     apply = build_parser().parse_args(
         [
             "apply",

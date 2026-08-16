@@ -37,6 +37,9 @@ implemented.
 | `v0.5.0` | Safe local firewall resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/7) | Firewall ordering, exposure analysis, fixtures and protected lifecycle are independently verified |
 | `v0.6.0` | Safe local NAT and port-forwarding resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/8) | NAT exposure, conflict analysis, fixtures and protected lifecycle are independently verified |
 | `v0.7.0` | Safe local VPN resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/9) | VPN secrets, routes, dependencies, fixtures and read-only-first lifecycle are independently verified |
+| `v0.8.0` | Drift audit and compliance reports | [milestone](https://github.com/Opperiesen/lanweave/milestone/12) | Stable audit semantics, deterministic JSON/CI exit codes and no broad mutation expansion |
+| `v0.9.0` | Post-apply verification and operational hardening | [milestone](https://github.com/Opperiesen/lanweave/milestone/10) | Re-read, convergence and recovery evidence are explicit before any rollback automation |
+| `v1.0.0` | Stable local network control plane | [milestone](https://github.com/Opperiesen/lanweave/milestone/11) | Public contracts, packaging, security and compatibility policy are frozen |
 
 ## `v0.2.0` — stable local-first core
 
@@ -327,7 +330,26 @@ the open [v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9)
 with a read-only-first rollout and strict secret/route handling. It remains
 outside the v0.6.0 release gate.
 
-The v0.7.0 family remains outside the v0.6.0 implementation and release gate.
+The decomposition is executed in this order:
+
+1. [#118 — portable VPN contract and secret boundary](https://github.com/Opperiesen/lanweave/issues/118);
+2. [#121 — local VPN inventory and versioned fixtures](https://github.com/Opperiesen/lanweave/issues/121);
+3. [#116 — VPN health, peers, routes and dependency validation](https://github.com/Opperiesen/lanweave/issues/116);
+4. [#122 — secret-free export and migration documentation](https://github.com/Opperiesen/lanweave/issues/122);
+5. [#114 — capability-aware CLI and read-only MCP](https://github.com/Opperiesen/lanweave/issues/114);
+6. [#115 — protected read-only evidence and release gates](https://github.com/Opperiesen/lanweave/issues/115).
+
+The complete contract, gates and deliberate exclusions are maintained in
+[`roadmap-v0.7.0.md`](roadmap-v0.7.0.md). v0.7 does not create VPNs, generate
+private keys or profiles, apply routes, or expose a write-capable MCP tool.
+
+### Future milestones
+
+- `v0.8.0` (#120) turns the read-only observations into first-class drift and
+  compliance reports with stable semantics;
+- `v0.9.0` (#119) adds post-apply convergence and operational recovery evidence;
+- `v1.0.0` (#117) freezes the local control-plane contracts, packaging and
+  compatibility policy rather than promising every UniFi endpoint.
 
 ## MCP roadmap
 

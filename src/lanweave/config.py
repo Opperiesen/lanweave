@@ -15,6 +15,7 @@ from .contracts import CONFIG_SCHEMA_VERSION, PROFILE_LAYER_VERSION
 from .dns import DnsError, validate_dns_records
 from .firewall import FirewallError, validate_firewall
 from .nat import NatError, validate_nat
+from .vpn import VpnError, validate_vpn
 
 ENV_NAME_RE = re.compile(r"^[A-Z_][A-Z0-9_]*$")
 PLACEHOLDER_RE = re.compile(r"^\$[{][A-Z_][A-Z0-9_]*[}]$")
@@ -23,7 +24,16 @@ SUPPORTED_PURPOSES = {"corporate", "guest", "vlan-only", "wan"}
 SUPPORTED_SECURITY = {"open", "wpa2", "wpa3", "wpa3-transition"}
 SUPPORTED_BANDS = {"2g", "5g", "6g"}
 SUPPORTED_PMF = {"disabled", "optional", "required"}
-TOP_LEVEL_KEYS = {"version", "controller", "networks", "wlans", "dns", "firewall", "nat"}
+TOP_LEVEL_KEYS = {
+    "version",
+    "controller",
+    "networks",
+    "wlans",
+    "dns",
+    "firewall",
+    "nat",
+    "vpn",
+}
 CONTROLLER_KEYS = {"site"}
 DHCP_KEYS = {"enabled", "start", "stop", "lease_time", "dns"}
 IPV6_KEYS = {"enabled", "type"}
@@ -138,6 +148,16 @@ def _validate_sensitive_values(value: Any, path: str = "config") -> None:
     if isinstance(value, dict):
         for key, child in value.items():
             key_name = str(key).lower()
+            if path.startswith("config.vpn") and key_name in {
+                "private_key",
+                "preshared_key",
+                "secret",
+                "token",
+                "profile",
+                "configuration",
+                "qr_code",
+            }:
+                raise ConfigError(f"{path}.{key} is not accepted in the VPN contract")
             if (
                 key_name in SENSITIVE_KEYS
                 and child not in (None, "")
@@ -222,6 +242,7 @@ def validate_config(config: dict[str, Any]) -> None:
                 "dns": config.get("dns", []),
                 "firewall": config.get("firewall"),
                 "nat": config.get("nat"),
+                "vpn": config.get("vpn"),
             }
         )
         return
@@ -374,6 +395,10 @@ def _validate_version_one_config(config: dict[str, Any]) -> None:
     try:
         validate_nat(config.get("nat"), network_names=network_names)
     except NatError as exc:
+        raise ConfigError(str(exc)) from None
+    try:
+        validate_vpn(config.get("vpn"), network_names=network_names)
+    except VpnError as exc:
         raise ConfigError(str(exc)) from None
 
 

@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-No unreleased changes.
+- add the read-only local VPN contract for servers, site-to-site tunnels,
+  connected peers and route dependency validation;
+- add secret-free VPN export, plan observations, CLI/MCP inventory and
+  capability-aware boundaries without accepting private keys or profiles;
+- publish the v0.7.0 migration, compatibility, recovery and fixture evidence
+  documentation.
 
 ## 0.6.0 — 2026-08-15
 

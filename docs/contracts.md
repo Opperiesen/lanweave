@@ -9,6 +9,11 @@ groups and ordered rules. NAT adds optional local port-forwarding mappings
 without adding a write-capable MCP tool. See [`firewall.md`](firewall.md) and
 [`nat.md`](nat.md) for the portable resource contracts.
 
+The v0.7.0 VPN extension is additive as well. It adds a read-only overview of
+VPN servers, site-to-site tunnels, connected peers and declared route
+dependencies without accepting keys, generated profiles or controller IDs.
+The complete boundary is documented in [`vpn.md`](vpn.md).
+
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
 schema `1`, profile layer `2`, plan format `1`, MCP contract `3` and adapter
@@ -45,6 +50,11 @@ wlans: []
 dns: []
 # optional local NAT mappings
 nat: []
+# optional local VPN overview and route dependencies
+vpn:
+  servers: []
+  site_to_site_tunnels: []
+  routes: []
 ```
 
 The public fields are:
@@ -64,10 +74,15 @@ The public fields are:
 - optional `nat[]`: named public interfaces, source scopes, private endpoints,
   protocols and translated port ranges; controller IDs/origins are never
   portable fields.
+- optional `vpn`: `servers[]`, `site_to_site_tunnels[]` and `routes[]`. Routes
+  use a CIDR `destination` and may use `via` to reference a VPN server or
+  tunnel. Private keys, pre-shared keys, generated profiles and QR codes are
+  rejected; controller IDs and origin metadata are never portable fields.
 
 Unknown fields fail validation at every documented object level. Literal
 passwords, secret-manager references and unresolved environment values are
-rejected. `lanweave export` emits version 1 and never emits a WLAN password.
+rejected. `lanweave export` emits version 1 and never emits a WLAN password or
+VPN secret.
 
 Valid version-1 files remain accepted throughout the `v0.1.x` line. A future
 optional field may be added only if existing files keep the same meaning and
@@ -91,6 +106,7 @@ Version-2 files add:
 - `profiles`: named controller/site targets;
 - optional `profile`: an explicit document-level selector;
 - the unchanged `networks[]`, `wlans[]`, DNS, firewall and NAT resource model.
+- the additive `vpn` overview and route dependency model from schema v1.
 
 `validate` and `profiles validate` reject unknown, incomplete or ambiguous
 profile fields locally. `profiles list` prints only sanitized profile target
@@ -118,6 +134,7 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | `backup` | `--output`, `--config`, `--profile` | Write a local redacted snapshot with mode `0600` |
 | `status` | `--output table/json`, `--config`, `--profile` | Show health and device summary |
 | `clients` | `--filter`, `--wired`, `--output table/json`, `--config`, `--profile` | Show filtered client inventory |
+| `vpn` | `--output table/json`, `--config`, `--profile` | Show read-only VPN inventory, peers and coverage |
 | `capabilities` | `--output table/json`, `--config`, `--profile` | Show selected adapter capabilities without contacting a target |
 
 `--prune` is opt-in and retains its separate confirmation boundary.
@@ -167,6 +184,12 @@ is carried in an optional `warnings` array and never contains request payloads
 or credentials. NAT plans use `kind: nat`, keep the portable mapping in the
 redacted payload, and carry exposure/conflict warnings through the same field.
 
+When a configuration contains `vpn`, plan v1 may include an optional
+`read_only.vpn` object. It carries the secret-free desired overview, the
+observed overview, dependency checks and an `apply_supported: false` marker.
+It is an audit observation, not a change entry; `lanweave apply` refuses a
+plan containing it.
+
 The redaction guarantee is part of the format: the plan contains no current
 controller object, request body outside the redacted payload, response body or
 credential. Sensitive keys such as `password`, `passphrase`, `secret`, `token`
@@ -182,7 +205,7 @@ requires a new format version and a release note.
 The superseded **Read-only MCP contract v2** remains documented by the
 v0.2.0 release gate; v3 is the additive capability-aware successor.
 
-The optional stdio adapter exposes exactly these seven tools:
+The optional stdio adapter exposes exactly these eight tools:
 
 | Tool | Parameters | Logical return value |
 | --- | --- | --- |
@@ -190,11 +213,12 @@ The optional stdio adapter exposes exactly these seven tools:
 | `lanweave_get_capabilities` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities}` without a target request |
 | `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, devices}` |
 | `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
+| `lanweave_list_vpn` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, read_only, inventory, health}` |
 | `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
-| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns, firewall, nat}` |
+| `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns, firewall, nat, vpn}` |
 | `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false`, `profile: string|null = null` | target-bound redacted plan JSON format v1 |
 
-The four controller-facing inventory/export tools preserve their version-1
+The five controller-facing inventory/export tools preserve their version-1
 environment-only invocation when `config_path` and `profile` are omitted. When
 `config_path` points to a version-2 file, the shared resolver requires an
 explicit profile from the tool argument, the document selector or
@@ -235,8 +259,10 @@ valid. A breaking configuration, CLI, plan or MCP change requires all of:
 3. focused tests for the old and new behavior where compatibility is promised;
 4. a release decision recorded in the roadmap and release notes.
 
-No write-capable MCP tool or cloud mutation is part of this contract. The
+No write-capable MCP tool or cloud mutation is part of this contract. VPN
+inventory, export and plan observations are read-only and do not imply route
+or handshake telemetry. The
 v0.3/v0.4 cloud adapter remains read-only and limited to its documented Site
 Manager capabilities. The v0.5 firewall family remains local API-key-only;
-the v0.6 NAT family is local-session-only, and VPN remains a future resource
-family.
+the v0.6 NAT family is local-session-only, and the v0.7 VPN family is local
+API-key-only for its documented overview reads.

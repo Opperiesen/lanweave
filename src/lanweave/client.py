@@ -25,6 +25,12 @@ from .firewall import (
     normalize_controller_traffic_matching_list,
 )
 from .nat import normalize_controller_nat_list
+from .vpn import (
+    health_from_inventory,
+    normalize_controller_vpn_peer,
+    normalize_controller_vpn_server,
+    normalize_controller_vpn_tunnel,
+)
 
 INTEGRATION_API_PREFIX = "/proxy/network/integration/v1"
 INTEGRATION_PAGE_SIZE = 200
@@ -729,6 +735,47 @@ class LocalClassicAdapter:
                 }
             ]
         return self.get(self.site_url("stat/health")) or []
+
+    def vpn(self) -> dict[str, Any]:
+        """List the documented, read-only VPN overview resources.
+
+        The official Integration API exposes server and site-to-site tunnel
+        overviews. Connected VPN/Teleport clients are derived from the same
+        API's client inventory. It does not expose route tables or handshake
+        telemetry in this contract, so those fields remain explicitly empty.
+        """
+        if not self.settings.api_key:
+            raise RuntimeError("VPN inventory requires an Integration API key")
+
+        servers = [
+            normalize_controller_vpn_server(item, f"vpn.servers[{index}]")
+            for index, item in enumerate(
+                self._integration_list(self._integration_site_path("vpn/servers"))
+            )
+        ]
+        tunnels = [
+            normalize_controller_vpn_tunnel(item, f"vpn.site_to_site_tunnels[{index}]")
+            for index, item in enumerate(
+                self._integration_list(self._integration_site_path("vpn/site-to-site-tunnels"))
+            )
+        ]
+        peers = []
+        for index, item in enumerate(
+            self._integration_list(self._integration_site_path("clients"))
+        ):
+            if str(item.get("type") or "").upper() not in {"VPN", "TELEPORT"}:
+                continue
+            peers.append(normalize_controller_vpn_peer(item, f"vpn.peers[{index}]"))
+        return {
+            "servers": sorted(servers, key=lambda value: value["name"]),
+            "site_to_site_tunnels": sorted(tunnels, key=lambda value: value["name"]),
+            "peers": sorted(peers, key=lambda value: value["name"]),
+            "routes": [],
+        }
+
+    def vpn_health(self) -> dict[str, Any]:
+        """Return an honest inventory-only VPN health summary."""
+        return health_from_inventory(self.vpn())
 
 
 class UniFiClient(LocalClassicAdapter):

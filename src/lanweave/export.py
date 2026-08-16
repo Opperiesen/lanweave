@@ -12,6 +12,7 @@ from .contracts import CONFIG_SCHEMA_VERSION
 from .dns import dns_export_record, dns_is_user_managed
 from .firewall import export_firewall_config
 from .nat import nat_export_mapping, nat_is_user_managed
+from .vpn import inventory_to_export
 
 
 def _network_subnet(value: str | None) -> str | None:
@@ -137,6 +138,14 @@ def export_config(client: Adapter) -> dict[str, Any]:
         nat_config = [
             nat_export_mapping(mapping) for mapping in client.nat() if nat_is_user_managed(mapping)
         ]
+    supports_vpn = (
+        capabilities.supports("vpn", "export")
+        if capabilities is not None
+        else callable(getattr(client, "vpn", None))
+    )
+    vpn_config = {"servers": [], "site_to_site_tunnels": [], "routes": []}
+    if supports_vpn:
+        vpn_config = inventory_to_export(client.vpn())
     return {
         "version": CONFIG_SCHEMA_VERSION,
         "controller": {"site": client.settings.site},
@@ -147,6 +156,7 @@ def export_config(client: Adapter) -> dict[str, Any]:
         "dns": dns_records,
         "firewall": firewall_config,
         "nat": nat_config,
+        "vpn": vpn_config,
     }
 
 

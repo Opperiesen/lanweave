@@ -112,6 +112,18 @@ def test_firewall_capabilities_are_api_key_only() -> None:
     assert api_key.supports("firewall", "prune")
 
 
+def test_vpn_overview_is_api_key_only_and_read_only() -> None:
+    session = local_classic_capabilities(AUTH_MODE_SESSION)
+    api_key = local_classic_capabilities(AUTH_MODE_API_KEY)
+
+    assert not session.supports("vpn", "read")
+    assert api_key.supports("vpn", "read")
+    assert api_key.supports("vpn", "export")
+    assert api_key.supports("vpn", "plan")
+    assert not api_key.supports("vpn", "apply")
+    assert not api_key.supports("vpn", "prune")
+
+
 def test_nat_read_and_export_are_session_only_until_mutation_support_exists() -> None:
     session = local_classic_capabilities(AUTH_MODE_SESSION)
     api_key = local_classic_capabilities(AUTH_MODE_API_KEY)
@@ -165,6 +177,12 @@ class FakeAdapter:
 
     def health(self) -> list[dict[str, Any]]:
         return []
+
+    def vpn(self) -> dict[str, Any]:
+        return {"servers": [], "site_to_site_tunnels": [], "peers": [], "routes": []}
+
+    def vpn_health(self) -> dict[str, Any]:
+        return {"subsystem": "vpn", "status": "not-configured"}
 
     def devices(self) -> list[dict[str, Any]]:
         return []

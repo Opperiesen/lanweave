@@ -15,6 +15,9 @@ automation, not as a harmless status client.
 - require an explicit risk acknowledgement before applying broad or
   Internet-facing NAT plans, and never infer support for an undocumented
   controller variant;
+- treat VPN inventory as read-only in v0.7.0: never commit private keys,
+  pre-shared keys, generated profiles or QR codes, and never assume that a
+  missing route or handshake is healthy;
 - keep exports and backups outside Git;
 - never paste API keys, passwords, exports or controller logs into issues.
 

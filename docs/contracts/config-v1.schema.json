@@ -26,6 +26,9 @@
     "nat": {
       "type": "array",
       "items": { "$ref": "#/$defs/nat_mapping" }
+    },
+    "vpn": {
+      "$ref": "#/$defs/vpn"
     }
   },
   "$defs": {
@@ -216,6 +219,56 @@
         "private": { "$ref": "#/$defs/nat_private" },
         "hairpin": { "type": "boolean" },
         "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "vpn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "servers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/vpn_server" }
+        },
+        "site_to_site_tunnels": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/vpn_tunnel" }
+        },
+        "routes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/vpn_route" }
+        }
+      }
+    },
+    "vpn_server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "vpn_tunnel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$" },
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "vpn_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "destination"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "destination": { "type": "string", "minLength": 1 },
+        "via": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "metric": { "type": "integer", "minimum": 1 }
       }
     },
     "nat_public": {

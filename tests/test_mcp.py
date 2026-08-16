@@ -38,6 +38,7 @@ def test_mcp_contract_freezes_tool_names_parameters_and_read_only_scope() -> Non
         "lanweave_get_capabilities",
         "lanweave_list_devices",
         "lanweave_list_clients",
+        "lanweave_list_vpn",
         "lanweave_export_config",
         "lanweave_validate_config",
         "lanweave_plan_changes",

@@ -62,6 +62,9 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     ]
     assert config_v2_schema["additionalProperties"] is False
     assert "nat" in config_v2_schema["properties"]
+    assert "vpn" in config_schema["properties"]
+    assert "vpn" in config_v2_schema["properties"]
+    assert "read_only" in plan_schema["properties"]
     assert "nat" in plan_schema["$defs"]["change"]["properties"]["kind"]["enum"]
     assert capability_schema["properties"]["format_version"]["const"] == 1
     assert capability_schema["additionalProperties"] is False

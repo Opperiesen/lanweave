@@ -53,6 +53,12 @@ Supported resource families in this release:
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
 
+The next `0.7.0` release adds a read-only local VPN inventory through the
+documented Integration API, connected VPN peers, route dependency validation,
+secret-free export and an explicit `read_only.vpn` plan observation. It does
+not generate profiles or keys and does not apply VPN changes; see the [VPN
+contract](docs/vpn.md) and [v0.7 roadmap](docs/roadmap-v0.7.0.md).
+
 The firewall family is limited to the documented local API-key Integration API
 surface. See [firewall](docs/firewall.md), [compatibility](docs/compatibility.md)
 and the [v0.5 roadmap](docs/roadmap-v0.5.0.md) for the exact support boundary.
@@ -61,7 +67,7 @@ The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-VPN and device mutation workflows remain outside v0.6.0. NAT support is limited
+Device mutation workflows remain outside v0.6.0. NAT support is limited
 to the documented IPv4 subset, with explicit exposure warnings and protected
 ownership behavior; see [NAT](docs/nat.md) and the [v0.6.0 roadmap](docs/roadmap-v0.6.0.md).
 
@@ -127,6 +133,7 @@ lanweave apply --acknowledge-risk # authorize reviewed firewall/NAT warnings
 lanweave backup                  # write a 0600 redacted local snapshot
 lanweave status                  # health and device summary
 lanweave clients --filter phone  # connected-client view
+lanweave vpn --output json       # read-only VPN inventory and coverage
 ```
 
 `--prune` is opt-in. It never targets the controller's WAN or `Default`
@@ -150,9 +157,10 @@ uv sync --extra mcp
 uv run lanweave-mcp
 ```
 
-The server exposes health, devices, clients, secret-free export, local
-validation and redacted planning, including supported NAT state through export
-and plans. It intentionally exposes no apply or delete tool. A desktop MCP
+The server exposes health, devices, clients, read-only VPN inventory,
+secret-free export, local validation and redacted planning, including supported
+NAT state through export and plans. It intentionally exposes no apply or delete
+tool. A desktop MCP
 client should launch `lanweave-mcp` from this checkout (or
 from the installed package) with the required `UNIFI_*` environment variables.
 The tool names, parameters and error codes are frozen in
@@ -162,7 +170,7 @@ The tool names, parameters and error codes are frozen in
 
 Copy `.env.example` to `.env`, or export the variables in the process
 environment. `.env` is ignored by Git. API keys provide read-only access to
-networks and WLANs through the local Integration API, plus the documented DNS
+networks, WLANs and the v0.7 VPN overview through the local Integration API, plus the documented DNS
 policy create/update/delete endpoint. Username and password session
 authentication remains required for network, WLAN and supported NAT mutations.
 

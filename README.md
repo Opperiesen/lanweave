@@ -3,6 +3,9 @@
 [![CI](https://github.com/Opperiesen/lanweave/actions/workflows/ci.yml/badge.svg)](https://github.com/Opperiesen/lanweave/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/Opperiesen/lanweave)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/Opperiesen/lanweave?include_prereleases)](https://github.com/Opperiesen/lanweave/releases)
+[![PyPI version](https://img.shields.io/pypi/v/lanweave)](https://pypi.org/project/lanweave/)
+[![PyPI downloads/month](https://img.shields.io/pypi/dm/lanweave?label=downloads%2Fmonth)](https://pypistats.org/packages/lanweave)
+[![Python versions](https://img.shields.io/pypi/pyversions/lanweave)](https://pypi.org/project/lanweave/)
 
 ![Lanweave logo](assets/logo.svg)
 
@@ -13,6 +16,10 @@ GitOps project without requiring a cloud service.
 The name is intentionally independent from the controller vendor. Lanweave is
 not affiliated with, endorsed by, or sponsored by Ubiquiti Inc. UniFi is a
 trademark of Ubiquiti Inc.
+
+> **Best fit:** operators who want a reviewable, local-first control plane for
+> a UniFi network. Lanweave is not a replacement for the UniFi web interface
+> and does not claim support for every controller endpoint.
 
 ## Why Lanweave?
 
@@ -41,6 +48,11 @@ UniFi Network applications and UniFi OS consoles; see
 [compatibility](docs/compatibility.md) and the [apply recovery model](docs/recovery.md)
 for the exact scope, tested matrix and partial-failure behavior. The frozen
 public surfaces are described in [contracts](docs/contracts.md).
+
+> **Stable support boundary:** v1.0.0 is validated on a UDR7 running UniFi OS
+> 5.1.19 and UniFi Network 10.5.67. Other controller and application versions
+> may work, but remain unverified until they appear in the
+> [compatibility matrix](docs/compatibility.md).
 
 Supported resource families in this release:
 
@@ -78,12 +90,21 @@ ownership behavior; see [NAT](docs/nat.md) and the [v0.6.0 roadmap](docs/roadmap
 
 ## Quick start
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
-package from PyPI with:
+Requires Python 3.11+. For an isolated CLI installation, [uv](https://docs.astral.sh/uv/)
+is recommended:
 
 ```shell
 uv tool install lanweave==1.0.0
 lanweave --version
+```
+
+Equivalent installation options are available when `uv` is not already part
+of the operator's toolchain:
+
+```shell
+pipx install lanweave==1.0.0
+# or, inside an existing virtual environment:
+python -m pip install lanweave==1.0.0
 ```
 
 For a checkout and development environment:
@@ -100,6 +121,23 @@ attestation verification.
 
 The complete operator path, profile examples and capability boundaries are in
 the [v1.0 onboarding guide](docs/onboarding-v1.0.md).
+
+### Safe first run
+
+After configuring the controller environment, the normal operator path is:
+
+```shell
+lanweave init
+# edit config/network.yaml and set UNIFI_* variables
+lanweave validate
+lanweave doctor --check
+lanweave plan
+lanweave apply
+```
+
+`validate` is local-only. `doctor --check` and `plan` are read-only; `apply`
+is the only command in this sequence that can change the controller, and it
+requires an explicit confirmation.
 
 Edit `config/network.yaml` and provide secrets only through the environment:
 
@@ -211,6 +249,7 @@ Apache-2.0. See [LICENSE](LICENSE).
 ## Project links
 
 - [source repository](https://github.com/Opperiesen/lanweave);
+- [PyPI package](https://pypi.org/project/lanweave/);
 - [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
 - [MCP and audit contracts](docs/contracts.md);
 - [v1.0 onboarding guide](docs/onboarding-v1.0.md);

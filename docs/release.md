@@ -2,8 +2,11 @@
 
 Lanweave stable releases are published from protected annotated version tags.
 The release workflow runs the complete required CI, builds the wheel and source
-distribution, tests both in clean environments, publishes checksums and creates
-signed provenance before making the GitHub Release public.
+distribution, tests both in clean environments for Python 3.11 through 3.14,
+checks the optional MCP entry point, publishes checksums and creates signed
+provenance before making the GitHub Release public. A post-publication job then
+checks the public tag, release assets, PyPI files, GitHub artifact attestation
+and PyPI PEP 740 attestations.
 
 ## Install from PyPI
 
@@ -88,7 +91,20 @@ gh attestation verify \
 
 PyPI distributions are published through Trusted Publishing with GitHub OIDC
 and receive PyPI's PEP 740 digital attestations. No long-lived PyPI token is
-stored in the repository.
+stored in the repository. The post-publication workflow verifies both the
+wheel and source distribution with PyPI's `pypi-attestations` verifier against
+the repository's Trusted Publisher identity.
+
+The same checks are available from a checkout after a public release:
+
+```shell
+uvx --from pypi-attestations pypi-attestations verify pypi \
+  --repository https://github.com/Opperiesen/lanweave \
+  https://files.pythonhosted.org/path/to/lanweave-1.0.0-py3-none-any.whl
+```
+
+Use the exact wheel or source-distribution URL returned by
+`https://pypi.org/p/lanweave` for the placeholder above.
 
 The current v1.0.0 scope is documented in [the roadmap](roadmap-v1.0.0.md),
 with [migration-v1.0.md](migration-v1.0.md),

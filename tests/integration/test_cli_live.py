@@ -224,11 +224,16 @@ def test_installed_cli_read_only_matrix(
         "--output",
         str(backup_dir),
     )
-    _assert_success(backup)
-    backup_files = tuple(backup_dir.glob("*.json"))
-    assert len(backup_files) == 1
-    backup_document = json.loads(backup_files[0].read_text(encoding="utf-8"))
-    assert isinstance(backup_document, dict)
+    if _env("LANWEAVE_INTEGRATION_API_KEY"):
+        _assert_secret_free(backup)
+        assert backup.returncode == 2
+        assert "unsupported_capability" in backup.stderr
+    else:
+        _assert_success(backup)
+        backup_files = tuple(backup_dir.glob("*.json"))
+        assert len(backup_files) == 1
+        backup_document = json.loads(backup_files[0].read_text(encoding="utf-8"))
+        assert isinstance(backup_document, dict)
 
     plan_table = _run_cli(
         "plan",

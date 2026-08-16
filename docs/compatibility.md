@@ -113,7 +113,7 @@ contract remains read-only and unchanged at v3.
 | VPN servers | n/a / `v1/sites/{siteId}/vpn/servers` | local API key read/export/plan; secret-free overview only; session, cloud and mutation unsupported |
 | Site-to-site VPN tunnels | n/a / `v1/sites/{siteId}/vpn/site-to-site-tunnels` | local API key read/export/plan; overview only; routes and handshakes not inferred |
 | Connected VPN peers | n/a / `v1/sites/{siteId}/clients` filtered to `VPN`/`TELEPORT` | local API key read through the VPN inventory; no generated profiles or keys |
-| Backup | common `stat/*` and `rest/*` endpoints | redacted read |
+| Backup | classic `stat/*` and `rest/*` endpoints | local session redacted read/export; API-key and cloud unsupported |
 
 The exact fields returned by UniFi can vary between Network application
 versions. Lanweave keeps the API payload adapter narrow and ignores fields it

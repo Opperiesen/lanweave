@@ -32,15 +32,14 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.6.0` is the stable local NAT and port-forwarding resource release.
-It preserves the local-first profile behavior, the read-only Site Manager
-cloud adapter, local DNS and firewall families, and adds a tested, guarded NAT
-surface for the classic local UniFi Network API. It targets the classic local
-UniFi Network API used by self-hosted UniFi Network applications and UniFi OS
-consoles; see [compatibility](docs/compatibility.md) and the [apply recovery
-model](docs/recovery.md) for the exact scope, tested matrix and partial-failure
-behavior. The frozen public surfaces are described in
-[contracts](docs/contracts.md).
+Lanweave `0.7.0` is the stable local VPN inventory release. It preserves the
+local-first profile behavior, read-only Site Manager cloud adapter, DNS,
+firewall and guarded NAT families, and adds a documented, secret-free VPN
+overview for the classic local UniFi Network API. It targets self-hosted
+UniFi Network applications and UniFi OS consoles; see
+[compatibility](docs/compatibility.md) and the [apply recovery model](docs/recovery.md)
+for the exact scope, tested matrix and partial-failure behavior. The frozen
+public surfaces are described in [contracts](docs/contracts.md).
 
 Supported resource families in this release:
 
@@ -49,11 +48,13 @@ Supported resource families in this release:
 - local DNS `A`, `AAAA` and `CNAME` records;
 - local firewall zones, address groups, port groups and ordered rules;
 - local NAT and port-forwarding mappings in the documented IPv4 subset;
+- local VPN server and site-to-site tunnel overviews, connected peers and
+  route dependency validation;
 - local controller/site profiles with explicit target selection;
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
 
-The next `0.7.0` release adds a read-only local VPN inventory through the
+The `0.7.0` release adds a read-only local VPN inventory through the
 documented Integration API, connected VPN peers, route dependency validation,
 secret-free export and an explicit `read_only.vpn` plan observation. It does
 not generate profiles or keys and does not apply VPN changes; see the [VPN
@@ -67,7 +68,7 @@ The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-Device mutation workflows remain outside v0.6.0. NAT support is limited
+Device mutation workflows remain outside v0.7.0. NAT support is limited
 to the documented IPv4 subset, with explicit exposure warnings and protected
 ownership behavior; see [NAT](docs/nat.md) and the [v0.6.0 roadmap](docs/roadmap-v0.6.0.md).
 
@@ -77,7 +78,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.6.0
+uv tool install lanweave==0.7.0
 lanweave --version
 ```
 

@@ -129,6 +129,23 @@ milestone is `v0.7.0` for safe local VPN resources; its read-only-first scope
 remains outside the v0.6.0 release gate. The complete NAT scope is maintained
 in [roadmap-v0.6.0.md](roadmap-v0.6.0.md).
 
+## Release status — `v0.7.0`
+
+`v0.7.0` is the current stable release. It adds the local VPN overview family
+with a strict read-only and secret-free boundary: servers, site-to-site
+tunnels, connected peers, route dependency validation, export, CLI, MCP and
+plan observations.
+
+The offline fixture gate, migration, compatibility, recovery and release
+artifacts are documented in [roadmap-v0.7.0.md](roadmap-v0.7.0.md) and
+[release-v0.7.0.md](release-v0.7.0.md). Live VPN lifecycle evidence remains
+explicitly limited because the designated controller has no active VPN
+resource to exercise safely.
+
+Milestone `v0.7.0` is closed with the epic and all six implementation issues
+completed. The next active milestone is `v0.8.0` for drift audit and
+compliance reports.
+
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 
 Release engineering is tracked separately:
@@ -318,17 +335,17 @@ and the package/tag/publication gates passed in workflow run
 The `v0.5.0` milestone remains closed; its successor `v0.6.0` is now the
 current stable release.
 
-## Next independent release
+## v0.7.0 release decomposition
 
 Each resource family has a different blast radius, controller contract and
-release gate. The next release is now decomposed and active:
+release gate. The completed v0.7.0 release was decomposed as follows:
 
 ### `v0.7.0` — safe local VPN resources
 
-The [VPN epic #19](https://github.com/Opperiesen/lanweave/issues/19) remains in
-the open [v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9)
-with a read-only-first rollout and strict secret/route handling. It remains
-outside the v0.6.0 release gate.
+The [VPN epic #19](https://github.com/Opperiesen/lanweave/issues/19) and its
+six implementation issues were delivered in the
+[v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9) with a
+read-only-first rollout and strict secret/route handling.
 
 The decomposition is executed in this order:
 
@@ -343,7 +360,7 @@ The complete contract, gates and deliberate exclusions are maintained in
 [`roadmap-v0.7.0.md`](roadmap-v0.7.0.md). v0.7 does not create VPNs, generate
 private keys or profiles, apply routes, or expose a write-capable MCP tool.
 
-### Future milestones
+## Next independent release — `v0.8.0`
 
 - `v0.8.0` (#120) turns the read-only observations into first-class drift and
   compliance reports with stable semantics;

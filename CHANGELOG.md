@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.7.0 — 2026-08-16
+
 - add the read-only local VPN contract for servers, site-to-site tunnels,
   connected peers and route dependency validation;
 - add secret-free VPN export, plan observations, CLI/MCP inventory and

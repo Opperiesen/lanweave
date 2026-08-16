@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
@@ -332,6 +333,10 @@ def create_server(*, cache_clients: bool = False) -> Any:
 
 def main() -> None:
     """Run the server over MCP stdio for local hosts."""
+    # HTTPX request logs include the controller URL and must not leak through
+    # the MCP stderr channel captured by clients or host applications.
+    for logger_name in ("httpx", "httpcore"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
     create_server(cache_clients=True).run(transport="stdio")
 
 

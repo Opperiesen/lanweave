@@ -4,6 +4,17 @@
 
 No unreleased changes.
 
+## 1.0.0 — 2026-08-16
+
+- freeze the public configuration, profile, plan, capability, audit and
+  convergence contracts;
+- freeze the read-only MCP v3 tool surface and typed Python API exports;
+- publish v0.9.0 to v1.0.0 migration and v1.x deprecation guidance;
+- document the stable local network control-plane boundary and deliberate
+  exclusions;
+- require live compatibility, packaging, security and provenance evidence for
+  the protected release.
+
 ## 0.9.0 — 2026-08-16
 
 - add versioned post-apply convergence result format v1 with `converged`,

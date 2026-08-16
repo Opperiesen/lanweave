@@ -67,6 +67,8 @@ jobs:
         run: uv run python scripts/verify_v080_evidence.py
       - name: Verify v0.9 convergence evidence gate
         run: uv run python scripts/verify_v090_evidence.py
+      - name: Verify v1.0 evidence gate
+        run: uv run python scripts/verify_v100_evidence.py
       - name: Build wheel and source distribution
         run: |
           rm -rf dist

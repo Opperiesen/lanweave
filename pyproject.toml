@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lanweave"
-version = "0.9.0"
+version = "1.0.0"
 description = "Safe, declarative configuration and diagnostics for local UniFi Network controllers"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import os
 import shutil
@@ -73,82 +72,85 @@ async def _exercise_mcp(config_path: Path) -> None:
     if command is None:
         pytest.fail("the installed lanweave-mcp console entry point is not on PATH")
 
-    server_stderr = io.StringIO()
+    server_stderr_path = config_path.with_name("mcp-server-stderr.log")
     parameters = StdioServerParameters(
         command=command,
         env=os.environ.copy(),
         cwd=Path.cwd(),
     )
-    async with (
-        stdio_client(parameters, errlog=server_stderr) as (read, write),
-        ClientSession(read, write) as session,
-    ):
-        initialize = await session.initialize()
-        assert initialize.serverInfo.name == "Lanweave"
-        assert initialize.instructions and "read-only" in initialize.instructions.lower()
+    with server_stderr_path.open("w+", encoding="utf-8") as server_stderr:
+        async with (
+            stdio_client(parameters, errlog=server_stderr) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            initialize = await session.initialize()
+            assert initialize.serverInfo.name == "Lanweave"
+            assert initialize.instructions and "read-only" in initialize.instructions.lower()
 
-        listed = await session.list_tools()
-        tool_names = {tool.name for tool in listed.tools}
-        assert tool_names == {
-            "lanweave_get_health",
-            "lanweave_get_capabilities",
-            "lanweave_list_devices",
-            "lanweave_list_clients",
-            "lanweave_list_vpn",
-            "lanweave_audit_config",
-            "lanweave_export_config",
-            "lanweave_validate_config",
-            "lanweave_plan_changes",
-        }
-        assert not any(
-            any(word in name for word in ("apply", "create", "update", "delete", "prune"))
-            for name in tool_names
-        )
+            listed = await session.list_tools()
+            tool_names = {tool.name for tool in listed.tools}
+            assert tool_names == {
+                "lanweave_get_health",
+                "lanweave_get_capabilities",
+                "lanweave_list_devices",
+                "lanweave_list_clients",
+                "lanweave_list_vpn",
+                "lanweave_audit_config",
+                "lanweave_export_config",
+                "lanweave_validate_config",
+                "lanweave_plan_changes",
+            }
+            assert not any(
+                any(word in name for word in ("apply", "create", "update", "delete", "prune"))
+                for name in tool_names
+            )
 
-        target_arguments = {
-            "config_path": str(config_path),
-            "profile": "integration",
-        }
-        calls = {
-            "lanweave_get_health": target_arguments,
-            "lanweave_get_capabilities": target_arguments,
-            "lanweave_list_devices": target_arguments,
-            "lanweave_list_clients": {**target_arguments, "include_wired": False},
-            "lanweave_list_vpn": target_arguments,
-            "lanweave_audit_config": target_arguments,
-            "lanweave_export_config": target_arguments,
-            "lanweave_validate_config": {"config_path": str(config_path)},
-            "lanweave_plan_changes": target_arguments,
-        }
-        results: dict[str, Any] = {}
-        for name, arguments in calls.items():
-            result = await session.call_tool(name, arguments)
-            _assert_secret_free(result)
-            if name == "lanweave_list_vpn" and not _env("LANWEAVE_INTEGRATION_API_KEY"):
-                assert result.isError is True
-                error_text = " ".join(getattr(item, "text", "") for item in result.content)
-                assert "unsupported_capability" in error_text
-                continue
-            assert result.isError is False, result.content
-            assert result.structuredContent is not None
-            results[name] = result.structuredContent
+            target_arguments = {
+                "config_path": str(config_path),
+                "profile": "integration",
+            }
+            calls = {
+                "lanweave_get_health": target_arguments,
+                "lanweave_get_capabilities": target_arguments,
+                "lanweave_list_devices": target_arguments,
+                "lanweave_list_clients": {**target_arguments, "include_wired": False},
+                "lanweave_list_vpn": target_arguments,
+                "lanweave_audit_config": target_arguments,
+                "lanweave_export_config": target_arguments,
+                "lanweave_validate_config": {"config_path": str(config_path)},
+                "lanweave_plan_changes": target_arguments,
+            }
+            results: dict[str, Any] = {}
+            for name, arguments in calls.items():
+                result = await session.call_tool(name, arguments)
+                _assert_secret_free(result)
+                if name == "lanweave_list_vpn" and not _env("LANWEAVE_INTEGRATION_API_KEY"):
+                    assert result.isError is True
+                    error_text = " ".join(getattr(item, "text", "") for item in result.content)
+                    assert "unsupported_capability" in error_text
+                    continue
+                assert result.isError is False, result.content
+                assert result.structuredContent is not None
+                results[name] = result.structuredContent
 
-        assert results["lanweave_get_health"]["target"]["profile"] == "integration"
-        assert results["lanweave_get_capabilities"]["capabilities"]["format_version"] == 1
-        assert results["lanweave_list_devices"]["target"]["controller"] == "integration"
-        assert isinstance(results["lanweave_list_clients"]["clients"], list)
-        assert results["lanweave_audit_config"]["read_only"] is True
-        assert results["lanweave_export_config"]["target"]["site"] == (
-            _env("LANWEAVE_INTEGRATION_SITE") or "default"
-        )
-        assert results["lanweave_validate_config"]["valid"] is True
-        assert results["lanweave_plan_changes"]["target"]["profile"] == "integration"
-        if _env("LANWEAVE_INTEGRATION_API_KEY"):
-            vpn = results["lanweave_list_vpn"]
-            assert vpn["read_only"] is True
-            assert vpn["health"]["coverage"]["routes"] == ("not-reported-by-official-overview-api")
+            assert results["lanweave_get_health"]["target"]["profile"] == "integration"
+            assert results["lanweave_get_capabilities"]["capabilities"]["format_version"] == 1
+            assert results["lanweave_list_devices"]["target"]["controller"] == "integration"
+            assert isinstance(results["lanweave_list_clients"]["clients"], list)
+            assert results["lanweave_audit_config"]["read_only"] is True
+            assert results["lanweave_export_config"]["target"]["site"] == (
+                _env("LANWEAVE_INTEGRATION_SITE") or "default"
+            )
+            assert results["lanweave_validate_config"]["valid"] is True
+            assert results["lanweave_plan_changes"]["target"]["profile"] == "integration"
+            if _env("LANWEAVE_INTEGRATION_API_KEY"):
+                vpn = results["lanweave_list_vpn"]
+                assert vpn["read_only"] is True
+                assert vpn["health"]["coverage"]["routes"] == (
+                    "not-reported-by-official-overview-api"
+                )
 
-    _assert_secret_free(server_stderr.getvalue())
+    _assert_secret_free(server_stderr_path.read_text(encoding="utf-8"))
 
 
 def test_installed_mcp_stdio_client_exercises_read_only_contract(tmp_path: Path) -> None:

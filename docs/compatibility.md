@@ -57,11 +57,13 @@ capability is `read/export/plan`; session authentication, Site Manager and all
 VPN mutations remain unsupported. Routes and handshakes are marked as not
 reported when the official overview does not provide them.
 
-The designated controller has no active VPN configuration available for a
-safe live lifecycle in this release. The limitation is recorded in
-[`evidence/v0.7.0-vpn.md`](evidence/v0.7.0-vpn.md); fixtures and the offline
-gate prove the normalization and secret boundary without turning an absent
-resource into a compatibility claim.
+The protected v1.0 audit now exercises the designated controller's read-only
+VPN overview through the direct adapter, the installed CLI and a real MCP
+stdio client. The run confirms the endpoint path and secret boundary, but it
+does not turn an absent or inventory-only resource into a lifecycle claim.
+Routes remain explicitly `not-reported-by-official-overview-api`, and the
+live limitation is recorded in
+[`evidence/v1.0.0-vpn.md`](evidence/v1.0.0-vpn.md).
 
 ## v0.8.0 audit compatibility
 
@@ -134,6 +136,7 @@ treated as supported without a corresponding report.
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session (NAT v0.6.0) | verification disabled locally | **tested** — [protected NAT probes passed](https://github.com/Opperiesen/lanweave/actions/runs/31907918542) | **tested** — [NAT create/update/protected-prune/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31907918542) |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [3 passed](https://github.com/Opperiesen/lanweave/actions/runs/31883645969) | **tested** — DNS create/update/prune |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (v1 Integration API) | verification disabled locally | **tested** — [6 passed](https://github.com/Opperiesen/lanweave/actions/runs/31903782251) | **tested** — [firewall create/update/reorder/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31903782251) |
+| UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local API key (VPN overview) | verification disabled locally | **tested** — [read-only, CLI and MCP evidence passed](https://github.com/Opperiesen/lanweave/actions/runs/31940859290) | not applicable — VPN remains read-only |
 
 The first evidence was collected on 2026-08-15 with the dedicated
 `lanweave-ci` account. The probes covered health, device and client inventory,
@@ -151,10 +154,12 @@ Mutation` role and created, updated and deleted one VLAN-only network on the
 dedicated target; the final controller inventory contains no mutation target.
 
 This matrix currently proves read-only session and API-key authentication,
-session network and NAT mutations, API-key DNS policy mutations and API-key
-firewall mutations for one exact controller combination. The NAT claim is
-limited to the documented IPv4 subset and the session-scoped ownership rule;
-a second controller version remains a separate evidence track.
+session network and NAT mutations, API-key DNS policy mutations, API-key
+firewall mutations and the API-key VPN overview for one exact controller
+combination. The NAT claim is limited to the documented IPv4 subset and the
+session-scoped ownership rule. VPN routes, handshakes and mutations remain
+outside the claim; a second controller version remains a separate evidence
+track.
 
 ## Authentication and TLS
 

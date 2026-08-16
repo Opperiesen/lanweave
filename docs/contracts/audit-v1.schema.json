@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Opperiesen/lanweave/blob/main/docs/contracts/audit-v1.schema.json",
+  "title": "Lanweave audit result format v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "read_only", "state", "summary", "resources"],
+  "properties": {
+    "format_version": { "const": 1 },
+    "read_only": { "const": true },
+    "state": { "enum": ["in-sync", "drifted", "unknown", "unsupported"] },
+    "target": { "$ref": "#/$defs/target" },
+    "capabilities": { "type": "object" },
+    "summary": { "$ref": "#/$defs/summary" },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resource" }
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "controller", "site"],
+      "properties": {
+        "profile": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "controller": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "site": { "type": "string", "minLength": 1 },
+        "adapter": {
+          "enum": ["local-classic", "cloud-site-manager"],
+          "default": "local-classic"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["in-sync", "drifted", "unknown", "unsupported"],
+      "properties": {
+        "in-sync": { "type": "integer", "minimum": 0 },
+        "drifted": { "type": "integer", "minimum": 0 },
+        "unknown": { "type": "integer", "minimum": 0 },
+        "unsupported": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource",
+        "state",
+        "declared_count",
+        "observed_count",
+        "declared",
+        "observed",
+        "findings"
+      ],
+      "properties": {
+        "resource": {
+          "enum": ["networks", "wlans", "dns", "firewall", "nat", "vpn"]
+        },
+        "state": { "enum": ["in-sync", "drifted", "unknown", "unsupported"] },
+        "declared_count": { "type": "integer", "minimum": 0 },
+        "observed_count": { "type": ["integer", "null"], "minimum": 0 },
+        "declared": {},
+        "observed": {},
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        },
+        "coverage": { "$ref": "#/$defs/coverage" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "enum": ["missing", "extra", "changed"] },
+        "name": { "type": "string", "minLength": 1 },
+        "fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "enum": ["unknown", "unsupported"] },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -4,6 +4,17 @@
 
 No unreleased changes.
 
+## 0.8.0 — 2026-08-16
+
+- add audit result format v1 with deterministic `in-sync`, `drifted`,
+  `unknown` and `unsupported` states;
+- add capability-aware, secret-free declared-versus-live audit for portable
+  networks, WLANs, DNS, firewall, NAT and VPN resources;
+- add `lanweave audit`, CI exit codes and the read-only
+  `lanweave_audit_config` MCP tool;
+- publish audit fixtures, migration/release documentation and the protected
+  offline evidence gate without broadening mutation capabilities.
+
 ## 0.7.0 — 2026-08-16
 
 - add the read-only local VPN contract for servers, site-to-site tunnels,

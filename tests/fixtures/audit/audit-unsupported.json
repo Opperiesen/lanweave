@@ -1,0 +1,27 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "unsupported",
+  "summary": {"in-sync": 1, "drifted": 0, "unknown": 0, "unsupported": 1},
+  "resources": [
+    {
+      "resource": "networks",
+      "state": "in-sync",
+      "declared_count": 0,
+      "observed_count": 0,
+      "declared": [],
+      "observed": [],
+      "findings": []
+    },
+    {
+      "resource": "nat",
+      "state": "unsupported",
+      "declared_count": 1,
+      "observed_count": null,
+      "declared": [{"name": "web", "enabled": true}],
+      "observed": null,
+      "findings": [],
+      "coverage": {"status": "unsupported", "reason": "unsupported_export_capability"}
+    }
+  ]
+}

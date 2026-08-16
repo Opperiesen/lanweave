@@ -39,6 +39,7 @@ def test_mcp_contract_freezes_tool_names_parameters_and_read_only_scope() -> Non
         "lanweave_list_devices",
         "lanweave_list_clients",
         "lanweave_list_vpn",
+        "lanweave_audit_config",
         "lanweave_export_config",
         "lanweave_validate_config",
         "lanweave_plan_changes",
@@ -63,6 +64,10 @@ def test_mcp_contract_freezes_tool_names_parameters_and_read_only_scope() -> Non
     )
     assert by_name["lanweave_plan_changes"].inputSchema["properties"]["prune"]["default"] is False
     assert by_name["lanweave_plan_changes"].inputSchema["properties"]["profile"]["default"] is None
+    assert by_name["lanweave_audit_config"].inputSchema["properties"]["config_path"]["default"] == (
+        "config/network.yaml"
+    )
+    assert by_name["lanweave_audit_config"].inputSchema["properties"]["profile"]["default"] is None
     assert not any("apply" in name or "delete" in name for name in by_name)
 
 
@@ -192,6 +197,13 @@ def test_mcp_v2_requires_selection_and_exposes_only_sanitized_target(
     plan = plan_tool.fn(config_path=str(config_path), profile="office")
     assert plan["target"] == health["target"]
     assert "LANWEAVE_LOCAL_API_KEY" not in str(plan)
+
+    audit = server._tool_manager.get_tool("lanweave_audit_config").fn(
+        config_path=str(config_path), profile="office"
+    )
+    assert audit["target"] == health["target"]
+    assert audit["state"] == "in-sync"
+    assert audit["read_only"] is True
 
     validate_tool = server._tool_manager.get_tool("lanweave_validate_config")
     validated = validate_tool.fn(str(config_path))
@@ -342,3 +354,12 @@ def test_mcp_cloud_capabilities_are_offline_and_unsupported_reads_are_structured
         )
     assert caught.value.code == "unsupported_capability"
     assert "cloud-site-manager" in str(caught.value)
+
+    instances_before_audit = FakeCloudClient.instances
+    audit = server._tool_manager.get_tool("lanweave_audit_config").fn(
+        config_path=str(config_path), profile="cloud-overview"
+    )
+    assert FakeCloudClient.instances == instances_before_audit + 1
+    assert audit["target"] == capabilities["target"]
+    assert audit["state"] == "unsupported"
+    assert {item["state"] for item in audit["resources"]} == {"unsupported"}

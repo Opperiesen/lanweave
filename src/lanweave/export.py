@@ -75,11 +75,14 @@ def wlan_from_unifi(wlan: dict[str, Any], networks_by_id: dict[str, str]) -> dic
         "network": networks_by_id.get(wlan.get("networkconf_id", ""), "Default"),
         "bands": bands,
         "security": security,
+        "enabled": wlan.get("enabled", True),
         "hide_ssid": wlan.get("hide_ssid", False),
         "fast_roaming": wlan.get("fast_roaming_enabled", False),
         "proxy_arp": wlan.get("proxy_arp", False),
         "pmf": wlan.get("pmf_mode", "optional"),
         "client_isolation": wlan.get("l2_isolation", False),
+        "multicast_enhancement": wlan.get("mcastenhance_enabled", False),
+        "schedule_enabled": wlan.get("schedule_enabled", False),
     }
     if security != "open":
         result["password_env"] = _password_env_name(name)

@@ -129,7 +129,7 @@ milestone is `v0.7.0` for safe local VPN resources; its read-only-first scope
 remains outside the v0.6.0 release gate. The complete NAT scope is maintained
 in [roadmap-v0.6.0.md](roadmap-v0.6.0.md).
 
-## Release status — `v0.7.0`
+## Historical release status — `v0.7.0`
 
 `v0.7.0` is the current stable release. It adds the local VPN overview family
 with a strict read-only and secret-free boundary: servers, site-to-site
@@ -145,6 +145,31 @@ resource to exercise safely.
 Milestone `v0.7.0` is closed with the epic and all six implementation issues
 completed. The next active milestone is `v0.8.0` for drift audit and
 compliance reports.
+
+## Release status — `v0.8.0`
+
+`v0.8.0` is the current stable release. It adds a declared-versus-live audit
+for the portable resource families while preserving the read-only MCP and
+explicit mutation boundaries.
+
+The release includes:
+
+- audit result format v1 with `in-sync`, `drifted`, `unknown` and `unsupported`;
+- capability-aware comparison of networks, WLANs, DNS, firewall, NAT and VPN;
+- deterministic CLI JSON/table output and CI codes `0/1/2`;
+- the read-only `lanweave_audit_config` MCP tool;
+- secret-free fixtures, migration notes and an offline release gate.
+
+The v0.8.0 scope is maintained in
+[`roadmap-v0.8.0.md`](roadmap-v0.8.0.md), with the operator contract in
+[`audit.md`](audit.md) and the release evidence in
+[`evidence/v0.8.0-audit.md`](evidence/v0.8.0-audit.md). WAN networks and
+unreported VPN route tables remain explicitly `unknown` rather than being
+treated as compliant.
+
+Milestone `v0.8.0` is closed with its epic and five implementation issues
+completed. The next active milestone is `v0.9.0` for post-apply convergence
+and operational hardening.
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 
@@ -360,13 +385,27 @@ The complete contract, gates and deliberate exclusions are maintained in
 [`roadmap-v0.7.0.md`](roadmap-v0.7.0.md). v0.7 does not create VPNs, generate
 private keys or profiles, apply routes, or expose a write-capable MCP tool.
 
-## Next independent release — `v0.8.0`
+## Next independent releases
 
-- `v0.8.0` (#120) turns the read-only observations into first-class drift and
+- `v0.8.0` (#120) turned the read-only observations into first-class drift and
   compliance reports with stable semantics;
 - `v0.9.0` (#119) adds post-apply convergence and operational recovery evidence;
 - `v1.0.0` (#117) freezes the local control-plane contracts, packaging and
   compatibility policy rather than promising every UniFi endpoint.
+
+## v0.8.0 release decomposition
+
+The completed v0.8.0 release was decomposed into five implementation issues
+under [epic #120](https://github.com/Opperiesen/lanweave/issues/120):
+
+1. [#124 — audit contract and canonical comparison semantics](https://github.com/Opperiesen/lanweave/issues/124);
+2. [#125 — capability-aware live snapshots](https://github.com/Opperiesen/lanweave/issues/125);
+3. [#126 — CLI JSON and CI exit codes](https://github.com/Opperiesen/lanweave/issues/126);
+4. [#127 — read-only MCP audit report](https://github.com/Opperiesen/lanweave/issues/127);
+5. [#128 — fixtures, migration documentation and protected gates](https://github.com/Opperiesen/lanweave/issues/128).
+
+The detailed acceptance criteria and deliberate non-goals are kept in
+[`roadmap-v0.8.0.md`](roadmap-v0.8.0.md).
 
 ## MCP roadmap
 

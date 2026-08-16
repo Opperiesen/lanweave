@@ -62,6 +62,11 @@ def test_cli_contract_exposes_stable_options() -> None:
     assert vpn.config.name == "profiles.yaml"
     assert vpn.output == "json"
 
+    audit = build_parser().parse_args(["audit", "--config", "profiles.yaml", "--output", "json"])
+    assert audit.command == "audit"
+    assert audit.config.name == "profiles.yaml"
+    assert audit.output == "json"
+
     apply = build_parser().parse_args(
         [
             "apply",
@@ -273,6 +278,103 @@ def test_plan_outputs_the_selected_target_in_table_and_json(
     )
 
 
+def test_audit_outputs_machine_result_and_preserves_target_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    fixture = Path(__file__).parents[1] / "tests/fixtures/profiles/config-v2-multi-target.yaml"
+    path = tmp_path / "profiles.yaml"
+    path.write_text(fixture.read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setenv("LANWEAVE_LOCAL_HOST", "https://local.example")
+    monkeypatch.setenv("LANWEAVE_LOCAL_API_KEY", "local-key")
+
+    class FakeClient:
+        def __init__(self, settings) -> None:
+            self.settings = settings
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def networks(self):
+            return []
+
+        def wlans(self):
+            return []
+
+    monkeypatch.setattr("lanweave.cli.UniFiClient", FakeClient)
+
+    assert main(["audit", "--config", str(path), "--output", "json"]) == 0
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["state"] == "in-sync"
+    assert rendered["read_only"] is True
+    assert rendered["target"] == {
+        "profile": "office",
+        "controller": "local",
+        "site": "default",
+        "adapter": "local-classic",
+    }
+
+
+def test_audit_returns_exit_code_one_for_proven_drift(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    path = tmp_path / "network.yaml"
+    path.write_text(
+        """\
+version: 1
+controller:
+  site: default
+networks:
+  - name: Home
+    purpose: corporate
+    subnet: 192.168.10.0/24
+    vlan: 10
+wlans: []
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("UNIFI_HOST", "https://local.example")
+    monkeypatch.setenv("UNIFI_API_KEY", "local-key")
+
+    class FakeClient:
+        def __init__(self, settings) -> None:
+            self.settings = settings
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def networks(self):
+            return [
+                {
+                    "_id": "network-id",
+                    "name": "Home",
+                    "purpose": "corporate",
+                    "vlan_enabled": True,
+                    "vlan": "20",
+                    "ip_subnet": "192.168.10.1/24",
+                }
+            ]
+
+        def wlans(self):
+            return []
+
+    monkeypatch.setattr("lanweave.cli.UniFiClient", FakeClient)
+
+    assert main(["audit", "--config", str(path), "--output", "json"]) == 1
+    rendered = json.loads(capsys.readouterr().out)
+    assert rendered["state"] == "drifted"
+    assert rendered["summary"]["drifted"] == 1
+
+
 def test_plan_rejects_a_conflicting_explicit_profile_before_controller_access(
     tmp_path: Path,
     capsys,
@@ -399,4 +501,4 @@ def test_cli_version_uses_zero_exit_code(capsys) -> None:
         main(["--version"])
 
     assert raised.value.code == 0
-    assert "0.7.0" in capsys.readouterr().out
+    assert "0.8.0" in capsys.readouterr().out

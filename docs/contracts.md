@@ -14,10 +14,17 @@ VPN servers, site-to-site tunnels, connected peers and declared route
 dependencies without accepting keys, generated profiles or controller IDs.
 The complete boundary is documented in [`vpn.md`](vpn.md).
 
+The v0.8.0 audit extension is additive too. It compares declared portable
+resources with a secret-free live export and exposes explicit `unknown` and
+`unsupported` states rather than treating missing coverage as compliance. Its
+JSON contract is documented in
+[`contracts/audit-v1.schema.json`](contracts/audit-v1.schema.json) and its
+operator semantics in [`audit.md`](audit.md).
+
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
-schema `1`, profile layer `2`, plan format `1`, MCP contract `3` and adapter
-capability format `1`.
+schema `1`, profile layer `2`, plan format `1`, MCP contract `3`, adapter
+capability format `1` and audit result format `1`.
 
 The v0.3 adapter boundary is defined by
 [`adapter-capabilities-v1.schema.json`](contracts/adapter-capabilities-v1.schema.json).
@@ -119,7 +126,8 @@ The executable is `lanweave`. `--help` and `--version` exit with `0`.
 All command-specific failures, refused overwrites, declined confirmations,
 invalid configurations, controller failures and non-interactive mutation
 refusals exit with `2`. Argument parsing errors also use argparse's exit code
-`2`. No command uses `1` as a public result.
+`2`. The audit command additionally uses `1` only for a proven drift; an
+unknown or unsupported audit remains `2`.
 
 | Command | Stable options | Result |
 | --- | --- | --- |
@@ -135,6 +143,7 @@ refusals exit with `2`. Argument parsing errors also use argparse's exit code
 | `status` | `--output table/json`, `--config`, `--profile` | Show health and device summary |
 | `clients` | `--filter`, `--wired`, `--output table/json`, `--config`, `--profile` | Show filtered client inventory |
 | `vpn` | `--output table/json`, `--config`, `--profile` | Show read-only VPN inventory, peers and coverage |
+| `audit` | `--config`, `--profile`, `--output table/json` | Compare declared portable resources; exit `0` in-sync, `1` proven drift, `2` unknown/unsupported |
 | `capabilities` | `--output table/json`, `--config`, `--profile` | Show selected adapter capabilities without contacting a target |
 
 `--prune` is opt-in and retains its separate confirmation boundary.
@@ -200,12 +209,30 @@ Adding an optional field within format v1 requires preserving all existing
 fields and meanings. Renaming, removing or changing the semantics of a field
 requires a new format version and a release note.
 
+## Audit result format v1
+
+The canonical schema is
+[`audit-v1.schema.json`](contracts/audit-v1.schema.json). An audit result always
+contains `format_version: 1`, `read_only: true`, a global `state`, a four-part
+`summary` and deterministic `resources`. The states are:
+
+- `in-sync`: every covered declared resource matches the live portable export;
+- `drifted`: at least one covered resource differs and the difference is proven;
+- `unknown`: a read or coverage limitation prevents a conclusion;
+- `unsupported`: a declared section is outside the selected adapter’s export capabilities.
+
+Resource entries carry secret-free declared/observed portable values, counts
+and findings. Findings contain only `missing`, `extra` or `changed` names and
+field paths. Unknown or unsupported entries include a stable `coverage.reason`.
+The CLI maps `in-sync` to `0`, `drifted` to `1`, and both inconclusive states to
+`2`. The audit never calls an apply, prune or delete operation.
+
 ## Read-only MCP contract v3
 
 The superseded **Read-only MCP contract v2** remains documented by the
 v0.2.0 release gate; v3 is the additive capability-aware successor.
 
-The optional stdio adapter exposes exactly these eight tools:
+The optional stdio adapter exposes exactly these nine tools:
 
 | Tool | Parameters | Logical return value |
 | --- | --- | --- |
@@ -214,16 +241,18 @@ The optional stdio adapter exposes exactly these eight tools:
 | `lanweave_list_devices` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, devices}` |
 | `lanweave_list_clients` | `include_wired: boolean = true`, `config_path: string|null = null`, `profile: string|null = null` | `{target, clients}` |
 | `lanweave_list_vpn` | `config_path: string|null = null`, `profile: string|null = null` | `{target, capabilities, read_only, inventory, health}` |
+| `lanweave_audit_config` | `config_path: string = "config/network.yaml"`, `profile: string|null = null` | read-only audit result format v1 with `{target, capabilities, state, summary, resources}` |
 | `lanweave_export_config` | `config_path: string|null = null`, `profile: string|null = null` | `{target, config}` with secret-free configuration schema v1 |
 | `lanweave_validate_config` | `config_path: string = "config/network.yaml"` | `{valid: true, version: 1 or 2, networks, wlans, dns, firewall, nat, vpn}` |
 | `lanweave_plan_changes` | `config_path: string = "config/network.yaml"`, `prune: boolean = false`, `profile: string|null = null` | target-bound redacted plan JSON format v1 |
 
-The five controller-facing inventory/export tools preserve their version-1
+The five pre-existing controller-facing inventory/export tools preserve their version-1
 environment-only invocation when `config_path` and `profile` are omitted. When
 `config_path` points to a version-2 file, the shared resolver requires an
 explicit profile from the tool argument, the document selector or
 `LANWEAVE_PROFILE`; conflicting selectors fail before controller access. The
-plan tool always reads its configuration path and applies the same rule.
+audit tool always reads its declared configuration path and applies the same
+target-selection rule; the plan tool does the same.
 
 Every controller-facing response exposes the sanitized target tuple
 `{profile, controller, site, adapter}`. Inventory responses also expose the

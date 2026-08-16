@@ -63,6 +63,8 @@ jobs:
         run: uv run python scripts/verify_v060_evidence.py
       - name: Verify v0.7 VPN evidence gate
         run: uv run python scripts/verify_v070_evidence.py
+      - name: Verify v0.8 audit evidence gate
+        run: uv run python scripts/verify_v080_evidence.py
       - name: Build wheel and source distribution
         run: |
           rm -rf dist

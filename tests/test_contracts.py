@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from lanweave.contracts import (
+    AUDIT_FORMAT_VERSION,
     CAPABILITY_FORMAT_VERSION,
     CONFIG_SCHEMA_VERSION,
     MCP_CONTRACT_VERSION,
@@ -18,6 +19,9 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     )
     plan_schema = json.loads(
         (ROOT / "docs/contracts/plan-v1.schema.json").read_text(encoding="utf-8")
+    )
+    audit_schema = json.loads(
+        (ROOT / "docs/contracts/audit-v1.schema.json").read_text(encoding="utf-8")
     )
     profile_schema = json.loads(
         (ROOT / "docs/contracts/profile-layer-v2.schema.json").read_text(encoding="utf-8")
@@ -36,8 +40,10 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     assert CAPABILITY_FORMAT_VERSION == 1
     assert config_schema["properties"]["version"]["const"] == CONFIG_SCHEMA_VERSION
     assert plan_schema["properties"]["format_version"]["const"] == PLAN_FORMAT_VERSION
+    assert audit_schema["properties"]["format_version"]["const"] == AUDIT_FORMAT_VERSION
     assert config_schema["additionalProperties"] is False
     assert plan_schema["additionalProperties"] is False
+    assert audit_schema["additionalProperties"] is False
     assert "target" in plan_schema["properties"]
     assert "target" not in plan_schema["required"]
     assert plan_schema["$defs"]["target"]["required"] == [
@@ -65,6 +71,13 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     assert "vpn" in config_schema["properties"]
     assert "vpn" in config_v2_schema["properties"]
     assert "read_only" in plan_schema["properties"]
+    assert audit_schema["properties"]["read_only"]["const"] is True
+    assert audit_schema["properties"]["state"]["enum"] == [
+        "in-sync",
+        "drifted",
+        "unknown",
+        "unsupported",
+    ]
     assert "nat" in plan_schema["$defs"]["change"]["properties"]["kind"]["enum"]
     assert capability_schema["properties"]["format_version"]["const"] == 1
     assert capability_schema["additionalProperties"] is False

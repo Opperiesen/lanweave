@@ -63,6 +63,21 @@ safe live lifecycle in this release. The limitation is recorded in
 gate prove the normalization and secret boundary without turning an absent
 resource into a compatibility claim.
 
+## v0.8.0 audit compatibility
+
+The v0.8.0 audit compares only the portable resource families already exposed
+by the selected adapter with `export` capability. Local API-key targets cover
+networks, WLANs, DNS, firewall and VPN according to the capability document;
+local session targets cover networks, WLANs and NAT. The cloud Site Manager
+adapter does not expose these resource exports and therefore returns
+`unsupported` without making a resource request.
+
+The audit is read-only and uses the same target identity and secret boundary as
+export and plan. WAN networks are outside the portable network export, and
+VPN route tables are outside the official overview; both are reported as
+`unknown` when declared. A proven portable difference is `drifted`; a read or
+coverage limitation is never downgraded to compliance.
+
 ## Supported local surfaces
 
 | Area | Endpoints used | Capability |

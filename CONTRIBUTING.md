@@ -33,9 +33,21 @@ governance step when an independent maintainer is available.
 
 - push branches, open pull requests, merge, tag and publish releases through
   the `Opperiesen` GitHub account;
+- new commit authors must use `77763298+Opperiesen@users.noreply.github.com`;
+- GitHub's generated `noreply@github.com` committer is accepted for squash
+  merges, while another committer identity is rejected by CI;
 - never add `Co-authored-by`, `Signed-off-by` or other trailers;
 - never mention an agent, generator or assistant in a commit message;
-- the `commit-policy` CI check rejects these metadata patterns before merge.
+- the `commit-policy` CI check rejects these metadata patterns and identities
+  before merge;
+- two historical commits retain the old local Mac identity by explicit
+  decision; history is not rewritten, and the policy applies to new changes.
+
+The repository has one maintainer. Branch protection requires pull requests,
+linear history, the complete required CI set, protected release tags and the
+protected release environment; mandatory approving reviews remain at zero
+until an independent maintainer is available. At that point the required
+review count must be raised before broadening the stable release process.
 
 ## Scope
 

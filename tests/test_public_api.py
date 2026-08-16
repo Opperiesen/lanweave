@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import runpy
 from pathlib import Path
 
 import lanweave
@@ -78,3 +79,13 @@ def test_public_contract_documents_match_exported_versions() -> None:
 
 def test_package_declares_typing_information() -> None:
     assert (ROOT / "src/lanweave/py.typed").is_file()
+
+
+def test_commit_policy_requires_the_opperiesen_github_identity() -> None:
+    policy = runpy.run_path(str(ROOT / "scripts/check_commit_policy.py"))
+    expected_author = policy["EXPECTED_GITHUB_AUTHOR_EMAIL"]
+    identity_violations = policy["_identity_violations"]
+
+    assert expected_author == "77763298+Opperiesen@users.noreply.github.com"
+    assert identity_violations(expected_author, "noreply@github.com") == []
+    assert identity_violations("gabin@local.invalid", "gabin@local.invalid")

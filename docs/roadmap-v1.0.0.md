@@ -80,6 +80,11 @@ issues: [#117](https://github.com/Opperiesen/lanweave/issues/117),
 The second-controller evidence expansion is intentionally tracked after this
 release in [v1.1.0 issue #147](https://github.com/Opperiesen/lanweave/issues/147).
 
+The v1.0.0 package is now published. Its protected release and post-publication
+verification evidence are recorded in
+[`release-v1.0.0.md`](release-v1.0.0.md); the second-controller issue is the only
+compatibility expansion carried into v1.1.0.
+
 ## Explicit non-goals
 
 v1.0.0 does not promise every UniFi endpoint, device adoption or restart,

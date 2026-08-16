@@ -109,7 +109,10 @@ Use the exact wheel or source-distribution URL returned by
 The current v1.0.0 scope is documented in [the roadmap](roadmap-v1.0.0.md),
 with [migration-v1.0.md](migration-v1.0.md),
 [release-v1.0.0.md](release-v1.0.0.md), the [public Python API](api.md) and
-[contract evidence](evidence/v1.0.0-contracts.md). The final protected
-controller and release workflow URLs are recorded in the v1.0.0 release issue
-after publication. Earlier releases remain documented in their versioned
-migration and release notes.
+[contract evidence](evidence/v1.0.0-contracts.md). The published
+[GitHub Release](https://github.com/Opperiesen/lanweave/releases/tag/v1.0.0),
+[PyPI package](https://pypi.org/project/lanweave/1.0.0/),
+[release workflow](https://github.com/Opperiesen/lanweave/actions/runs/31942097161)
+and [post-publication verification](https://github.com/Opperiesen/lanweave/actions/runs/31942363200)
+are recorded in the v1.0.0 release notes. Earlier releases remain documented
+in their versioned migration and release notes.

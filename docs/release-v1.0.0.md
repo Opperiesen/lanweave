@@ -32,6 +32,20 @@ rollback or a hosted telemetry service.
 
 ## Verification
 
-The exact release run, public release assets, PyPI page, live compatibility
-reports and post-publication checks are linked from the v1.0.0 release issue
-and the repository's [release verification procedure](release.md).
+The protected [v1.0.0 release workflow run](https://github.com/Opperiesen/lanweave/actions/runs/31942097161)
+built and published the package from commit
+`5cedd2ae471689692a82bdbbafedfcd945ab709f`. Its required CI, build, clean
+installation, PyPI publication and GitHub Release jobs passed. The first
+post-publication step exposed a missing `GH_TOKEN` environment mapping; this
+was corrected in [PR #161](https://github.com/Opperiesen/lanweave/pull/161).
+
+The complete public verification then passed in the rerunnable
+[verification workflow run](https://github.com/Opperiesen/lanweave/actions/runs/31942363200),
+covering the annotated tag target, release assets, checksums, PyPI files,
+GitHub artifact attestation and PyPI PEP 740 attestations for both the wheel
+and source distribution.
+
+The public artifacts are the [GitHub Release v1.0.0](https://github.com/Opperiesen/lanweave/releases/tag/v1.0.0),
+the [PyPI package](https://pypi.org/project/lanweave/1.0.0/) and the annotated
+[v1.0.0 tag](https://github.com/Opperiesen/lanweave/tree/v1.0.0). The complete
+operator procedure remains in the [release verification guide](release.md).

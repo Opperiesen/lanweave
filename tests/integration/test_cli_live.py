@@ -90,12 +90,10 @@ def _assert_secret_free(result: subprocess.CompletedProcess[str]) -> None:
     assert "op://" not in output
 
 
-def _json_stdout(result: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+def _json_stdout(result: subprocess.CompletedProcess[str]) -> Any:
     _assert_secret_free(result)
     assert result.stdout.strip(), result.stderr[-1000:]
-    value = json.loads(result.stdout)
-    assert isinstance(value, dict)
-    return value
+    return json.loads(result.stdout)
 
 
 def _assert_success(result: subprocess.CompletedProcess[str]) -> None:

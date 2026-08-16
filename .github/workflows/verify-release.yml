@@ -1,0 +1,77 @@
+name: Verify public release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published annotated release tag to verify"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify ${{ inputs.tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+        with:
+          enable-cache: false
+      - name: Download public GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --dir release-assets
+      - name: Verify tag, release, checksums and PyPI metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          expected_commit="$(git rev-parse HEAD)"
+          python scripts/verify_publication.py \
+            "$RELEASE_TAG" "$REPOSITORY" "$expected_commit" \
+            --asset-dir release-assets
+      - name: Verify GitHub artifact attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          gh attestation verify \
+            "release-assets/lanweave-${version}-py3-none-any.whl" \
+            --repo "$REPOSITORY" \
+            --source-ref "refs/tags/$RELEASE_TAG" \
+            --signer-workflow "$REPOSITORY/.github/workflows/release.yml"
+      - name: Verify PyPI attestations cryptographically
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          for artifact in \
+            "pypi:lanweave-${version}-py3-none-any.whl" \
+            "pypi:lanweave-${version}.tar.gz"; do
+            uvx --from pypi-attestations pypi-attestations verify pypi \
+              --repository "https://github.com/$REPOSITORY" "$artifact"
+          done

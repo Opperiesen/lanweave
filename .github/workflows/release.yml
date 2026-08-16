@@ -289,6 +289,7 @@ jobs:
           gh release download "$RELEASE_TAG" --repo "$REPOSITORY" --dir release-assets
       - name: Verify tag, assets, checksums and PyPI metadata
         env:
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -317,27 +318,9 @@ jobs:
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
-          mapfile -t pypi_urls < <(python - "$version" <<'PY'
-          import json
-          import sys
-          import urllib.request
-
-          version = sys.argv[1]
-          with urllib.request.urlopen(
-              f"https://pypi.org/pypi/lanweave/{version}/json", timeout=30
-          ) as response:
-              metadata = json.load(response)
-          expected = {
-              f"lanweave-{version}-py3-none-any.whl",
-              f"lanweave-{version}.tar.gz",
-          }
-          for item in metadata["urls"]:
-              if item["filename"] in expected:
-                  print(item["url"])
-          PY
-          )
-          test "${#pypi_urls[@]}" = 2
-          for artifact_url in "${pypi_urls[@]}"; do
+          for artifact in \
+            "pypi:lanweave-${version}-py3-none-any.whl" \
+            "pypi:lanweave-${version}.tar.gz"; do
             uvx --from pypi-attestations pypi-attestations verify pypi \
-              --repository "https://github.com/$REPOSITORY" "$artifact_url"
+              --repository "https://github.com/$REPOSITORY" "$artifact"
           done

@@ -40,6 +40,7 @@ implemented.
 | `v0.8.0` | Drift audit and compliance reports | [milestone](https://github.com/Opperiesen/lanweave/milestone/12) | Stable audit semantics, deterministic JSON/CI exit codes and no broad mutation expansion |
 | `v0.9.0` | Post-apply verification and operational hardening | [milestone](https://github.com/Opperiesen/lanweave/milestone/10) | Re-read, convergence and recovery evidence are explicit before any rollback automation |
 | `v1.0.0` | Stable local network control plane | [milestone](https://github.com/Opperiesen/lanweave/milestone/11) | Public contracts, packaging, security and compatibility policy are frozen |
+| `v1.1.0` | Compatibility expansion beyond the designated controller | [milestone](https://github.com/Opperiesen/lanweave/milestone/13) | A second exact UniFi OS/Network/controller combination has a complete sanitized evidence report |
 
 ## `v0.2.0` — stable local-first core
 
@@ -209,7 +210,10 @@ The detailed scope is maintained in
 
 The release is tracked by [milestone v1.0.0](https://github.com/Opperiesen/lanweave/milestone/11)
 and is gated by live CLI, convergence, MCP, VPN/compatibility, packaging and
-governance evidence.
+governance evidence. Its compatibility claim is deliberately limited to the
+designated tested controller combination; expansion to a second combination is
+tracked in [milestone v1.1.0](https://github.com/Opperiesen/lanweave/milestone/13)
+through [issue #147](https://github.com/Opperiesen/lanweave/issues/147).
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 

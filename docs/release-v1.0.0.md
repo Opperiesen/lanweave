@@ -18,6 +18,12 @@ Lanweave v1.0.0 freezes the stable local network control-plane contract.
 - clean package installation, provenance, checksums, PyPI attestations and a
   protected GitHub Release.
 
+The published compatibility claim is intentionally limited to the designated
+UniFi Dream Router 7 running UniFi OS 5.1.19 and UniFi Network 10.5.67. The
+second-controller evidence expansion is planned for
+[v1.1.0 issue #147](https://github.com/Opperiesen/lanweave/issues/147) and is
+not implied by this release.
+
 ## Deliberate exclusions
 
 The release does not add cloud mutations, generic API-key writes, device

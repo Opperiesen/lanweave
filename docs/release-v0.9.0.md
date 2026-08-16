@@ -24,3 +24,14 @@ La procédure d’installation et de vérification générale est décrite dans
 [`release.md`](release.md). La procédure de récupération est décrite dans
 [`recovery.md`](recovery.md) et la migration dans
 [`migration-v0.9.md`](migration-v0.9.md).
+
+## Vérification publiée
+
+La publication v0.9.0 a été vérifiée par le workflow protégé
+[31936632434](https://github.com/Opperiesen/lanweave/actions/runs/31936632434).
+Le [GitHub Release v0.9.0](https://github.com/Opperiesen/lanweave/releases/tag/v0.9.0)
+contient la wheel, la sdist, `SHA256SUMS` et la provenance. Le paquet public est
+disponible sur [PyPI](https://pypi.org/project/lanweave/0.9.0/), et le tag
+annoté pointe vers le commit publié du workflow. Les contrôles détaillés de la
+prochaine release v1.0.0 incluent en plus la vérification post-publication
+automatique de PyPI et des attestations PEP 740.

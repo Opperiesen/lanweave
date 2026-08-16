@@ -43,6 +43,11 @@ The v1.0.0 release does not turn unsupported capabilities into supported ones:
 VPN writes, cloud writes, generic API-key writes and write-capable MCP remain
 outside the product contract.
 
+Compatibility is also intentionally scoped to the designated controller
+combination documented in [`compatibility.md`](compatibility.md). An upgrade
+does not imply support for another UniFi OS/Network version; verify that target
+against a published report first.
+
 ## Rollback
 
 If an application-level issue is discovered, reinstall `0.9.0`, restore the

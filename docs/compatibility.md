@@ -130,6 +130,18 @@ Only combinations listed as **tested** have published integration evidence.
 Other controller versions are best-effort compatibility and must not be
 treated as supported without a corresponding report.
 
+### v1.0.0 tested claim
+
+The v1.0.0 compatibility claim is deliberately narrowed to the designated
+combination represented in the matrix: UniFi Dream Router 7, UniFi OS 5.1.19
+and UniFi Network 10.5.67. The protected evidence covers only the
+authentication modes, resource families and lifecycle operations explicitly
+listed in the table. A different controller model or software version must be
+treated as unverified until a corresponding sanitized report is published.
+
+The second-controller evidence track is intentionally deferred to
+v1.1.0 in [issue #147](https://github.com/Opperiesen/lanweave/issues/147).
+
 | Deployment | UniFi OS | UniFi Network | Authentication | TLS | Read-only probes | Mutations |
 | --- | --- | --- | --- | --- | --- | --- |
 | UniFi Dream Router 7 (designated local controller) | 5.1.19 | 10.5.67 | local session | verification disabled locally | **tested** — 3 passed | **tested** — [create/update/delete passed](https://github.com/Opperiesen/lanweave/actions/runs/31884501527) |
@@ -158,8 +170,8 @@ session network and NAT mutations, API-key DNS policy mutations, API-key
 firewall mutations and the API-key VPN overview for one exact controller
 combination. The NAT claim is limited to the documented IPv4 subset and the
 session-scoped ownership rule. VPN routes, handshakes and mutations remain
-outside the claim; a second controller version remains a separate evidence
-track.
+outside the claim; a second controller version remains a separate v1.1.0
+evidence track.
 
 ## Authentication and TLS
 

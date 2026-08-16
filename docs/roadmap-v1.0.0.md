@@ -58,8 +58,10 @@ The v1.0.0 tag is allowed only when all of the following are true:
    designated controller;
 4. VPN live evidence is either recorded or its limitation is explicitly
    represented in the compatibility matrix;
-5. a second exact controller/API combination is tested or the compatibility
-   claim is narrowed to the designated combination;
+5. the compatibility claim is explicitly narrowed to the designated
+   controller/API combination when no second exact combination has a complete
+   evidence report; the deferred second-controller track is not presented as
+   tested;
 6. onboarding, operator recovery, security and examples are verified from a
    clean install;
 7. dependency, workflow, secret-boundary and commit-policy checks pass;
@@ -73,11 +75,15 @@ issues: [#117](https://github.com/Opperiesen/lanweave/issues/117),
 [#143](https://github.com/Opperiesen/lanweave/issues/143),
 [#145](https://github.com/Opperiesen/lanweave/issues/145),
 [#146](https://github.com/Opperiesen/lanweave/issues/146),
-[#147](https://github.com/Opperiesen/lanweave/issues/147) and
 [#148](https://github.com/Opperiesen/lanweave/issues/148).
+
+The second-controller evidence expansion is intentionally tracked after this
+release in [v1.1.0 issue #147](https://github.com/Opperiesen/lanweave/issues/147).
 
 ## Explicit non-goals
 
 v1.0.0 does not promise every UniFi endpoint, device adoption or restart,
 firmware workflows, cloud mutations, generic API-key writes, hosted telemetry,
-automatic rollback or a write-capable MCP server.
+automatic rollback or a write-capable MCP server. It also does not claim
+compatibility with controller versions outside the designated tested
+combination.

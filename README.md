@@ -98,6 +98,9 @@ uv run lanweave validate
 See [release verification](docs/release.md) for checksums, provenance and
 attestation verification.
 
+The complete operator path, profile examples and capability boundaries are in
+the [v1.0 onboarding guide](docs/onboarding-v1.0.md).
+
 Edit `config/network.yaml` and provide secrets only through the environment:
 
 ```yaml
@@ -210,6 +213,7 @@ Apache-2.0. See [LICENSE](LICENSE).
 - [source repository](https://github.com/Opperiesen/lanweave);
 - [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
 - [MCP and audit contracts](docs/contracts.md);
+- [v1.0 onboarding guide](docs/onboarding-v1.0.md);
 - [v0.2.0 profile design](docs/profiles.md);
 - [security policy](SECURITY.md);
 - [contribution guide](CONTRIBUTING.md).

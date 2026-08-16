@@ -1,0 +1,42 @@
+version: 2
+profile: office
+
+# The values stay outside the file. Export the referenced variables before
+# running a controller-facing command.
+controllers:
+  office:
+    adapter: local-classic
+    host_env: LANWEAVE_OFFICE_HOST
+    verify_tls: true
+    auth:
+      api_key_env: LANWEAVE_OFFICE_API_KEY
+
+  lab:
+    adapter: local-classic
+    host_env: LANWEAVE_LAB_HOST
+    verify_tls: true
+    auth:
+      username_env: LANWEAVE_LAB_USER
+      password_env: LANWEAVE_LAB_PASSWORD
+
+profiles:
+  office:
+    controller: office
+    site: default
+  lab:
+    controller: lab
+    site: default
+
+networks:
+  - name: Home
+    purpose: corporate
+    subnet: 192.168.10.0/24
+    vlan: 10
+
+wlans:
+  - name: Home
+    ssid: Home
+    network: Home
+    bands: [5g]
+    security: wpa3
+    password_env: WIFI_HOME_PASSWORD

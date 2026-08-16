@@ -11,6 +11,8 @@ Lanweave v1.0.0 freezes the stable local network control-plane contract.
 - read-only MCP contract v3 with nine tools and no mutation operation;
 - read-only Site Manager inventory adapter;
 - documented DNS, firewall, NAT and VPN boundaries;
+- protected live read-only CLI, MCP and VPN compatibility evidence for the
+  designated controller;
 - post-apply convergence and partial-failure recovery evidence;
 - migration guidance from v0.9.0 and v1.x deprecation policy;
 - clean package installation, provenance, checksums, PyPI attestations and a

@@ -26,6 +26,7 @@ def _required_documents() -> None:
         "docs/migration-v1.0.md": "Migration from v0.9.0 to v1.0.0",
         "docs/release-v1.0.0.md": "Lanweave v1.0.0",
         "docs/evidence/v1.0.0-contracts.md": "Offline v1.0 evidence: passed",
+        "docs/evidence/v1.0.0-vpn.md": "Protected read-only evidence: passed",
         ".github/workflows/ci.yml": "verify_v100_evidence.py",
         ".github/workflows/release.yml": "Verify v1.0 evidence gate",
     }

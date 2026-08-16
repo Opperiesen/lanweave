@@ -4,6 +4,15 @@
 
 No unreleased changes.
 
+## 1.0.1 — 2026-08-16
+
+- publish the minimal Lanweave visual identity and woven-W logo;
+- use a release-stable absolute logo URL so the README renders on GitHub and
+  PyPI;
+- refresh public installation examples to the current patch release;
+- keep runtime behavior, public contracts and controller compatibility
+  unchanged.
+
 ## 1.0.0 — 2026-08-16
 
 - freeze the public configuration, profile, plan, capability, audit and

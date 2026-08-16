@@ -7,7 +7,7 @@
 [![PyPI downloads/month](https://img.shields.io/pypi/dm/lanweave?label=downloads%2Fmonth)](https://pypistats.org/packages/lanweave)
 [![Python versions](https://img.shields.io/pypi/pyversions/lanweave)](https://pypi.org/project/lanweave/)
 
-![Lanweave logo](assets/logo.svg)
+![Lanweave logo](https://raw.githubusercontent.com/Opperiesen/lanweave/v1.0.1/assets/logo.svg)
 
 Lanweave is a local-first, open-source toolkit for managing and observing
 UniFi Network controllers. It turns a controller into a small, reviewable
@@ -39,7 +39,8 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `1.0.0` is the stable local network control-plane release. It preserves the
+Lanweave `1.0.1` is the current patch release of the stable v1.0 local
+network control-plane. It preserves the
 local-first profile behavior, read-only Site Manager cloud adapter, DNS,
 firewall, guarded NAT and VPN families, and adds deterministic post-apply
 readback and recovery evidence for the classic local UniFi Network API. It
@@ -94,7 +95,7 @@ Requires Python 3.11+. For an isolated CLI installation, [uv](https://docs.astra
 is recommended:
 
 ```shell
-uv tool install lanweave==1.0.0
+uv tool install lanweave==1.0.1
 lanweave --version
 ```
 
@@ -102,9 +103,9 @@ Equivalent installation options are available when `uv` is not already part
 of the operator's toolchain:
 
 ```shell
-pipx install lanweave==1.0.0
+pipx install lanweave==1.0.1
 # or, inside an existing virtual environment:
-python -m pip install lanweave==1.0.0
+python -m pip install lanweave==1.0.1
 ```
 
 For a checkout and development environment:
@@ -251,6 +252,7 @@ Apache-2.0. See [LICENSE](LICENSE).
 - [source repository](https://github.com/Opperiesen/lanweave);
 - [PyPI package](https://pypi.org/project/lanweave/);
 - [issues and roadmap](https://github.com/Opperiesen/lanweave/issues);
+- [v1.0.1 release notes](docs/release-v1.0.1.md);
 - [MCP and audit contracts](docs/contracts.md);
 - [v1.0 onboarding guide](docs/onboarding-v1.0.md);
 - [v0.2.0 profile design](docs/profiles.md);

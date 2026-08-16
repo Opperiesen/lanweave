@@ -9,14 +9,14 @@ is the primary interface. MCP is optional and read-only.
 For a clean user installation:
 
 ```shell
-uv tool install lanweave==1.0.0
+uv tool install lanweave==1.0.1
 lanweave --version
 lanweave init --path config/network.yaml
 ```
 
-`pipx install lanweave==1.0.0` provides the same isolated CLI installation.
+`pipx install lanweave==1.0.1` provides the same isolated CLI installation.
 Inside an existing virtual environment, use
-`python -m pip install lanweave==1.0.0` instead.
+`python -m pip install lanweave==1.0.1` instead.
 
 For a checkout containing the public examples:
 
@@ -158,14 +158,14 @@ operations fail closed with a structured capability error.
 Install the optional extra and launch the local stdio server:
 
 ```shell
-uv tool install --upgrade 'lanweave[mcp]==1.0.0'
+uv tool install --upgrade 'lanweave[mcp]==1.0.1'
 lanweave-mcp
 ```
 
 With `pipx`, the equivalent is:
 
 ```shell
-pipx install 'lanweave[mcp]==1.0.0'
+pipx install 'lanweave[mcp]==1.0.1'
 lanweave-mcp
 ```
 

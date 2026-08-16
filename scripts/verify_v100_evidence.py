@@ -17,7 +17,7 @@ def _fail(message: str) -> None:
 
 def _required_documents() -> None:
     required_text = {
-        "README.md": "Lanweave `1.0.0`",
+        "README.md": "stable v1.0 local",
         "CHANGELOG.md": "## 1.0.0",
         "docs/roadmap.md": "Release status — `v1.0.0`",
         "docs/roadmap-v1.0.0.md": "# Roadmap v1.0.0",
@@ -42,10 +42,20 @@ def _required_documents() -> None:
 def _verify_version_and_api() -> None:
     with (ROOT / "pyproject.toml").open("rb") as stream:
         version = tomllib.load(stream)["project"]["version"]
-    if version != "1.0.0":
-        _fail(f"project version is {version}, expected 1.0.0")
+    if not re.fullmatch(r"1\.0\.\d+", version):
+        _fail(f"project version is {version}, expected a v1.0.x patch release")
     if lanweave.__version__ != version:
         _fail("runtime version does not match project metadata")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    logo_match = re.search(
+        r"!\[Lanweave logo\]\(https://raw\.githubusercontent\.com/"
+        r"Opperiesen/lanweave/v(?P<version>\d+\.\d+\.\d+)/assets/logo\.svg\)",
+        readme,
+    )
+    if logo_match is None:
+        _fail("README logo must use a release-stable absolute raw URL")
+    if logo_match.group("version") != version:
+        _fail("README logo tag does not match the project version")
     if not (ROOT / "src/lanweave/py.typed").is_file():
         _fail("public package is missing py.typed")
     api_document = (ROOT / "docs/api.md").read_text(encoding="utf-8")

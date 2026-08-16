@@ -403,23 +403,39 @@ def audit_config(
     config: Mapping[str, Any],
     *,
     target: TargetIdentity | None = None,
+    resources: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Compare declared portable resources with a secret-free live export."""
-    resources = [
-        *REQUIRED_RESOURCES,
-        *(resource for resource in OPTIONAL_RESOURCES if resource in config),
-    ]
+    """Compare declared portable resources with a secret-free live export.
+
+    ``resources`` narrows the readback to selected resource families. The
+    default keeps the v0.8 full-audit behavior; post-apply verification uses
+    the narrowed form so unrelated endpoints cannot obscure the result.
+    """
+    if resources is None:
+        selected_resources = [
+            *REQUIRED_RESOURCES,
+            *(resource for resource in OPTIONAL_RESOURCES if resource in config),
+        ]
+    else:
+        selected_resources = list(dict.fromkeys(resources))
+        unknown = set(selected_resources) - set(AUDIT_RESOURCE_ORDER)
+        if unknown:
+            names = ", ".join(sorted(unknown))
+            raise AuditError(f"unsupported audit resource(s): {names}")
+        if not selected_resources:
+            raise AuditError("at least one audit resource is required")
+
     network_names = {
         str(item.get("name")) for item in config.get("networks", []) if isinstance(item, Mapping)
     }
     desired: dict[str, Any] = {}
-    for resource in resources:
+    for resource in selected_resources:
         raw = config.get(resource, [] if resource != "firewall" and resource != "vpn" else None)
         desired[resource] = canonical_resource(resource, raw, network_names=network_names)
 
     results: list[dict[str, Any]] = []
     supported_resources: list[str] = []
-    for resource in resources:
+    for resource in selected_resources:
         if _capability_supports(client, resource):
             supported_resources.append(resource)
         else:
@@ -434,7 +450,7 @@ def audit_config(
 
     if supported_resources:
         try:
-            observed_config = export_config(client)
+            observed_config = export_config(client, resources=supported_resources)
         except Exception as exc:
             reason = _reason_for_exception(exc)
             results.extend(

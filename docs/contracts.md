@@ -21,10 +21,18 @@ JSON contract is documented in
 [`contracts/audit-v1.schema.json`](contracts/audit-v1.schema.json) and its
 operator semantics in [`audit.md`](audit.md).
 
+The v0.9.0 convergence extension is additive as well. After a successful
+write, the CLI re-reads only the resource families present in the reviewed
+plan. After a partial failure it performs the same read-only check and embeds
+the result in the sanitized recovery report. The JSON contract is documented
+in [`contracts/convergence-v1.schema.json`](contracts/convergence-v1.schema.json)
+and never adds a write-capable MCP operation.
+
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
 schema `1`, profile layer `2`, plan format `1`, MCP contract `3`, adapter
-capability format `1` and audit result format `1`.
+capability format `1`, audit result format `1` and convergence result format
+`1`.
 
 The v0.3 adapter boundary is defined by
 [`adapter-capabilities-v1.schema.json`](contracts/adapter-capabilities-v1.schema.json).
@@ -226,6 +234,38 @@ and findings. Findings contain only `missing`, `extra` or `changed` names and
 field paths. Unknown or unsupported entries include a stable `coverage.reason`.
 The CLI maps `in-sync` to `0`, `drifted` to `1`, and both inconclusive states to
 `2`. The audit never calls an apply, prune or delete operation.
+
+## Post-apply convergence result format v1
+
+The canonical schema is
+[`convergence-v1.schema.json`](contracts/convergence-v1.schema.json). A
+convergence result always contains `format_version: 1`, `read_only: true`, a
+global `state`, the reviewed `plan_summary`, the affected resource families,
+a four-part `summary`, resource evidence and recovery guidance. It contains
+counts, findings and coverage reasons, but no request payloads, controller
+responses, credentials or controller IDs.
+
+The states are:
+
+- `converged`: every affected family matches the reviewed desired state;
+- `drifted`: at least one affected family differs and the difference is proven;
+- `uncertain`: a read or coverage limitation prevents a conclusion;
+- `unsupported`: the selected adapter cannot verify an affected family.
+
+The result is deliberately scoped to changed families. A firewall change
+verifies `firewall`, a WLAN change verifies `wlans`, and a multi-request plan
+may verify several families in deterministic resource order. A successful
+`apply` maps these states to exit codes `0`, `1`, `2` and `2` respectively.
+Write failures retain exit code `2`, with the convergence result nested under
+`convergence` in the JSON recovery report. The table report is printed to
+stderr after a failed apply; successful JSON plan output remains on stdout and
+the convergence JSON is printed to stderr so existing plan consumers keep
+their v1 document shape.
+
+Verification is strictly read-only. Lanweave never retries the failed request,
+compensates a completed request or claims automatic rollback. `drifted`,
+`uncertain` and `unsupported` all require a fresh read and reviewed plan before
+another apply.
 
 ## Read-only MCP contract v3
 

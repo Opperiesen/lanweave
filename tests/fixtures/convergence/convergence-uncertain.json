@@ -1,0 +1,36 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "uncertain",
+  "plan_summary": {
+    "create": 1,
+    "update": 0,
+    "delete": 0,
+    "noop": 0
+  },
+  "affected_resources": ["wlans"],
+  "summary": {
+    "converged": 0,
+    "drifted": 0,
+    "uncertain": 1,
+    "unsupported": 0
+  },
+  "resources": [
+    {
+      "resource": "wlans",
+      "state": "uncertain",
+      "declared_count": null,
+      "observed_count": null,
+      "findings": [],
+      "coverage": {
+        "status": "uncertain",
+        "reason": "post_apply_readback_failed"
+      }
+    }
+  ],
+  "recovery": [
+    "Read the affected controller state again before retrying.",
+    "Treat failed or timed-out requests as uncertain; no automatic rollback was attempted.",
+    "Generate a fresh plan and retry only that reviewed plan."
+  ]
+}

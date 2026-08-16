@@ -17,6 +17,7 @@ from .audit import AuditError, audit_config, audit_exit_code
 from .backup import capture_backup, default_backup_dir, write_backup
 from .client import CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
+from .convergence import convergence_exit_code, verify_plan_convergence
 from .export import export_yaml
 from .plan import (
     Plan,
@@ -445,6 +446,44 @@ def _render_plan(plan: Plan, output: str) -> None:
             print(f"WARNING  {diff.kind}/{diff.name}: {warning}")
 
 
+def _render_convergence(
+    result: dict[str, Any],
+    output: str,
+    *,
+    stream: Any = None,
+) -> None:
+    destination = sys.stdout if stream is None else stream
+    if output == "json":
+        print(json.dumps(result, indent=2, sort_keys=True), file=destination)
+        return
+    print(f"Convergence: {result['state']}", file=destination)
+    summary = result["summary"]
+    print(
+        "Resources: "
+        f"{summary['converged']} converged  "
+        f"{summary['drifted']} drifted  "
+        f"{summary['uncertain']} uncertain  "
+        f"{summary['unsupported']} unsupported",
+        file=destination,
+    )
+    for resource in result["resources"]:
+        observed_count = resource["observed_count"]
+        observed_label = observed_count if observed_count is not None else "-"
+        print(
+            f"{resource['state']:<11} {resource['resource']:<10} "
+            f"declared={resource['declared_count']} observed={observed_label}",
+            file=destination,
+        )
+        coverage = resource.get("coverage")
+        if coverage:
+            print(f"  reason: {coverage['reason']}", file=destination)
+        for finding in resource["findings"]:
+            fields = f" ({', '.join(finding['fields'])})" if finding.get("fields") else ""
+            print(f"  {finding['kind']:<7} {finding['name']}{fields}", file=destination)
+    for instruction in result["recovery"]:
+        print(f"  recovery: {instruction}", file=destination)
+
+
 def _load_runtime_config(path: Path) -> dict[str, Any]:
     return load_config_with_options(path, resolve_secrets=True)
 
@@ -540,7 +579,7 @@ def _apply(
             resources = ", ".join(sorted(plan.read_only))
             print(
                 f"refusing apply: read-only resource section present ({resources}); "
-                "VPN changes are not writable in v0.8.0",
+                "VPN changes are not writable in v0.9.0",
                 file=sys.stderr,
             )
             return 2
@@ -556,14 +595,42 @@ def _apply(
                 target=target.identity,
                 acknowledge_firewall_risk=acknowledge_risk or bool(plan.risk_warnings()),
             )
-        except (PlanApplyError, PlanRiskError, PlanTargetMismatchError) as exc:
+        except PlanApplyError as exc:
+            convergence = verify_plan_convergence(
+                client,
+                config,
+                plan,
+                target=target.identity,
+            )
+            exc.attach_convergence(convergence)
+            if output == "json":
+                print(json.dumps(exc.to_dict(), indent=2, sort_keys=True), file=sys.stderr)
+            else:
+                print(f"apply failed: {exc}", file=sys.stderr)
+                _render_convergence(convergence, output, stream=sys.stderr)
+            return 2
+        except (PlanRiskError, PlanTargetMismatchError) as exc:
             if output == "json":
                 print(json.dumps(exc.to_dict(), indent=2, sort_keys=True), file=sys.stderr)
             else:
                 print(f"apply failed: {exc}", file=sys.stderr)
             return 2
-        print("plan applied")
-        return 0
+        if output == "json":
+            print("plan applied", file=sys.stderr)
+        else:
+            print("plan applied")
+        convergence = verify_plan_convergence(
+            client,
+            config,
+            plan,
+            target=target.identity,
+        )
+        _render_convergence(
+            convergence,
+            output,
+            stream=sys.stderr if output == "json" else sys.stdout,
+        )
+        return convergence_exit_code(convergence)
 
     return _with_client(operation, target_config, profile)
 

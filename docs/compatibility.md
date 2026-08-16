@@ -78,6 +78,24 @@ VPN route tables are outside the official overview; both are reported as
 `unknown` when declared. A proven portable difference is `drifted`; a read or
 coverage limitation is never downgraded to compliance.
 
+## v0.9.0 post-apply compatibility
+
+The v0.9.0 convergence check reuses the selected adapter's read/export
+capabilities and verifies only the resource families changed by the reviewed
+plan. It supports the already published network, WLAN, DNS, firewall and NAT
+families; it does not turn VPN observations into writable or fully verifiable
+resources.
+
+The check is read-only and does not retry, compensate or roll back a request.
+`converged` is proof that the affected portable state matches the declaration;
+`drifted` is a proven difference; `uncertain` covers failed or incomplete
+readback; and `unsupported` covers an adapter without the required export
+capability. The latter two states are never treated as success.
+
+After a partial failure, the same readback is included in the sanitized
+recovery report. A fresh plan remains mandatory before retrying. The MCP
+contract remains read-only and unchanged at v3.
+
 ## Supported local surfaces
 
 | Area | Endpoints used | Capability |

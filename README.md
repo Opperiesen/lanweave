@@ -32,11 +32,11 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.8.0` is the stable local drift-audit release. It preserves the
+Lanweave `0.9.0` is the stable local convergence release. It preserves the
 local-first profile behavior, read-only Site Manager cloud adapter, DNS,
-firewall and guarded NAT families, and adds a documented, secret-free VPN
-overview plus deterministic declared-versus-live audit reports for the classic
-local UniFi Network API. It targets self-hosted
+firewall, guarded NAT and VPN families, and adds deterministic post-apply
+readback and recovery evidence for the classic local UniFi Network API. It
+targets self-hosted
 UniFi Network applications and UniFi OS consoles; see
 [compatibility](docs/compatibility.md) and the [apply recovery model](docs/recovery.md)
 for the exact scope, tested matrix and partial-failure behavior. The frozen
@@ -56,12 +56,13 @@ Supported resource families in this release:
 - controller health, devices and clients;
 - redacted snapshots of common operational endpoints.
 
-The `0.8.0` release adds a read-only local VPN inventory through the
-documented Integration API, connected VPN peers, route dependency validation,
-secret-free export and an explicit `read_only.vpn` plan observation. It also
-adds `lanweave audit` and `lanweave_audit_config`; see the [VPN
-contract](docs/vpn.md), [audit contract](docs/audit.md) and [v0.8 roadmap](docs/roadmap-v0.8.0.md).
-It does not generate profiles or keys, apply VPN changes or repair drift.
+The `0.7.0` and `0.8.0` releases add the read-only local VPN inventory and
+declared-versus-live audit surfaces; see the [VPN contract](docs/vpn.md),
+[audit contract](docs/audit.md) and [v0.8 roadmap](docs/roadmap-v0.8.0.md).
+The `0.9.0` release adds [post-apply convergence](docs/roadmap-v0.9.0.md):
+`apply` reports `converged`, `drifted`, `uncertain` or `unsupported` after a
+read-only verification and never retries or rolls back automatically. It does
+not generate VPN profiles or keys, apply VPN changes or repair drift.
 
 The firewall family is limited to the documented local API-key Integration API
 surface. See [firewall](docs/firewall.md), [compatibility](docs/compatibility.md)
@@ -71,7 +72,7 @@ The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-Device mutation workflows remain outside v0.8.0. NAT support is limited
+Device mutation workflows remain outside v0.9.0. NAT support is limited
 to the documented IPv4 subset, with explicit exposure warnings and protected
 ownership behavior; see [NAT](docs/nat.md) and the [v0.6.0 roadmap](docs/roadmap-v0.6.0.md).
 
@@ -81,7 +82,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.8.0
+uv tool install lanweave==0.9.0
 lanweave --version
 ```
 

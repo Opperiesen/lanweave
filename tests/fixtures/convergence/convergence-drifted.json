@@ -1,0 +1,38 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "drifted",
+  "plan_summary": {
+    "create": 0,
+    "update": 1,
+    "delete": 0,
+    "noop": 0
+  },
+  "affected_resources": ["networks"],
+  "summary": {
+    "converged": 0,
+    "drifted": 1,
+    "uncertain": 0,
+    "unsupported": 0
+  },
+  "resources": [
+    {
+      "resource": "networks",
+      "state": "drifted",
+      "declared_count": 1,
+      "observed_count": 1,
+      "findings": [
+        {
+          "kind": "changed",
+          "name": "Home",
+          "fields": ["vlan"]
+        }
+      ]
+    }
+  ],
+  "recovery": [
+    "Generate a fresh plan before retrying.",
+    "Review the live differences and reconcile them through a new explicit apply.",
+    "Do not repeat the previous plan blindly."
+  ]
+}

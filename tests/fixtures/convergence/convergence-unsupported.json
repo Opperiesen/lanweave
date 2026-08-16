@@ -1,0 +1,36 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "unsupported",
+  "plan_summary": {
+    "create": 0,
+    "update": 1,
+    "delete": 0,
+    "noop": 0
+  },
+  "affected_resources": ["nat"],
+  "summary": {
+    "converged": 0,
+    "drifted": 0,
+    "uncertain": 0,
+    "unsupported": 1
+  },
+  "resources": [
+    {
+      "resource": "nat",
+      "state": "unsupported",
+      "declared_count": 1,
+      "observed_count": null,
+      "findings": [],
+      "coverage": {
+        "status": "unsupported",
+        "reason": "unsupported_export_capability"
+      }
+    }
+  ],
+  "recovery": [
+    "The selected adapter cannot prove convergence for every affected resource family.",
+    "Use a compatible read-only adapter or inspect the controller before retrying.",
+    "Do not treat an unsupported readback as confirmation of success."
+  ]
+}

@@ -25,9 +25,11 @@ from .contracts import (
     AUDIT_FORMAT_VERSION,
     CAPABILITY_FORMAT_VERSION,
     CONFIG_SCHEMA_VERSION,
+    CONVERGENCE_FORMAT_VERSION,
     MCP_CONTRACT_VERSION,
     PLAN_FORMAT_VERSION,
 )
+from .convergence import ConvergenceState, convergence_exit_code, verify_plan_convergence
 from .site_manager import SiteManagerClient, SiteManagerSettings, site_manager_capabilities
 from .vpn import UnsupportedVpnVariantError, VpnError, validate_vpn
 
@@ -47,10 +49,13 @@ __all__ = [
     "AdapterTransportError",
     "AdapterCapabilities",
     "AUDIT_FORMAT_VERSION",
+    "CONVERGENCE_FORMAT_VERSION",
     "AuditError",
     "AuditState",
     "audit_config",
     "audit_exit_code",
+    "ConvergenceState",
+    "convergence_exit_code",
     "ConfigError",
     "CAPABILITY_FORMAT_VERSION",
     "CONFIG_SCHEMA_VERSION",
@@ -69,6 +74,7 @@ __all__ = [
     "load_config",
     "validate_config",
     "validate_vpn",
+    "verify_plan_convergence",
 ]
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"

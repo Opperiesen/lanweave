@@ -4,6 +4,17 @@
 
 No unreleased changes.
 
+## 0.9.0 — 2026-08-16
+
+- add versioned post-apply convergence result format v1 with `converged`,
+  `drifted`, `uncertain` and `unsupported` states;
+- re-read only affected resource families after successful or partial apply;
+- attach secret-free convergence evidence to partial-failure recovery reports;
+- keep retry, compensation, automatic rollback and write-capable MCP out of
+  scope;
+- add selective readback coverage, failure-injection tests, migration guidance
+  and protected v0.9 evidence gates.
+
 ## 0.8.0 — 2026-08-16
 
 - add audit result format v1 with deterministic `in-sync`, `drifted`,

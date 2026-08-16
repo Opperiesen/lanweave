@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -62,14 +63,21 @@ def _run_cli(*arguments: str) -> subprocess.CompletedProcess[str]:
     executable = shutil.which("lanweave")
     if executable is None:
         pytest.fail("the installed lanweave console entry point is not on PATH")
-    return subprocess.run(
-        [executable, *arguments],
-        check=False,
-        capture_output=True,
-        text=True,
-        env=os.environ.copy(),
-        timeout=90,
-    )
+    attempts = 1 if _env("LANWEAVE_INTEGRATION_API_KEY") else 3
+    for attempt in range(attempts):
+        result = subprocess.run(
+            [executable, *arguments],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=os.environ.copy(),
+            timeout=90,
+        )
+        if result.returncode == 0 or "HTTPStatusError" not in result.stderr:
+            return result
+        if attempt + 1 < attempts:
+            time.sleep(1)
+    return result
 
 
 def _assert_secret_free(result: subprocess.CompletedProcess[str]) -> None:

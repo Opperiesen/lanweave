@@ -32,7 +32,7 @@ requirement and not a write path around the plan safety boundary.
 
 ## Status
 
-Lanweave `0.9.0` is the stable local convergence release. It preserves the
+Lanweave `1.0.0` is the stable local network control-plane release. It preserves the
 local-first profile behavior, read-only Site Manager cloud adapter, DNS,
 firewall, guarded NAT and VPN families, and adds deterministic post-apply
 readback and recovery evidence for the classic local UniFi Network API. It
@@ -72,7 +72,7 @@ The `cloud-site-manager` adapter exposes only documented read-only hosts,
 sites, devices and derived site health. Run `lanweave capabilities` before
 selecting a target to inspect its supported operations.
 
-Device mutation workflows remain outside v0.9.0. NAT support is limited
+Device mutation workflows remain outside v1.0.0. NAT support is limited
 to the documented IPv4 subset, with explicit exposure warnings and protected
 ownership behavior; see [NAT](docs/nat.md) and the [v0.6.0 roadmap](docs/roadmap-v0.6.0.md).
 
@@ -82,7 +82,7 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install the stable
 package from PyPI with:
 
 ```shell
-uv tool install lanweave==0.9.0
+uv tool install lanweave==1.0.0
 lanweave --version
 ```
 

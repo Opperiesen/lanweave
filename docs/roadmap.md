@@ -103,7 +103,7 @@ firewall scope is maintained in
 
 ## Release status — `v0.6.0`
 
-`v0.6.0` is the current stable release. It adds the safe local NAT and
+`v0.6.0` was a stable release. It adds the safe local NAT and
 port-forwarding family while preserving the v0.5 firewall, v0.4 DNS, profile,
 cloud-read-only and read-only MCP surfaces.
 
@@ -131,7 +131,7 @@ in [roadmap-v0.6.0.md](roadmap-v0.6.0.md).
 
 ## Historical release status — `v0.7.0`
 
-`v0.7.0` is the current stable release. It adds the local VPN overview family
+`v0.7.0` was a stable release. It adds the local VPN overview family
 with a strict read-only and secret-free boundary: servers, site-to-site
 tunnels, connected peers, route dependency validation, export, CLI, MCP and
 plan observations.
@@ -173,7 +173,7 @@ and operational hardening.
 
 ## Release status — `v0.9.0`
 
-`v0.9.0` is the current stable release. It closes the apply loop with a
+`v0.9.0` was the previous stable release. It closes the apply loop with a
 read-only verification of affected resource families and adds explicit
 recovery evidence after partial failure.
 
@@ -191,8 +191,25 @@ The v0.9.0 scope is maintained in
 [`roadmap-v0.9.0.md`](roadmap-v0.9.0.md), with the operator contract in
 [`contracts.md`](contracts.md), recovery semantics in [`recovery.md`](recovery.md)
 and release evidence in [`evidence/v0.9.0-convergence.md`](evidence/v0.9.0-convergence.md).
-The next active milestone is `v1.0.0` for public contract and compatibility
+The active milestone is `v1.0.0` for public contract and compatibility
 stabilization.
+
+## Release status — `v1.0.0`
+
+`v1.0.0` is the stable local network control-plane target. It freezes the
+public configuration, plan, capability, audit, convergence, CLI, Python and
+read-only MCP contracts without promising every UniFi endpoint.
+
+The detailed scope is maintained in
+[`roadmap-v1.0.0.md`](roadmap-v1.0.0.md), with the public Python surface in
+[`api.md`](api.md), migration guidance in
+[`migration-v1.0.md`](migration-v1.0.md), release notes in
+[`release-v1.0.0.md`](release-v1.0.0.md) and offline contract evidence in
+[`evidence/v1.0.0-contracts.md`](evidence/v1.0.0-contracts.md).
+
+The release is tracked by [milestone v1.0.0](https://github.com/Opperiesen/lanweave/milestone/11)
+and is gated by live CLI, convergence, MCP, VPN/compatibility, packaging and
+governance evidence.
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 

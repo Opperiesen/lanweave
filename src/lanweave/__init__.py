@@ -28,6 +28,7 @@ from .contracts import (
     CONVERGENCE_FORMAT_VERSION,
     MCP_CONTRACT_VERSION,
     PLAN_FORMAT_VERSION,
+    PROFILE_LAYER_VERSION,
 )
 from .convergence import ConvergenceState, convergence_exit_code, verify_plan_convergence
 from .site_manager import SiteManagerClient, SiteManagerSettings, site_manager_capabilities
@@ -63,6 +64,7 @@ __all__ = [
     "LocalClassicAdapter",
     "MCP_CONTRACT_VERSION",
     "PLAN_FORMAT_VERSION",
+    "PROFILE_LAYER_VERSION",
     "SiteManagerClient",
     "SiteManagerSettings",
     "site_manager_capabilities",
@@ -77,4 +79,4 @@ __all__ = [
     "verify_plan_convergence",
 ]
 
-__version__ = "0.9.0"
+__version__ = "1.0.0"

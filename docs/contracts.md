@@ -1,7 +1,8 @@
-# Lanweave configuration, CLI and adapter contracts
+# Lanweave v1.0 public configuration, CLI and adapter contracts
 
-The v1 sections are normative for the original configuration contract. The v2
-sections define the backward-compatible local profile additions for `v0.2.0`.
+The v1.0 sections are normative for the public compatibility contract. The v2
+sections define the backward-compatible local profile additions introduced in
+`v0.2.0`.
 The `v0.4.0` DNS, `v0.5.0` firewall and `v0.6.0 NAT` extensions are additive
 within those schema and plan versions. DNS adds optional local `A`, `AAAA` and
 `CNAME` records. Firewall adds optional local zones, address groups, port
@@ -27,6 +28,13 @@ plan. After a partial failure it performs the same read-only check and embeds
 the result in the sanitized recovery report. The JSON contract is documented
 in [`contracts/convergence-v1.schema.json`](contracts/convergence-v1.schema.json)
 and never adds a write-capable MCP operation.
+
+The v1.0 stability promise is additive: existing fields, command names,
+parameters, error prefixes and safety boundaries retain their meaning across
+the v1.x line. Consumers must reject unsupported versions rather than infer a
+new meaning. The migration and deprecation procedure is documented in
+[`migration-v1.0.md`](migration-v1.0.md), and the exported Python names are
+listed in [`api.md`](api.md).
 
 The version identifiers are defined in
 [`src/lanweave/contracts.py`](../src/lanweave/contracts.py): configuration
@@ -320,8 +328,8 @@ credentials, request payloads or raw controller response bodies.
 
 ## Change and deprecation policy
 
-Within `v0.1.x`, additive changes are preferred and existing v1 behavior stays
-valid. A breaking configuration, CLI, plan or MCP change requires all of:
+Within `v1.x`, additive changes are preferred and existing public behavior
+stays valid. A breaking configuration, CLI, plan or MCP change requires all of:
 
 1. an explicit schema, format or contract version decision;
 2. a migration or deprecation note in this document and the changelog;

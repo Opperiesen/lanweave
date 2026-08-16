@@ -146,9 +146,9 @@ Milestone `v0.7.0` is closed with the epic and all six implementation issues
 completed. The next active milestone is `v0.8.0` for drift audit and
 compliance reports.
 
-## Release status — `v0.8.0`
+## Historical release status — `v0.8.0`
 
-`v0.8.0` is the current stable release. It adds a declared-versus-live audit
+`v0.8.0` was the stable release that added a declared-versus-live audit
 for the portable resource families while preserving the read-only MCP and
 explicit mutation boundaries.
 
@@ -168,8 +168,31 @@ unreported VPN route tables remain explicitly `unknown` rather than being
 treated as compliant.
 
 Milestone `v0.8.0` is closed with its epic and five implementation issues
-completed. The next active milestone is `v0.9.0` for post-apply convergence
+completed. The successor milestone is `v0.9.0` for post-apply convergence
 and operational hardening.
+
+## Release status — `v0.9.0`
+
+`v0.9.0` is the current stable release. It closes the apply loop with a
+read-only verification of affected resource families and adds explicit
+recovery evidence after partial failure.
+
+The release includes:
+
+- convergence result format v1 with `converged`, `drifted`, `uncertain` and
+  `unsupported` states;
+- selective post-apply readback after successful and partial applies;
+- sanitized convergence evidence attached to failure reports;
+- stable apply exit codes and documented stdout/stderr behavior;
+- failure-injection coverage, migration guidance and protected offline gates;
+- no automatic retry, compensation, rollback or write-capable MCP tool.
+
+The v0.9.0 scope is maintained in
+[`roadmap-v0.9.0.md`](roadmap-v0.9.0.md), with the operator contract in
+[`contracts.md`](contracts.md), recovery semantics in [`recovery.md`](recovery.md)
+and release evidence in [`evidence/v0.9.0-convergence.md`](evidence/v0.9.0-convergence.md).
+The next active milestone is `v1.0.0` for public contract and compatibility
+stabilization.
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 
@@ -406,6 +429,23 @@ under [epic #120](https://github.com/Opperiesen/lanweave/issues/120):
 
 The detailed acceptance criteria and deliberate non-goals are kept in
 [`roadmap-v0.8.0.md`](roadmap-v0.8.0.md).
+
+## v0.9.0 release decomposition
+
+The v0.9.0 convergence release is tracked under [epic #119](https://github.com/Opperiesen/lanweave/issues/119)
+and is delivered in this order:
+
+1. [#130 — define the convergence result contract and targeted readback boundary](https://github.com/Opperiesen/lanweave/issues/130);
+2. [#131 — integrate post-apply verification into apply and recovery reports](https://github.com/Opperiesen/lanweave/issues/131);
+3. [#132 — add multi-resource and failure-injection convergence coverage](https://github.com/Opperiesen/lanweave/issues/132);
+4. [#133 — publish recovery, migration and operator documentation](https://github.com/Opperiesen/lanweave/issues/133);
+5. [#134 — complete release gates and publish convergence evidence](https://github.com/Opperiesen/lanweave/issues/134).
+
+The detailed scope and release gates are maintained in
+[`roadmap-v0.9.0.md`](roadmap-v0.9.0.md). The result is deliberately
+read-only after writes: a fresh plan remains mandatory after `drifted`,
+`uncertain` or `unsupported`, and automatic rollback is not part of this
+milestone.
 
 ## MCP roadmap
 

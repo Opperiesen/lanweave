@@ -8,14 +8,14 @@ signed provenance before making the GitHub Release public.
 ## Install from PyPI
 
 ```shell
-uv tool install lanweave==0.8.0
+uv tool install lanweave==0.9.0
 lanweave --version
 ```
 
 The MCP adapter remains optional:
 
 ```shell
-uv tool install 'lanweave[mcp]==0.8.0'
+uv tool install 'lanweave[mcp]==0.9.0'
 ```
 
 After upgrading a profile-backed installation, inspect the selected adapter
@@ -71,8 +71,8 @@ Download the release assets into one directory. The checksum file contains
 asset names relative to that directory:
 
 ```shell
-gh release download v0.8.0 --repo Opperiesen/lanweave --dir release-v0.8.0
-cd release-v0.8.0
+gh release download v0.9.0 --repo Opperiesen/lanweave --dir release-v0.9.0
+cd release-v0.9.0
 sha256sum -c SHA256SUMS
 ```
 
@@ -80,9 +80,9 @@ Verify the signed SLSA provenance for the wheel with GitHub CLI:
 
 ```shell
 gh attestation verify \
-  lanweave-0.8.0-py3-none-any.whl \
+  lanweave-0.9.0-py3-none-any.whl \
   --repo Opperiesen/lanweave \
-  --source-ref refs/tags/v0.8.0 \
+  --source-ref refs/tags/v0.9.0 \
   --signer-workflow Opperiesen/lanweave/.github/workflows/release.yml
 ```
 
@@ -90,9 +90,9 @@ PyPI distributions are published through Trusted Publishing with GitHub OIDC
 and receive PyPI's PEP 740 digital attestations. No long-lived PyPI token is
 stored in the repository.
 
-The current v0.8.0 scope is documented in [the roadmap](roadmap-v0.8.0.md),
-with [migration-v0.8.md](migration-v0.8.md),
-[release-v0.8.0.md](release-v0.8.0.md) and the [audit evidence](evidence/v0.8.0-audit.md).
+The current v0.9.0 scope is documented in [the roadmap](roadmap-v0.9.0.md),
+with [migration-v0.9.md](migration-v0.9.md),
+[release-v0.9.0.md](release-v0.9.0.md) and the [convergence evidence](evidence/v0.9.0-convergence.md).
 The protected controller lifecycle passed in
 [workflow run 31907918542](https://github.com/Opperiesen/lanweave/actions/runs/31907918542),
 and the package/tag/publication gates passed in

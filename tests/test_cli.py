@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 from lanweave.cli import _confirm_apply, _render_plan, build_parser, main
-from lanweave.plan import Plan, ResourceDiff
+from lanweave.plan import Plan, PlanApplyError, ResourceDiff
+from lanweave.profiles import TargetIdentity
 
 
 def test_init_and_validate_commands(tmp_path: Path, capsys) -> None:
@@ -126,6 +127,115 @@ def test_cli_requires_risk_acknowledgement_even_with_yes(capsys) -> None:
     assert _confirm_apply(plan, prune=False, yes=True, acknowledge_risk=False) is False
     assert _confirm_apply(plan, prune=False, yes=True, acknowledge_risk=True) is True
     assert "refusing risky apply" in capsys.readouterr().err
+
+
+def test_apply_emits_convergence_on_stderr_without_changing_plan_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    path = tmp_path / "network.yaml"
+    path.write_text("fixture", encoding="utf-8")
+    config = {"version": 1, "controller": {"site": "default"}, "networks": [], "wlans": []}
+    target = type(
+        "Target",
+        (),
+        {"identity": TargetIdentity("office", "local", "default")},
+    )()
+    plan = Plan(
+        target=target.identity,
+        diffs=[ResourceDiff(kind="network", action="create", name="Home")],
+    )
+    convergence = {
+        "format_version": 1,
+        "read_only": True,
+        "state": "converged",
+        "plan_summary": plan.summary(),
+        "affected_resources": ["networks"],
+        "summary": {"converged": 1, "drifted": 0, "uncertain": 0, "unsupported": 0},
+        "resources": [],
+        "recovery": ["The affected resource families match the reviewed plan."],
+    }
+
+    monkeypatch.setattr("lanweave.cli.load_config", lambda _path: config)
+    monkeypatch.setattr("lanweave.cli._load_runtime_config", lambda _path: config)
+    monkeypatch.setattr("lanweave.cli.build_plan", lambda *_args, **_kwargs: plan)
+    monkeypatch.setattr("lanweave.cli.apply_plan", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "lanweave.cli.verify_plan_convergence",
+        lambda *_args, **_kwargs: convergence,
+    )
+    monkeypatch.setattr(
+        "lanweave.cli._with_client",
+        lambda operation, _config, _profile: operation(object(), target),
+    )
+
+    assert main(["apply", "--config", str(path), "--yes", "--output", "json"]) == 0
+
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["format_version"] == 1
+    convergence_json = captured.err[captured.err.index("{", captured.err.index("plan applied")) :]
+    assert json.loads(convergence_json)["state"] == "converged"
+
+
+def test_apply_failure_embeds_convergence_in_recovery_json(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    path = tmp_path / "network.yaml"
+    path.write_text("fixture", encoding="utf-8")
+    config = {"version": 1, "controller": {"site": "default"}, "networks": [], "wlans": []}
+    target = type(
+        "Target",
+        (),
+        {"identity": TargetIdentity("office", "local", "default")},
+    )()
+    diff = ResourceDiff(kind="network", action="create", name="Home")
+    plan = Plan(target=target.identity, diffs=[diff])
+    error = PlanApplyError(
+        target=target.identity.label(),
+        resource="network/Home",
+        operation="create",
+        phase="network",
+        completed=[],
+        pending=[diff],
+        partial_request=False,
+        cause_type="RuntimeError",
+    )
+    convergence = {
+        "format_version": 1,
+        "read_only": True,
+        "state": "uncertain",
+        "plan_summary": plan.summary(),
+        "affected_resources": ["networks"],
+        "summary": {"converged": 0, "drifted": 0, "uncertain": 1, "unsupported": 0},
+        "resources": [],
+        "recovery": ["Read the affected controller state again before retrying."],
+    }
+
+    monkeypatch.setattr("lanweave.cli.load_config", lambda _path: config)
+    monkeypatch.setattr("lanweave.cli._load_runtime_config", lambda _path: config)
+    monkeypatch.setattr("lanweave.cli.build_plan", lambda *_args, **_kwargs: plan)
+
+    def fail_apply(*_args, **_kwargs):
+        raise error
+
+    monkeypatch.setattr("lanweave.cli.apply_plan", fail_apply)
+    monkeypatch.setattr(
+        "lanweave.cli.verify_plan_convergence",
+        lambda *_args, **_kwargs: convergence,
+    )
+    monkeypatch.setattr(
+        "lanweave.cli._with_client",
+        lambda operation, _config, _profile: operation(object(), target),
+    )
+
+    assert main(["apply", "--config", str(path), "--yes", "--output", "json"]) == 2
+
+    error_output = capsys.readouterr().err
+    report = json.loads(error_output[error_output.index("{") :])
+    assert report["convergence"]["state"] == "uncertain"
 
 
 def test_cli_interactive_firewall_acknowledgement_is_consumed(monkeypatch) -> None:
@@ -501,4 +611,4 @@ def test_cli_version_uses_zero_exit_code(capsys) -> None:
         main(["--version"])
 
     assert raised.value.code == 0
-    assert "0.8.0" in capsys.readouterr().out
+    assert "0.9.0" in capsys.readouterr().out

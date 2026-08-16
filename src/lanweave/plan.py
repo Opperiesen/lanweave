@@ -306,6 +306,7 @@ class PlanApplyError(RuntimeError):
         self.pending = tuple(_diff_label(diff) for diff in pending)
         self.partial_request = partial_request
         self.cause_type = cause_type
+        self.convergence: dict[str, Any] | None = None
         super().__init__(self._message())
 
     @property
@@ -326,7 +327,7 @@ class PlanApplyError(RuntimeError):
 
     def to_dict(self) -> dict[str, Any]:
         """Return a safe, machine-readable recovery report."""
-        return {
+        report: dict[str, Any] = {
             "error": "plan_apply_failed",
             "target": self.target,
             "failed": {
@@ -346,6 +347,13 @@ class PlanApplyError(RuntimeError):
                 "normal confirmation.",
             ],
         }
+        if self.convergence is not None:
+            report["convergence"] = self.convergence
+        return report
+
+    def attach_convergence(self, report: dict[str, Any]) -> None:
+        """Attach a read-only post-failure convergence report."""
+        self.convergence = report
 
 
 class PlanTargetMismatchError(RuntimeError):

@@ -5,6 +5,7 @@ from lanweave.contracts import (
     AUDIT_FORMAT_VERSION,
     CAPABILITY_FORMAT_VERSION,
     CONFIG_SCHEMA_VERSION,
+    CONVERGENCE_FORMAT_VERSION,
     MCP_CONTRACT_VERSION,
     PLAN_FORMAT_VERSION,
     PROFILE_LAYER_VERSION,
@@ -23,6 +24,9 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     audit_schema = json.loads(
         (ROOT / "docs/contracts/audit-v1.schema.json").read_text(encoding="utf-8")
     )
+    convergence_schema = json.loads(
+        (ROOT / "docs/contracts/convergence-v1.schema.json").read_text(encoding="utf-8")
+    )
     profile_schema = json.loads(
         (ROOT / "docs/contracts/profile-layer-v2.schema.json").read_text(encoding="utf-8")
     )
@@ -38,12 +42,17 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
     assert PLAN_FORMAT_VERSION == 1
     assert MCP_CONTRACT_VERSION == 3
     assert CAPABILITY_FORMAT_VERSION == 1
+    assert CONVERGENCE_FORMAT_VERSION == 1
     assert config_schema["properties"]["version"]["const"] == CONFIG_SCHEMA_VERSION
     assert plan_schema["properties"]["format_version"]["const"] == PLAN_FORMAT_VERSION
     assert audit_schema["properties"]["format_version"]["const"] == AUDIT_FORMAT_VERSION
     assert config_schema["additionalProperties"] is False
     assert plan_schema["additionalProperties"] is False
     assert audit_schema["additionalProperties"] is False
+    assert convergence_schema["properties"]["format_version"]["const"] == (
+        CONVERGENCE_FORMAT_VERSION
+    )
+    assert convergence_schema["additionalProperties"] is False
     assert "target" in plan_schema["properties"]
     assert "target" not in plan_schema["required"]
     assert plan_schema["$defs"]["target"]["required"] == [
@@ -76,6 +85,12 @@ def test_public_contract_versions_and_schemas_are_pinned() -> None:
         "in-sync",
         "drifted",
         "unknown",
+        "unsupported",
+    ]
+    assert convergence_schema["properties"]["state"]["enum"] == [
+        "converged",
+        "drifted",
+        "uncertain",
         "unsupported",
     ]
     assert "nat" in plan_schema["$defs"]["change"]["properties"]["kind"]["enum"]

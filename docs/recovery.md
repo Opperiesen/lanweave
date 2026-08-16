@@ -110,6 +110,37 @@ is reported as an uncertain partial resource. The report describes the known
 state; it does not pretend to know whether the controller committed a failed
 request.
 
+## Post-apply convergence
+
+After every apply that performed at least one write, Lanweave performs a
+read-only post-apply check for the affected resource families. It compares the
+fresh portable observation with the same desired configuration used to build
+the reviewed plan. Unrelated families are not included in this check, so a
+pre-existing limitation outside the apply scope cannot hide the result.
+
+The check reports one of four states:
+
+- `converged`: the affected families match the reviewed plan;
+- `drifted`: a difference is proven after the write phase;
+- `uncertain`: a read or coverage failure prevents a conclusion;
+- `unsupported`: the selected adapter cannot verify an affected family.
+
+For a successful apply, `converged` exits `0`, `drifted` exits `1`, and
+`uncertain` or `unsupported` exits `2`. A write failure remains exit `2` even
+when the readback proves that one or more operations happened; the operator
+must still review the failure report.
+
+With `--output json`, a successful apply keeps the reviewed plan JSON on
+stdout and writes the separate convergence result to stderr. A failed apply
+embeds the same result under `convergence` in the sanitized JSON recovery
+report. The result includes only resource names, counts, findings and stable
+coverage reasons. It never includes request payloads, response bodies,
+credentials or controller IDs.
+
+`drifted`, `uncertain` and `unsupported` all require a fresh plan. Lanweave
+does not retry a failed request, compensate a completed request or perform an
+automatic rollback.
+
 ## Safe retry
 
 After a failure, re-read the controller and generate a fresh plan before

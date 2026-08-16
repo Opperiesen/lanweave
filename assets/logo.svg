@@ -1,23 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="220" viewBox="0 0 760 220" role="img" aria-labelledby="title desc">
-  <title id="title">Lanweave</title>
-  <desc id="desc">A woven three-node network mark next to the Lanweave wordmark.</desc>
-  <defs>
-    <linearGradient id="mark" x1="28" y1="24" x2="184" y2="190" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#29D3B2"/>
-      <stop offset="1" stop-color="#1687D9"/>
-    </linearGradient>
-    <linearGradient id="thread" x1="42" y1="54" x2="166" y2="165" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F5B84B"/>
-      <stop offset="1" stop-color="#F07C4F"/>
-    </linearGradient>
-  </defs>
-  <rect x="10" y="10" width="200" height="200" rx="48" fill="#102230"/>
-  <path d="M61 71 126 48l47 54-21 70-72-3-34-61 15-37Z" fill="none" stroke="url(#mark)" stroke-width="9" stroke-linejoin="round"/>
-  <path d="m44 108 53 27 76-33M61 71l36 64 76-33M126 48l-29 87 55 37" fill="none" stroke="url(#thread)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".95"/>
-  <circle cx="61" cy="71" r="12" fill="#29D3B2"/>
-  <circle cx="126" cy="48" r="12" fill="#F5B84B"/>
-  <circle cx="173" cy="102" r="12" fill="#1687D9"/>
-  <circle cx="152" cy="172" r="12" fill="#F07C4F"/>
-  <circle cx="80" cy="169" r="12" fill="#29D3B2"/>
-  <text x="250" y="133" fill="#102230" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="82" font-weight="700" letter-spacing="-3">Lanweave</text>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="640"
+  height="180"
+  viewBox="0 0 640 180"
+  role="img"
+  aria-labelledby="lanweave-title lanweave-description"
+>
+  <title id="lanweave-title">Lanweave</title>
+  <desc id="lanweave-description">
+    A minimal woven W symbol beside the Lanweave wordmark.
+  </desc>
+
+  <rect x="2" y="2" width="636" height="176" rx="42" fill="#0B1F2A" />
+
+  <g
+    id="lanweave-mark"
+    fill="none"
+    stroke-width="14"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M44 48 74 132" stroke="#F1F6F7" />
+    <path d="m74 132 30-68" stroke="#35C8B8" />
+    <path d="m104 64 30 68" stroke="#F1F6F7" />
+    <path d="m134 132 30-84" stroke="#35C8B8" />
+  </g>
+
+  <g
+    id="lanweave-wordmark"
+    font-family="Avenir Next, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="72"
+    letter-spacing="-3.5"
+    aria-hidden="true"
+  >
+    <text x="214" y="113" fill="#F1F6F7" font-weight="650">Lanweave</text>
+  </g>
 </svg>

@@ -19,6 +19,7 @@ plans/
 !tests/fixtures/dns/*.json
 !tests/fixtures/nat/*.json
 !tests/fixtures/vpn/*.json
+!tests/fixtures/audit/*.json
 *.yaml
 !examples/*.yaml
 !tests/fixtures/profiles/*.yaml

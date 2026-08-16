@@ -18,9 +18,11 @@ from .adapters import (
     UnsupportedCapabilityError,
     local_classic_capabilities,
 )
+from .audit import AuditError, AuditState, audit_config, audit_exit_code
 from .client import ControllerSettings, LocalClassicAdapter, UniFiClient
 from .config import ConfigError, load_config, validate_config
 from .contracts import (
+    AUDIT_FORMAT_VERSION,
     CAPABILITY_FORMAT_VERSION,
     CONFIG_SCHEMA_VERSION,
     MCP_CONTRACT_VERSION,
@@ -44,6 +46,11 @@ __all__ = [
     "AdapterRegistry",
     "AdapterTransportError",
     "AdapterCapabilities",
+    "AUDIT_FORMAT_VERSION",
+    "AuditError",
+    "AuditState",
+    "audit_config",
+    "audit_exit_code",
     "ConfigError",
     "CAPABILITY_FORMAT_VERSION",
     "CONFIG_SCHEMA_VERSION",
@@ -64,4 +71,4 @@ __all__ = [
     "validate_vpn",
 ]
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"

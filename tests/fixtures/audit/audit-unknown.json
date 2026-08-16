@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "unknown",
+  "summary": {"in-sync": 0, "drifted": 0, "unknown": 1, "unsupported": 0},
+  "resources": [
+    {
+      "resource": "vpn",
+      "state": "unknown",
+      "declared_count": 1,
+      "observed_count": null,
+      "declared": {"servers": [], "site_to_site_tunnels": [], "routes": []},
+      "observed": null,
+      "findings": [],
+      "coverage": {"status": "unknown", "reason": "live_observation_failed"}
+    }
+  ]
+}

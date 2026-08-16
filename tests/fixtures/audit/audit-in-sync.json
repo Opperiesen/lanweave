@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "in-sync",
+  "summary": {"in-sync": 2, "drifted": 0, "unknown": 0, "unsupported": 0},
+  "resources": [
+    {
+      "resource": "networks",
+      "state": "in-sync",
+      "declared_count": 1,
+      "observed_count": 1,
+      "declared": [{"name": "Home", "purpose": "corporate", "vlan": 10}],
+      "observed": [{"name": "Home", "purpose": "corporate", "vlan": 10}],
+      "findings": []
+    },
+    {
+      "resource": "wlans",
+      "state": "in-sync",
+      "declared_count": 1,
+      "observed_count": 1,
+      "declared": [{"name": "Home", "ssid": "Home", "security": "wpa2"}],
+      "observed": [{"name": "Home", "ssid": "Home", "security": "wpa2"}],
+      "findings": []
+    }
+  ],
+  "target": {
+    "profile": "fixture",
+    "controller": "local",
+    "site": "default",
+    "adapter": "local-classic"
+  }
+}

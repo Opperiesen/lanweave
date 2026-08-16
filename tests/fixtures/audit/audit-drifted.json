@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "read_only": true,
+  "state": "drifted",
+  "summary": {"in-sync": 1, "drifted": 1, "unknown": 0, "unsupported": 0},
+  "resources": [
+    {
+      "resource": "networks",
+      "state": "drifted",
+      "declared_count": 1,
+      "observed_count": 1,
+      "declared": [{"name": "Home", "purpose": "corporate", "vlan": 10}],
+      "observed": [{"name": "Home", "purpose": "corporate", "vlan": 20}],
+      "findings": [{"kind": "changed", "name": "Home", "fields": ["vlan"]}]
+    },
+    {
+      "resource": "wlans",
+      "state": "in-sync",
+      "declared_count": 0,
+      "observed_count": 0,
+      "declared": [],
+      "observed": [],
+      "findings": []
+    }
+  ]
+}

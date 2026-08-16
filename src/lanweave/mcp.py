@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from .adapters import AdapterError
+from .audit import AuditError, audit_config
 from .backup import redact_snapshot
 from .client import CredentialsError, UniFiClient
 from .config import ConfigError, load_config, load_config_with_options
@@ -48,6 +49,8 @@ def _safe_tool(function: Callable[..., Any]) -> Callable[..., Any]:
             raise MCPToolError("invalid_configuration", str(exc)) from None
         except CredentialsError as exc:
             raise MCPToolError("credentials_error", str(exc)) from None
+        except AuditError as exc:
+            raise MCPToolError("invalid_configuration", str(exc)) from None
         except AdapterError as exc:
             raise MCPToolError(exc.code, str(exc)) from None
         except (RuntimeError, httpx.HTTPError):
@@ -193,6 +196,22 @@ def create_server() -> Any:
             "inventory": redact_snapshot(inventory),
             "health": redact_snapshot(health),
         }
+
+    @server.tool()
+    @_safe_tool
+    def lanweave_audit_config(
+        config_path: str = "config/network.yaml",
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Compare declared resources with the live controller read-only."""
+        path = Path(config_path)
+        config = load_config(path)
+        target = resolve_target(config, profile=profile)
+        with _create_mcp_adapter(target) as client:
+            capabilities = _capabilities_for_adapter(client, target)
+            result = audit_config(client, config, target=target.identity)
+        result.setdefault("capabilities", capabilities.to_dict())
+        return redact_snapshot(result)
 
     @server.tool()
     @_safe_tool

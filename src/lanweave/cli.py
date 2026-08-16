@@ -13,6 +13,7 @@ import httpx
 
 from . import __version__
 from .adapters import Adapter, AdapterError
+from .audit import AuditError, audit_config, audit_exit_code
 from .backup import capture_backup, default_backup_dir, write_backup
 from .client import CredentialsError, UniFiClient
 from .config import EXAMPLE_CONFIG, ConfigError, load_config, load_config_with_options
@@ -199,6 +200,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="optional configuration path for profile selection",
     )
     vpn_parser.add_argument("--profile", help="explicit target profile")
+
+    audit_parser = subparsers.add_parser(
+        "audit",
+        help="compare declared resources with the live controller read-only",
+    )
+    audit_parser.add_argument("--output", choices=("table", "json"), default="table")
+    audit_parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("config/network.yaml"),
+        help="configuration path (default: config/network.yaml)",
+    )
+    audit_parser.add_argument("--profile", help="explicit target profile")
 
     capabilities_parser = subparsers.add_parser(
         "capabilities",
@@ -526,7 +540,7 @@ def _apply(
             resources = ", ".join(sorted(plan.read_only))
             print(
                 f"refusing apply: read-only resource section present ({resources}); "
-                "VPN changes are not writable in v0.7.0",
+                "VPN changes are not writable in v0.8.0",
                 file=sys.stderr,
             )
             return 2
@@ -684,6 +698,53 @@ def _vpn(output: str, config_path: Path | None, profile: str | None) -> int:
     return _with_target_config(operation, config_path, profile)
 
 
+def _render_audit(result: dict[str, Any], output: str) -> None:
+    if output == "json":
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return
+    print(f"Audit: {result['state']}")
+    summary = result["summary"]
+    print(
+        "Resources: "
+        f"{summary['in-sync']} in-sync  "
+        f"{summary['drifted']} drifted  "
+        f"{summary['unknown']} unknown  "
+        f"{summary['unsupported']} unsupported"
+    )
+    for resource in result["resources"]:
+        observed_count = resource["observed_count"]
+        observed_label = observed_count if observed_count is not None else "-"
+        print(
+            f"{resource['state']:<11} {resource['resource']:<10} "
+            f"declared={resource['declared_count']} observed={observed_label}"
+        )
+        coverage = resource.get("coverage")
+        if coverage:
+            print(f"  reason: {coverage['reason']}")
+        for finding in resource["findings"]:
+            fields = f" ({', '.join(finding['fields'])})" if finding.get("fields") else ""
+            print(f"  {finding['kind']:<7} {finding['name']}{fields}")
+
+
+def _audit(path: Path, output: str, profile: str | None) -> int:
+    try:
+        config = load_config(path)
+    except ConfigError as exc:
+        print(f"invalid configuration: {exc}", file=sys.stderr)
+        return 2
+
+    def operation(client: Adapter, target: ResolvedTarget) -> int:
+        try:
+            result = audit_config(client, config, target=target.identity)
+        except AuditError as exc:
+            print(f"audit failed: {exc}", file=sys.stderr)
+            return 2
+        _render_audit(result, output)
+        return audit_exit_code(result)
+
+    return _with_client(operation, config, profile)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "init":
@@ -719,6 +780,8 @@ def main(argv: list[str] | None = None) -> int:
         return _clients(args.query, args.wired, args.output, args.config, args.profile)
     if args.command == "vpn":
         return _vpn(args.output, args.config, args.profile)
+    if args.command == "audit":
+        return _audit(args.config, args.output, args.profile)
     if args.command == "capabilities":
         return _capabilities(args.output, args.config, args.profile)
     return 2

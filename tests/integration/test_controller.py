@@ -80,3 +80,27 @@ def test_firewall_inventory_and_export_are_readable(
     serialized = json.dumps(exported, sort_keys=True)
     assert "_origin" not in serialized
     assert '"metadata"' not in serialized
+
+
+def test_vpn_inventory_is_read_only_and_honest(
+    integration_client: UniFiClient,
+) -> None:
+    if not integration_client.settings.api_key:
+        pytest.skip("VPN inventory evidence requires an Integration API key")
+
+    inventory = integration_client.vpn()
+    health = integration_client.vpn_health()
+    exported = export_config(integration_client, resources=("vpn",))
+
+    assert set(inventory) == {"servers", "site_to_site_tunnels", "peers", "routes"}
+    assert isinstance(inventory["servers"], list)
+    assert isinstance(inventory["site_to_site_tunnels"], list)
+    assert isinstance(inventory["peers"], list)
+    assert inventory["routes"] == []
+    assert health["status"] in {"inventory-only", "not-configured"}
+    assert health["coverage"]["routes"] == "not-reported-by-official-overview-api"
+    assert exported["vpn"]["routes"] == []
+
+    serialized = json.dumps({"inventory": inventory, "health": health, "export": exported})
+    for key in ("private_key", "preshared_key", "qr_code", "configuration", "secret", "token"):
+        assert key not in serialized.lower()

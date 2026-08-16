@@ -100,6 +100,45 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  cli-read-only:
+    name: public CLI read-only matrix
+    # Keep the public entry point in a separate report so adapter-level probes
+    # cannot accidentally make the CLI surface appear covered.
+    runs-on: [self-hosted, linux, lanweave-unifi]
+    timeout-minutes: 20
+    environment: unifi-integration
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify runner toolchain
+        run: |
+          python3 --version
+          uv --version
+      - run: uv sync --extra dev --locked
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run installed public CLI matrix
+        id: cli
+        run: >-
+          uv run pytest tests/integration/test_cli_live.py
+          -m integration -q --junitxml=reports/cli-read-only.xml
+      - name: Render CLI compatibility report
+        if: always()
+        env:
+          LANWEAVE_INTEGRATION_STATUS: ${{ steps.cli.outcome }}
+          LANWEAVE_INTEGRATION_REPORT_PATH: reports/cli-read-only.md
+          LANWEAVE_INTEGRATION_CLI_MATRIX: "true"
+        run: uv run python scripts/render_compatibility_report.py
+      - name: Upload CLI compatibility report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lanweave-compatibility-cli
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+
   mutations:
     name: authorized mutations
     if: ${{ inputs.run_mutations }}
@@ -153,12 +192,16 @@ jobs:
         run: mkdir -p reports
       - name: Run authorized controller mutations
         id: mutations
-        run: uv run pytest tests/integration/test_mutations.py -m integration_mutation -q --junitxml=reports/mutations.xml
+        run: >-
+          uv run pytest tests/integration/test_mutations.py
+          tests/integration/test_cli_mutations.py -m integration_mutation -q
+          --junitxml=reports/mutations.xml
       - name: Render mutation report
         if: always()
         env:
           LANWEAVE_INTEGRATION_STATUS: ${{ steps.mutations.outcome }}
           LANWEAVE_INTEGRATION_REPORT_PATH: reports/mutations.md
+          LANWEAVE_INTEGRATION_CLI_MATRIX: "true"
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload mutation report
         if: always()

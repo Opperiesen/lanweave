@@ -14,6 +14,10 @@ lanweave --version
 lanweave init --path config/network.yaml
 ```
 
+`pipx install lanweave==1.0.0` provides the same isolated CLI installation.
+Inside an existing virtual environment, use
+`python -m pip install lanweave==1.0.0` instead.
+
 For a checkout containing the public examples:
 
 ```shell
@@ -155,6 +159,13 @@ Install the optional extra and launch the local stdio server:
 
 ```shell
 uv tool install --upgrade 'lanweave[mcp]==1.0.0'
+lanweave-mcp
+```
+
+With `pipx`, the equivalent is:
+
+```shell
+pipx install 'lanweave[mcp]==1.0.0'
 lanweave-mcp
 ```
 

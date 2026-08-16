@@ -8,17 +8,21 @@ provenance before making the GitHub Release public. A post-publication job then
 checks the public tag, release assets, PyPI files, GitHub artifact attestation
 and PyPI PEP 740 attestations.
 
+The current package is `v1.0.1`, a patch-only branding and documentation
+refresh of the stable v1.0.0 contract. See the [v1.0.1 release notes](release-v1.0.1.md)
+for the public change summary.
+
 ## Install from PyPI
 
 ```shell
-uv tool install lanweave==1.0.0
+uv tool install lanweave==1.0.1
 lanweave --version
 ```
 
 The MCP adapter remains optional:
 
 ```shell
-uv tool install 'lanweave[mcp]==1.0.0'
+uv tool install 'lanweave[mcp]==1.0.1'
 ```
 
 After upgrading a profile-backed installation, inspect the selected adapter

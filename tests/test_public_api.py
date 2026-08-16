@@ -56,7 +56,7 @@ EXPECTED_PUBLIC_EXPORTS = (
 
 def test_public_python_api_is_frozen_for_v1() -> None:
     assert tuple(lanweave.__all__) == EXPECTED_PUBLIC_EXPORTS
-    assert lanweave.__version__ == "1.0.0"
+    assert lanweave.__version__ == "1.0.1"
 
 
 def test_public_contract_documents_match_exported_versions() -> None:

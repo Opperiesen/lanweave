@@ -139,6 +139,43 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  mcp-stdio:
+    name: public MCP stdio interoperability
+    runs-on: [self-hosted, linux, lanweave-unifi]
+    timeout-minutes: 20
+    environment: unifi-integration
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify runner toolchain
+        run: |
+          python3 --version
+          uv --version
+      - run: uv sync --extra dev --extra mcp --locked
+      - name: Prepare report directory
+        run: mkdir -p reports
+      - name: Run real MCP stdio client
+        id: mcp
+        run: >-
+          uv run pytest tests/integration/test_mcp_live.py
+          -m integration -q --junitxml=reports/mcp-stdio.xml
+      - name: Render MCP compatibility report
+        if: always()
+        env:
+          LANWEAVE_INTEGRATION_STATUS: ${{ steps.mcp.outcome }}
+          LANWEAVE_INTEGRATION_REPORT_PATH: reports/mcp-stdio.md
+          LANWEAVE_INTEGRATION_MCP_STDIO: "true"
+        run: uv run python scripts/render_compatibility_report.py
+      - name: Upload MCP compatibility report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lanweave-compatibility-mcp-stdio
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
+
   mutations:
     name: authorized mutations
     if: ${{ inputs.run_mutations }}

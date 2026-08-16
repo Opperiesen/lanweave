@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -92,9 +93,61 @@ def _capabilities_for_adapter(client: Any, target: ResolvedTarget) -> Any:
     return capabilities_for_target(target.identity.adapter, auth_mode)
 
 
-def create_server() -> Any:
+class _MCPAdapterPool:
+    """Keep one authenticated adapter per target for a long-lived MCP process."""
+
+    def __init__(self) -> None:
+        self._clients: dict[tuple[str, ...], Any] = {}
+
+    @staticmethod
+    def _key(target: ResolvedTarget) -> tuple[str, ...]:
+        return tuple(
+            target.identity.to_dict()[key] for key in ("profile", "controller", "site", "adapter")
+        )
+
+    def get(self, target: ResolvedTarget) -> Any:
+        key = self._key(target)
+        client = self._clients.get(key)
+        if client is None:
+            client = _create_mcp_adapter(target)
+            client = client.__enter__()
+            self._clients[key] = client
+        return client
+
+    def close(self) -> None:
+        clients = tuple(self._clients.values())
+        self._clients.clear()
+        for client in clients:
+            close = getattr(client, "close", None)
+            if callable(close):
+                close()
+
+
+def create_server(*, cache_clients: bool = False) -> Any:
     """Create the optional FastMCP server without importing MCP in the core CLI."""
     from mcp.server.fastmcp import FastMCP
+
+    pool = _MCPAdapterPool() if cache_clients else None
+
+    @contextmanager
+    def adapter_context(target: ResolvedTarget) -> Iterator[Any]:
+        if pool is not None:
+            yield pool.get(target)
+            return
+        with _create_mcp_adapter(target) as client:
+            yield client
+
+    if pool is not None:
+
+        @asynccontextmanager
+        async def lifespan(_server: Any) -> Iterator[dict[str, Any]]:
+            try:
+                yield {}
+            finally:
+                pool.close()
+
+    else:
+        lifespan = None
 
     server = FastMCP(
         "Lanweave",
@@ -103,6 +156,7 @@ def create_server() -> Any:
             f"MCP contract v{MCP_CONTRACT_VERSION}. "
             "This server never applies changes or deletes resources."
         ),
+        lifespan=lifespan,
     )
 
     @server.tool()
@@ -113,7 +167,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity, adapter capabilities, health and devices."""
         target = _resolve_mcp_target(config_path, profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             capabilities = _capabilities_for_adapter(client, target)
             result: dict[str, Any] = {
                 "target": target.target_dict(),
@@ -147,7 +201,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity and adopted UniFi devices."""
         target = _resolve_mcp_target(config_path, profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             devices = client.devices()
         return {
             "target": target.target_dict(),
@@ -164,7 +218,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity and connected clients."""
         target = _resolve_mcp_target(config_path, profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             clients = client.clients()
         if include_wired:
             filtered = clients
@@ -180,7 +234,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return the secret-free, read-only VPN inventory and coverage."""
         target = _resolve_mcp_target(config_path, profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             capabilities = _capabilities_for_adapter(client, target)
             capabilities.require("vpn", "read")
             inventory = client.vpn()
@@ -207,7 +261,7 @@ def create_server() -> Any:
         path = Path(config_path)
         config = load_config(path)
         target = resolve_target(config, profile=profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             capabilities = _capabilities_for_adapter(client, target)
             result = audit_config(client, config, target=target.identity)
         result.setdefault("capabilities", capabilities.to_dict())
@@ -221,7 +275,7 @@ def create_server() -> Any:
     ) -> dict[str, Any]:
         """Return target identity and a secret-free portable configuration."""
         target = _resolve_mcp_target(config_path, profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             exported = export_config(client)
         return {"target": target.target_dict(), "config": exported}
 
@@ -265,7 +319,7 @@ def create_server() -> Any:
         target_config = load_config(path)
         config = load_config_with_options(path, resolve_secrets=True)
         target = resolve_target(target_config, profile=profile)
-        with _create_mcp_adapter(target) as client:
+        with adapter_context(target) as client:
             return build_plan(
                 client,
                 config,
@@ -278,7 +332,7 @@ def create_server() -> Any:
 
 def main() -> None:
     """Run the server over MCP stdio for local hosts."""
-    create_server().run(transport="stdio")
+    create_server(cache_clients=True).run(transport="stdio")
 
 
 if __name__ == "__main__":

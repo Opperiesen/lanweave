@@ -36,6 +36,7 @@ def main() -> None:
     )
     nat_mutation_requested = _env("LANWEAVE_INTEGRATION_NAT_MUTATIONS", "false").lower() == "true"
     cli_matrix_requested = _env("LANWEAVE_INTEGRATION_CLI_MATRIX", "false").lower() == "true"
+    mcp_stdio_requested = _env("LANWEAVE_INTEGRATION_MCP_STDIO", "false").lower() == "true"
     mutation_requested = (
         mutation_requested
         or dns_mutation_requested
@@ -84,6 +85,7 @@ def main() -> None:
         f"- Protected credentials configured: {'yes' if configured else 'no'}",
         f"- Read-only probes: {read_only_status}",
         f"- Public CLI matrix: {read_only_status if cli_matrix_requested else 'not-requested'}",
+        f"- Public MCP stdio: {read_only_status if mcp_stdio_requested else 'not-requested'}",
         f"- Mutation suite: {mutation_status}",
         f"- Mutation scope: {mutation_scope}",
         "",

@@ -282,6 +282,52 @@ def test_mcp_v1_environment_only_health_remains_callable(monkeypatch: pytest.Mon
     assert health["capabilities"]["adapter"] == "local-classic"
 
 
+def test_stdio_server_reuses_one_adapter_for_a_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("mcp.server.fastmcp")
+
+    from lanweave.mcp import create_server
+
+    monkeypatch.setenv("UNIFI_HOST", "https://legacy.example")
+    monkeypatch.setenv("UNIFI_API_KEY", "legacy-key")
+
+    class FakeClient:
+        instances = 0
+
+        def __init__(self, settings) -> None:
+            type(self).instances += 1
+            self.settings = settings
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def health(self):
+            return []
+
+        def devices(self):
+            return []
+
+        def clients(self):
+            return []
+
+    monkeypatch.setattr("lanweave.mcp.UniFiClient", FakeClient)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=r"Field 'lifespan' has an incomplete definition.*",
+        )
+        server = create_server(cache_clients=True)
+
+    tool = server._tool_manager.get_tool("lanweave_get_health")
+    first = tool.fn()
+    second = tool.fn()
+
+    assert first["target"] == second["target"]
+    assert FakeClient.instances == 1
+
+
 def test_mcp_cloud_capabilities_are_offline_and_unsupported_reads_are_structured(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

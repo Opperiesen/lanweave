@@ -231,6 +231,12 @@ class SiteManagerClient:
     def clients(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "clients", "read")
 
+    def vpn(self) -> dict[str, Any]:
+        raise UnsupportedCapabilityError(self.adapter_name, "vpn", "read")
+
+    def vpn_health(self) -> dict[str, Any]:
+        raise UnsupportedCapabilityError(self.adapter_name, "vpn", "read")
+
     def networks(self) -> list[dict[str, Any]]:
         raise UnsupportedCapabilityError(self.adapter_name, "networks", "read")
 

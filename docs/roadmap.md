@@ -37,6 +37,9 @@ implemented.
 | `v0.5.0` | Safe local firewall resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/7) | Firewall ordering, exposure analysis, fixtures and protected lifecycle are independently verified |
 | `v0.6.0` | Safe local NAT and port-forwarding resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/8) | NAT exposure, conflict analysis, fixtures and protected lifecycle are independently verified |
 | `v0.7.0` | Safe local VPN resource family | [milestone](https://github.com/Opperiesen/lanweave/milestone/9) | VPN secrets, routes, dependencies, fixtures and read-only-first lifecycle are independently verified |
+| `v0.8.0` | Drift audit and compliance reports | [milestone](https://github.com/Opperiesen/lanweave/milestone/12) | Stable audit semantics, deterministic JSON/CI exit codes and no broad mutation expansion |
+| `v0.9.0` | Post-apply verification and operational hardening | [milestone](https://github.com/Opperiesen/lanweave/milestone/10) | Re-read, convergence and recovery evidence are explicit before any rollback automation |
+| `v1.0.0` | Stable local network control plane | [milestone](https://github.com/Opperiesen/lanweave/milestone/11) | Public contracts, packaging, security and compatibility policy are frozen |
 
 ## `v0.2.0` — stable local-first core
 
@@ -125,6 +128,23 @@ Milestone `v0.6.0` is closed with all seven issues completed. The next active
 milestone is `v0.7.0` for safe local VPN resources; its read-only-first scope
 remains outside the v0.6.0 release gate. The complete NAT scope is maintained
 in [roadmap-v0.6.0.md](roadmap-v0.6.0.md).
+
+## Release status — `v0.7.0`
+
+`v0.7.0` is the current stable release. It adds the local VPN overview family
+with a strict read-only and secret-free boundary: servers, site-to-site
+tunnels, connected peers, route dependency validation, export, CLI, MCP and
+plan observations.
+
+The offline fixture gate, migration, compatibility, recovery and release
+artifacts are documented in [roadmap-v0.7.0.md](roadmap-v0.7.0.md) and
+[release-v0.7.0.md](release-v0.7.0.md). Live VPN lifecycle evidence remains
+explicitly limited because the designated controller has no active VPN
+resource to exercise safely.
+
+Milestone `v0.7.0` is closed with the epic and all six implementation issues
+completed. The next active milestone is `v0.8.0` for drift audit and
+compliance reports.
 
 ## `v0.1.0rc1` and `v0.1.0` — stable local-first core
 
@@ -315,19 +335,38 @@ and the package/tag/publication gates passed in workflow run
 The `v0.5.0` milestone remains closed; its successor `v0.6.0` is now the
 current stable release.
 
-## Next independent release
+## v0.7.0 release decomposition
 
 Each resource family has a different blast radius, controller contract and
-release gate. The next release is now decomposed and active:
+release gate. The completed v0.7.0 release was decomposed as follows:
 
 ### `v0.7.0` — safe local VPN resources
 
-The [VPN epic #19](https://github.com/Opperiesen/lanweave/issues/19) remains in
-the open [v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9)
-with a read-only-first rollout and strict secret/route handling. It remains
-outside the v0.6.0 release gate.
+The [VPN epic #19](https://github.com/Opperiesen/lanweave/issues/19) and its
+six implementation issues were delivered in the
+[v0.7.0 milestone](https://github.com/Opperiesen/lanweave/milestone/9) with a
+read-only-first rollout and strict secret/route handling.
 
-The v0.7.0 family remains outside the v0.6.0 implementation and release gate.
+The decomposition is executed in this order:
+
+1. [#118 — portable VPN contract and secret boundary](https://github.com/Opperiesen/lanweave/issues/118);
+2. [#121 — local VPN inventory and versioned fixtures](https://github.com/Opperiesen/lanweave/issues/121);
+3. [#116 — VPN health, peers, routes and dependency validation](https://github.com/Opperiesen/lanweave/issues/116);
+4. [#122 — secret-free export and migration documentation](https://github.com/Opperiesen/lanweave/issues/122);
+5. [#114 — capability-aware CLI and read-only MCP](https://github.com/Opperiesen/lanweave/issues/114);
+6. [#115 — protected read-only evidence and release gates](https://github.com/Opperiesen/lanweave/issues/115).
+
+The complete contract, gates and deliberate exclusions are maintained in
+[`roadmap-v0.7.0.md`](roadmap-v0.7.0.md). v0.7 does not create VPNs, generate
+private keys or profiles, apply routes, or expose a write-capable MCP tool.
+
+## Next independent release — `v0.8.0`
+
+- `v0.8.0` (#120) turns the read-only observations into first-class drift and
+  compliance reports with stable semantics;
+- `v0.9.0` (#119) adds post-apply convergence and operational recovery evidence;
+- `v1.0.0` (#117) freezes the local control-plane contracts, packaging and
+  compatibility policy rather than promising every UniFi endpoint.
 
 ## MCP roadmap
 

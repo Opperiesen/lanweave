@@ -1,0 +1,14 @@
+{
+  "offset": 0,
+  "limit": 200,
+  "count": 1,
+  "totalCount": 1,
+  "data": [
+    {
+      "id": "vpn-tunnel-1",
+      "name": "Branch Office",
+      "type": "IPSEC",
+      "metadata": {"origin": "USER_DEFINED", "source": "LOCAL"}
+    }
+  ]
+}

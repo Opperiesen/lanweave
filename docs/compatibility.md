@@ -48,6 +48,21 @@ endpoint `rest/portforward`. It does not infer support from the Integration API,
 API-key mode, Site Manager or VPN endpoints. Its protected evidence is tracked
 separately in [`evidence/v0.6.0-nat.md`](evidence/v0.6.0-nat.md).
 
+## v0.7.0 VPN compatibility
+
+The v0.7.0 VPN family uses only the local API-key Integration API overview
+endpoints `vpn/servers` and `vpn/site-to-site-tunnels`. Connected `VPN` and
+`TELEPORT` clients are read from the documented clients endpoint. The selected
+capability is `read/export/plan`; session authentication, Site Manager and all
+VPN mutations remain unsupported. Routes and handshakes are marked as not
+reported when the official overview does not provide them.
+
+The designated controller has no active VPN configuration available for a
+safe live lifecycle in this release. The limitation is recorded in
+[`evidence/v0.7.0-vpn.md`](evidence/v0.7.0-vpn.md); fixtures and the offline
+gate prove the normalization and secret boundary without turning an absent
+resource into a compatibility claim.
+
 ## Supported local surfaces
 
 | Area | Endpoints used | Capability |
@@ -62,6 +77,9 @@ separately in [`evidence/v0.6.0-nat.md`](evidence/v0.6.0-nat.md).
 | Firewall groups | n/a / `v1/sites/{siteId}/traffic-matching-lists` | API key read/export/plan/apply/prune for `PORTS`, `IPV4_ADDRESSES` and `IPV6_ADDRESSES` |
 | Firewall policies/order | n/a / `v1/sites/{siteId}/firewall/policies` and `/ordering` | API key read/export/plan/apply/prune; index-based order is excluded |
 | NAT / port forwarding | `rest/portforward` / n/a | local session read/export/plan/apply/prune for the supported IPv4 subset; API key, cloud and VPN unsupported |
+| VPN servers | n/a / `v1/sites/{siteId}/vpn/servers` | local API key read/export/plan; secret-free overview only; session, cloud and mutation unsupported |
+| Site-to-site VPN tunnels | n/a / `v1/sites/{siteId}/vpn/site-to-site-tunnels` | local API key read/export/plan; overview only; routes and handshakes not inferred |
+| Connected VPN peers | n/a / `v1/sites/{siteId}/clients` filtered to `VPN`/`TELEPORT` | local API key read through the VPN inventory; no generated profiles or keys |
 | Backup | common `stat/*` and `rest/*` endpoints | redacted read |
 
 The exact fields returned by UniFi can vary between Network application
@@ -113,6 +131,9 @@ a second controller version remains a separate evidence track.
 - API-key authentication remains read-only for networks and WLANs. The
   documented local DNS policy and firewall endpoints are the only API-key
   mutation exceptions; no generic API-key mutation is enabled.
+- The v0.7 VPN overview is local API-key-only and read-only. It exposes
+  normalized server, tunnel and connected-peer inventory; it does not expose
+  private keys, generated profiles, route tables or handshake state.
 - NAT inventory and mutations require local session authentication and the
   classic `rest/portforward` endpoint. The v0.6 portable write subset is IPv4,
   interface-selected public address, at most one source CIDR and no explicit

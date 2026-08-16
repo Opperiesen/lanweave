@@ -1,0 +1,24 @@
+version: 1
+
+controller:
+  site: default
+
+networks: []
+wlans: []
+
+# v0.7.0 VPN is read-only: this section is validated, exported and observed
+# in plans, but never applied to a controller.
+vpn:
+  servers:
+    - name: Remote Access
+      type: wireguard
+      enabled: true
+  site_to_site_tunnels:
+    - name: Branch Office
+      type: ipsec
+      enabled: true
+  routes:
+    - name: branch-network
+      destination: 10.20.0.0/24
+      via: Branch Office
+      metric: 10

@@ -54,6 +54,17 @@ def capture_backup(client: Adapter) -> dict[str, Any]:
             snapshot[label] = redact_snapshot(client.get(client.site_url(path)))
         except RuntimeError as exc:
             snapshot[label] = {"error": str(exc)}
+    capabilities = getattr(client, "capabilities", None)
+    supports_vpn = (
+        capabilities.supports("vpn", "read")
+        if capabilities is not None
+        else callable(getattr(client, "vpn", None))
+    )
+    if supports_vpn:
+        try:
+            snapshot["vpn"] = redact_snapshot(client.vpn())
+        except RuntimeError as exc:
+            snapshot["vpn"] = {"error": str(exc)}
     return snapshot
 
 

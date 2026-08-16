@@ -24,6 +24,7 @@ from .profiles import (
 )
 from .runtime import capabilities_for_target, create_adapter
 from .site_manager import SiteManagerClient
+from .vpn import health_from_inventory
 
 
 class MCPToolError(RuntimeError):
@@ -119,6 +120,10 @@ def create_server() -> Any:
             }
             if capabilities.supports("clients", "read"):
                 result["online_clients"] = len(client.clients())
+            if capabilities.supports("vpn", "read") and callable(
+                getattr(client, "vpn_health", None)
+            ):
+                result["vpn"] = client.vpn_health()
             return redact_snapshot(result)
 
     @server.tool()
@@ -166,6 +171,31 @@ def create_server() -> Any:
 
     @server.tool()
     @_safe_tool
+    def lanweave_list_vpn(
+        config_path: str | None = None,
+        profile: str | None = None,
+    ) -> dict[str, Any]:
+        """Return the secret-free, read-only VPN inventory and coverage."""
+        target = _resolve_mcp_target(config_path, profile)
+        with _create_mcp_adapter(target) as client:
+            capabilities = _capabilities_for_adapter(client, target)
+            capabilities.require("vpn", "read")
+            inventory = client.vpn()
+            health = (
+                client.vpn_health()
+                if callable(getattr(client, "vpn_health", None))
+                else health_from_inventory(inventory)
+            )
+        return {
+            "target": target.target_dict(),
+            "capabilities": capabilities.to_dict(),
+            "read_only": True,
+            "inventory": redact_snapshot(inventory),
+            "health": redact_snapshot(health),
+        }
+
+    @server.tool()
+    @_safe_tool
     def lanweave_export_config(
         config_path: str | None = None,
         profile: str | None = None,
@@ -195,6 +225,13 @@ def create_server() -> Any:
                 "rules": len(firewall.get("rules", [])),
             },
             "nat": len(config.get("nat", [])),
+            "vpn": {
+                "servers": len((config.get("vpn") or {}).get("servers", [])),
+                "site_to_site_tunnels": len(
+                    (config.get("vpn") or {}).get("site_to_site_tunnels", [])
+                ),
+                "routes": len((config.get("vpn") or {}).get("routes", [])),
+            },
         }
 
     @server.tool()

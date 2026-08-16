@@ -25,6 +25,16 @@ The plan engine uses this dependency-safe order:
 13. delete firewall groups and zones;
 14. delete networks.
 
+## VPN resources
+
+VPN resources in v0.7.0 are read-only observations, not apply operations. A
+plan containing `read_only.vpn` is rejected by `lanweave apply` before any
+controller write, so there is no VPN partial-apply or rollback state to infer.
+If a VPN overview request fails, retry with the same API-key capability after
+checking the controller version; do not replace missing routes or handshakes
+with guessed values. The safe recovery artifact is a fresh `lanweave vpn
+--output json` read and, when useful, a secret-free `lanweave export`.
+
 This ensures a WLAN can reference a network before it is written, and that a
 network is not deleted before its dependent WLANs have been removed. Operations
 after the failure are not started.

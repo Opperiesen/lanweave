@@ -222,6 +222,10 @@ class Adapter(Protocol):
 
     def health(self) -> list[dict[str, Any]]: ...
 
+    def vpn(self) -> dict[str, Any]: ...
+
+    def vpn_health(self) -> dict[str, Any]: ...
+
     def devices(self) -> list[dict[str, Any]]: ...
 
     def clients(self) -> list[dict[str, Any]]: ...
@@ -313,6 +317,10 @@ def local_classic_capabilities(auth_mode: str) -> AdapterCapabilities:
             "wlans": ("read", "export", "plan"),
             "dns": ("read", "export", "plan", "apply", "prune"),
             "firewall": ("read", "export", "plan", "apply", "prune"),
+            # v0.7 uses only the documented Integration API overview reads.
+            # No VPN mutation, profile generation or private-key operation is
+            # advertised by this capability.
+            "vpn": ("read", "export", "plan"),
         }
     else:
         raise AdapterConfigurationError(f"unsupported local authentication mode: {auth_mode}")

@@ -27,6 +27,7 @@ from .contracts import (
     PLAN_FORMAT_VERSION,
 )
 from .site_manager import SiteManagerClient, SiteManagerSettings, site_manager_capabilities
+from .vpn import UnsupportedVpnVariantError, VpnError, validate_vpn
 
 __all__ = [
     "ADAPTER_CLOUD_SITE_MANAGER",
@@ -54,10 +55,13 @@ __all__ = [
     "SiteManagerSettings",
     "site_manager_capabilities",
     "UnsupportedCapabilityError",
+    "UnsupportedVpnVariantError",
     "UniFiClient",
+    "VpnError",
     "local_classic_capabilities",
     "load_config",
     "validate_config",
+    "validate_vpn",
 ]
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"

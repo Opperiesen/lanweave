@@ -35,6 +35,7 @@ from .profiles import (
 from .runtime import capabilities_for_target, create_adapter
 from .site_manager import SiteManagerClient
 from .status import filter_clients, format_bytes, status_summary
+from .vpn import health_from_inventory
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -186,6 +187,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     clients_parser.add_argument("--profile", help="explicit target profile")
 
+    vpn_parser = subparsers.add_parser(
+        "vpn",
+        help="show the read-only VPN inventory and coverage",
+    )
+    vpn_parser.add_argument("--output", choices=("table", "json"), default="table")
+    vpn_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="optional configuration path for profile selection",
+    )
+    vpn_parser.add_argument("--profile", help="explicit target profile")
+
     capabilities_parser = subparsers.add_parser(
         "capabilities",
         help="show the selected adapter capabilities without contacting a target",
@@ -225,7 +239,9 @@ def _validate(path: Path) -> int:
         f"{len(firewall.get('address_groups', []))} address group(s), "
         f"{len(firewall.get('port_groups', []))} port group(s), "
         f"{len(firewall.get('rules', []))} firewall rule(s), "
-        f"{len(config.get('nat', []))} NAT mapping(s)"
+        f"{len(config.get('nat', []))} NAT mapping(s), "
+        f"{len((config.get('vpn') or {}).get('servers', []))} VPN server(s), "
+        f"{len((config.get('vpn') or {}).get('site_to_site_tunnels', []))} VPN tunnel(s)"
     )
     return 0
 
@@ -259,7 +275,9 @@ def _profiles_validate(path: Path) -> int:
         f"firewall_address_groups={len(firewall.get('address_groups', []))} "
         f"firewall_port_groups={len(firewall.get('port_groups', []))} "
         f"firewall_rules={len(firewall.get('rules', []))} "
-        f"nat={len(config.get('nat', []))}"
+        f"nat={len(config.get('nat', []))} "
+        f"vpn_servers={len((config.get('vpn') or {}).get('servers', []))} "
+        f"vpn_tunnels={len((config.get('vpn') or {}).get('site_to_site_tunnels', []))}"
     )
     return 0
 
@@ -504,6 +522,14 @@ def _apply(
     def operation(client: Adapter, target: ResolvedTarget) -> int:
         plan = build_plan(client, config, prune=prune, target=target.identity)
         _render_plan(plan, output)
+        if plan.read_only:
+            resources = ", ".join(sorted(plan.read_only))
+            print(
+                f"refusing apply: read-only resource section present ({resources}); "
+                "VPN changes are not writable in v0.7.0",
+                file=sys.stderr,
+            )
+            return 2
         if not plan.has_changes():
             print("nothing to apply")
             return 0
@@ -611,6 +637,53 @@ def _clients(
     return _with_target_config(operation, config_path, profile)
 
 
+def _vpn(output: str, config_path: Path | None, profile: str | None) -> int:
+    def operation(client: Adapter, target: ResolvedTarget) -> int:
+        capabilities = _capabilities_for_client(client, target)
+        capabilities.require("vpn", "read")
+        inventory = client.vpn()
+        health = (
+            client.vpn_health()
+            if callable(getattr(client, "vpn_health", None))
+            else health_from_inventory(inventory)
+        )
+        if output == "json":
+            print(
+                json.dumps(
+                    {
+                        "target": target.identity.to_dict(),
+                        "capabilities": capabilities.to_dict(),
+                        "read_only": True,
+                        "inventory": inventory,
+                        "health": health,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 0
+        print("VPN inventory (read-only)")
+        print(
+            f"servers={len(inventory.get('servers', []))} "
+            f"site_to_site_tunnels={len(inventory.get('site_to_site_tunnels', []))} "
+            f"connected_peers={len(inventory.get('peers', []))}"
+        )
+        print(f"status={health.get('status', 'unknown')}")
+        for resource, label in (
+            ("servers", "server"),
+            ("site_to_site_tunnels", "tunnel"),
+        ):
+            for item in inventory.get(resource, []):
+                enabled = item.get("enabled")
+                suffix = f" enabled={str(enabled).lower()}" if enabled is not None else ""
+                print(f"{label:<7} {item.get('name', '-')}  type={item.get('type', '-')}{suffix}")
+        coverage = health.get("coverage") or {}
+        print(f"routes={coverage.get('routes', 'unknown')}")
+        return 0
+
+    return _with_target_config(operation, config_path, profile)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "init":
@@ -644,6 +717,8 @@ def main(argv: list[str] | None = None) -> int:
         return _status(args.output, args.config, args.profile)
     if args.command == "clients":
         return _clients(args.query, args.wired, args.output, args.config, args.profile)
+    if args.command == "vpn":
+        return _vpn(args.output, args.config, args.profile)
     if args.command == "capabilities":
         return _capabilities(args.output, args.config, args.profile)
     return 2

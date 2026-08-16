@@ -12,6 +12,10 @@
     "changes": {
       "type": "array",
       "items": { "$ref": "#/$defs/change" }
+    },
+    "read_only": {
+      "type": "object",
+      "additionalProperties": true
     }
   },
   "$defs": {

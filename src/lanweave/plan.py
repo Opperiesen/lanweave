@@ -37,6 +37,7 @@ from .nat import (
 )
 from .profiles import TargetIdentity
 from .resources import DependencyGraph, ResourceContractError, ResourceKey
+from .vpn import plan_observation, validate_vpn
 
 SENSITIVE_FIELDS = {
     "api_key",
@@ -239,6 +240,7 @@ class ResourceDiff:
 class Plan:
     diffs: list[ResourceDiff] = field(default_factory=list)
     target: TargetIdentity | None = None
+    read_only: dict[str, Any] = field(default_factory=dict)
 
     def has_changes(self) -> bool:
         return any(diff.action != "noop" for diff in self.diffs)
@@ -264,6 +266,8 @@ class Plan:
             "summary": self.summary(),
             "changes": [diff.to_dict() for diff in self.diffs if diff.action != "noop"],
         }
+        if self.read_only:
+            rendered["read_only"] = _redact(self.read_only)
         if self.target is not None:
             rendered["target"] = self.target.to_dict()
         return rendered
@@ -1173,6 +1177,17 @@ def build_plan(
             network_names={str(network["name"]) for network in config.get("networks", [])},
             prune=prune,
         )
+    if "vpn" in config:
+        capabilities = getattr(client, "capabilities", None)
+        if capabilities is not None:
+            capabilities.require("vpn", "plan")
+        if not callable(getattr(client, "vpn", None)):
+            raise RuntimeError("selected adapter cannot read VPN resources")
+        desired_vpn = validate_vpn(
+            config.get("vpn"),
+            network_names={str(network["name"]) for network in config.get("networks", [])},
+        )
+        plan.read_only["vpn"] = plan_observation(desired_vpn, client.vpn())
     return plan
 
 
@@ -1352,6 +1367,9 @@ def apply_plan(
     _verify_plan_target(plan, target)
     if plan.risk_warnings() and not acknowledge_firewall_risk:
         raise PlanRiskError(plan.risk_warnings())
+    if plan.read_only:
+        resources = ", ".join(sorted(plan.read_only))
+        raise RuntimeError(f"plan contains read-only resources and cannot be applied: {resources}")
     network_base = client.site_url("rest/networkconf")
     wlan_base = client.site_url("rest/wlanconf")
     ordered = _ordered_apply_diffs(plan)

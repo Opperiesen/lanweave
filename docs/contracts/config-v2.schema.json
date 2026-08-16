@@ -43,6 +43,9 @@
     "nat": {
       "type": "array",
       "items": { "$ref": "config-v1.schema.json#/$defs/nat_mapping" }
+    },
+    "vpn": {
+      "$ref": "config-v1.schema.json#/$defs/vpn"
     }
   }
 }

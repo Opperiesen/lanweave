@@ -1,0 +1,21 @@
+{
+  "offset": 0,
+  "limit": 200,
+  "count": 2,
+  "totalCount": 2,
+  "data": [
+    {
+      "id": "vpn-peer-1",
+      "name": "phone",
+      "type": "VPN",
+      "ipAddress": "10.99.0.2",
+      "connectedAt": "2026-08-16T10:00:00Z"
+    },
+    {
+      "id": "wifi-client-1",
+      "name": "laptop",
+      "type": "WIRELESS",
+      "ipAddress": "192.0.2.40"
+    }
+  ]
+}

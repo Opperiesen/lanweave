@@ -1,0 +1,22 @@
+{
+  "offset": 0,
+  "limit": 200,
+  "count": 2,
+  "totalCount": 2,
+  "data": [
+    {
+      "id": "vpn-server-1",
+      "name": "Remote Access",
+      "type": "WIREGUARD",
+      "enabled": true,
+      "metadata": {"origin": "USER_DEFINED"}
+    },
+    {
+      "id": "vpn-server-2",
+      "name": "Teleport",
+      "type": "TELEPORT",
+      "enabled": true,
+      "metadata": {"origin": "SYSTEM_DEFINED"}
+    }
+  ]
+}

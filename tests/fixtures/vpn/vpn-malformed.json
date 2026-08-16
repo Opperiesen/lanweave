@@ -1,0 +1,6 @@
+{
+  "id": "vpn-server-malformed",
+  "name": "Broken",
+  "type": "WIREGUARD",
+  "enabled": "yes"
+}

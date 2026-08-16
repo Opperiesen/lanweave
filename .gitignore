@@ -18,6 +18,7 @@ plans/
 !docs/contracts/*.schema.json
 !tests/fixtures/dns/*.json
 !tests/fixtures/nat/*.json
+!tests/fixtures/vpn/*.json
 *.yaml
 !examples/*.yaml
 !tests/fixtures/profiles/*.yaml

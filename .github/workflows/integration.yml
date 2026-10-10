@@ -93,7 +93,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload compatibility report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-read-only
           path: reports/
@@ -132,7 +132,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload CLI compatibility report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-cli
           path: reports/
@@ -169,7 +169,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload MCP compatibility report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-mcp-stdio
           path: reports/
@@ -242,7 +242,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-mutations
           path: reports/
@@ -305,7 +305,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload DNS mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-dns-mutations
           path: reports/
@@ -368,7 +368,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload firewall mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-firewall-mutations
           path: reports/
@@ -433,7 +433,7 @@ jobs:
         run: uv run python scripts/render_compatibility_report.py
       - name: Upload NAT mutation report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lanweave-compatibility-nat-mutations
           path: reports/
